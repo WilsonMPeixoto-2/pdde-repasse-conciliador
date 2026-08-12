@@ -162,13 +162,17 @@ export function inspectSigefReleaseHtml(
     throw new Error(`XLS de Liberações mistura mais de um programa: ${[...rowProgramCodes].join(', ')}.`);
   }
 
-  const filterProgram = optionalFilterValue($, 'Programa');
-  const filterProgramCode = filterProgram ? programCodeFromText(filterProgram) : null;
   const rowProgramCode = rowProgramCodes.values().next().value as SupportedReleaseProgramCode | undefined;
+  const filterProgram = optionalFilterValue($, 'Programa');
+  const filterText = canonicalText(filterProgram ?? '');
+  const genericBasicFilter = filterText === 'PDDE' || filterText === 'PROGRAMA DINHEIRO DIRETO NA ESCOLA';
+  const filterProgramCode = filterProgram && !(rowProgramCode && genericBasicFilter)
+    ? programCodeFromText(filterProgram)
+    : null;
   if (rowProgramCode && filterProgramCode && rowProgramCode !== filterProgramCode) {
     throw new Error(`Programa divergente entre filtro (${filterProgramCode}) e linhas (${rowProgramCode}) no XLS de Liberações.`);
   }
-  const programCode = rowProgramCode ?? filterProgramCode;
+  const programCode = rowProgramCode ?? filterProgramCode ?? (genericBasicFilter ? '02' : null);
   if (!programCode) throw new Error('Não foi possível identificar o programa do XLS de Liberações.');
 
   const evidence = new Set<number>();
