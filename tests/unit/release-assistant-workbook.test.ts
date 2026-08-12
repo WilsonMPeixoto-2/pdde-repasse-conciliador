@@ -141,7 +141,10 @@ describe('buildReleaseAssistantWorkbook', () => {
     expect(pendencias.getCell('E3').value).toBe("'=CONTEUDO NAO DEVE VIRAR FORMULA");
     for (const sheet of workbook.worksheets) {
       sheet.eachRow((row) => row.eachCell((cell) => {
-        expect(cell.value && typeof cell.value === 'object' && 'formula' in cell.value).toBe(false);
+        const hasFormula = Boolean(
+          cell.value && typeof cell.value === 'object' && 'formula' in cell.value,
+        );
+        expect(hasFormula).toBe(false);
       }));
     }
   });
