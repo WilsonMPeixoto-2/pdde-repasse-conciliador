@@ -1,0 +1,26 @@
+# Dependências e saídas reproduzíveis
+node_modules/
+dist/
+coverage/
+
+# Relatórios e importações operacionais
+artifacts/
+imports/
+exports/
+data/raw/
+*.csv
+*.xls
+*.xlsx
+
+# Fixtures pequenas e deliberadamente versionadas podem ser liberadas aqui
+!tests/fixtures/**/*.xls
+!tests/fixtures/**/*.xlsx
+!tests/fixtures/**/*.csv
+
+# Configuração local e ruído de ferramentas
+.env
+.env.*
+!.env.example
+*.log
+.npm-cache*/
+.DS_Store

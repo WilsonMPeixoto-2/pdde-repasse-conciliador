@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PDDEInfo • 4ª CRE • Extrator Financeiro</title>
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<div id="app"><main><div class="eyebrow">FNDE • PDDEInfo • Exercício 2026</div><h1>Extrator Financeiro da 4ª CRE</h1><p class="lead">Consulta individualmente apenas as 163 escolas da 4ª CRE e gera o Excel no modelo financeiro V2 aprovado.</p><div class="cards"><div><strong>163</strong><span>escolas da 4ª CRE</span></div><div><strong>INEP</strong><span>consulta oficial individual</span></div><div><strong>V2</strong><span>duas abas auditáveis</span></div></div><div class="actions"><button id="test">Validar base da 4ª CRE</button><button id="build" class="primary">Extrair 163 escolas e gerar Excel</button></div><div class="bar" aria-label="Progresso da extração"><div id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div><pre id="out" aria-live="polite">Pronto para iniciar. O extrator consulta exclusivamente a base fixa da 4ª CRE.</pre><div id="audit" class="audit" aria-live="polite" hidden></div><div id="links" class="links"></div><p class="note">Agência e conta permanecem vazias quando não são informadas na consulta corrente do PDDEInfo. Contas históricas e contas de outros programas não são utilizadas como substitutas. Se uma escola falhar, se houver múltiplas contas correntes para o mesmo programa ou se surgir uma destinação sem coluna no modelo, o arquivo não é gerado.</p></main></div>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "name": "pdde-repasse-conciliador",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador.git"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "reconcile": "node --import tsx scripts/reconcile.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "check": "npm run test && npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "csv-parse": "^7.0.2",
+    "exceljs": "^4.4.0",
+    "lucide": "^0.469.0",
+    "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node", "vitest/globals"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": [
+    "backend/core/**/*.ts",
+    "backend/adapters/**/*.ts",
+    "backend/application/**/*.ts",
+    "backend/report/**/*.ts",
+    "scripts/**/*.ts",
+    "src/http-api-client.ts",
+    "tests/unit/**/*.ts"
+  ]
+}

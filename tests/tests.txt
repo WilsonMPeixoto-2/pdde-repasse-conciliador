@@ -1,0 +1,37 @@
+# Tests
+
+## Test 1 - Validar integralmente a base fixa da 4ª CRE [sanity]
+Viewport: desktop
+Covers: base fixa das 163 escolas, backend /api/4cre-meta, unicidade de INEP e código SME, prefixo 04
+Description: Confirma que a relação embarcada é íntegra antes de qualquer consulta ao FNDE.
+Steps:
+1. Abrir o extrator
+2. Clicar em "Validar base da 4ª CRE"
+3. Aguardar a validação
+Expected: A área de status informa "Base da 4ª CRE validada: 163 escolas, 163 INEPs únicos, 163 códigos SME únicos e prefixo 04 confirmado."
+
+## Test 2 - Extrair as 163 escolas e gerar o Excel financeiro V2 validado
+Viewport: desktop
+Covers: /api/4cre-meta, /api/extract-4cre, consulta individual por INEP, bloqueios de mapeamento, serialização e releitura do XLSX, /api/save-xlsx, /api/latest-xlsx
+Description: Executa o fluxo integral com dados reais do PDDEInfo e somente conclui quando as 163 escolas, as duas abas e as 39 colunas passam pela validação no navegador e no servidor.
+Steps:
+1. Abrir o extrator
+2. Clicar em "Extrair 163 escolas e gerar Excel"
+3. Aguardar as 163 consultas, a geração, a validação e a persistência do arquivo
+Expected: A área de status informa "Validação OK: 163 escolas da 4ª CRE e 163 INEPs únicos", o painel verde informa "Arquivo verificado: 2 abas • 163 escolas • 39 colunas financeiras" e aparecem os links "Baixar Excel V2" e "Baixar cópia persistente".
+
+## Test 3 - Bloquear uma falha de lote sem produzir planilha
+Viewport: mobile
+Covers: falha de /api/extract-4cre, bloqueio de geração parcial, ausência de downloads em caso de erro
+Description: Garante que a indisponibilidade de um lote não seja aceita como uma extração bem-sucedida.
+QA Faults:
+```json
+[
+  {"method":"GET","path":"/api/extract-4cre","status":502,"body_json":{"error":"falha_simulada_no_lote"}}
+]
+```
+Steps:
+1. Abrir o extrator
+2. Clicar em "Extrair 163 escolas e gerar Excel"
+3. Aguardar a validação do primeiro lote
+Expected: A área de status apresenta uma mensagem iniciada por "Falha na extração" e nenhum link de Excel é exibido.

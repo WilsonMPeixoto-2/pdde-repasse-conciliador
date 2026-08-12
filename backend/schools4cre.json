@@ -1,0 +1,819 @@
+{
+  "schools": [
+    {
+      "inep": "33069247",
+      "sme": "0410001",
+      "nome": "EM EMA NEGRAO DE LIMA"
+    },
+    {
+      "inep": "33069093",
+      "sme": "0410002",
+      "nome": "EM ALBINO SOUZA CRUZ"
+    },
+    {
+      "inep": "33069433",
+      "sme": "0410003",
+      "nome": "EM RUY BARBOSA"
+    },
+    {
+      "inep": "33069379",
+      "sme": "0410004",
+      "nome": "EM PEDRO LESSA"
+    },
+    {
+      "inep": "33069271",
+      "sme": "0410005",
+      "nome": "EM JOAO BARBALHO"
+    },
+    {
+      "inep": "33069409",
+      "sme": "0410006",
+      "nome": "EM PROFESSOR CARNEIRO RIBEIRO"
+    },
+    {
+      "inep": "33069360",
+      "sme": "0410007",
+      "nome": "EM PADRE MANUEL DA NOBREGA"
+    },
+    {
+      "inep": "33069468",
+      "sme": "0410008",
+      "nome": "EM WALT DISNEY"
+    },
+    {
+      "inep": "33069220",
+      "sme": "0410009",
+      "nome": "EM DILERMANDO CRUZ"
+    },
+    {
+      "inep": "33069328",
+      "sme": "0410010",
+      "nome": "EM NERVAL DE GOUVEIA"
+    },
+    {
+      "inep": "33069239",
+      "sme": "0410011",
+      "nome": "EM EDMUNDO LINS"
+    },
+    {
+      "inep": "33069166",
+      "sme": "0410013",
+      "nome": "EM CARLOS CHAGAS"
+    },
+    {
+      "inep": "33069190",
+      "sme": "0410015",
+      "nome": "EM CLOVIS BEVILAQUA"
+    },
+    {
+      "inep": "33069174",
+      "sme": "0410016",
+      "nome": "EM CHILE"
+    },
+    {
+      "inep": "33069140",
+      "sme": "0410018",
+      "nome": "EM BERLIM"
+    },
+    {
+      "inep": "33069280",
+      "sme": "0410020",
+      "nome": "EM JORACY CAMARGO"
+    },
+    {
+      "inep": "33069158",
+      "sme": "0410021",
+      "nome": "EM BRASIL"
+    },
+    {
+      "inep": "33069336",
+      "sme": "0410022",
+      "nome": "EM ODILON DE ANDRADE"
+    },
+    {
+      "inep": "33069301",
+      "sme": "0410023",
+      "nome": "EM LUIZ CESAR SAYAO GARCEZ"
+    },
+    {
+      "inep": "33069115",
+      "sme": "0410025",
+      "nome": "EM ANIBAL FREIRE"
+    },
+    {
+      "inep": "33069395",
+      "sme": "0410026",
+      "nome": "EM PROFESSORA MARIA DE CERQUEIRA E SILVA"
+    },
+    {
+      "inep": "33068755",
+      "sme": "0410202",
+      "nome": "CIEP YURI GAGARIN"
+    },
+    {
+      "inep": "33068798",
+      "sme": "0410501",
+      "nome": "CIEP JUSCELINO KUBITSCHEK"
+    },
+    {
+      "inep": "33068763",
+      "sme": "0410502",
+      "nome": "CIEP MAESTRO FRANCISCO MIGNONE"
+    },
+    {
+      "inep": "33136947",
+      "sme": "0410601",
+      "nome": "CM MANGUINHOS"
+    },
+    {
+      "inep": "33096511",
+      "sme": "0410602",
+      "nome": "CM DR JUVENIL DE SOUZA LOPES"
+    },
+    {
+      "inep": "33096538",
+      "sme": "0410603",
+      "nome": "CM CHICO BENTO"
+    },
+    {
+      "inep": "33069182",
+      "sme": "0410701",
+      "nome": "CENTRO DE EDUCACAO DE JOVENS E ADULTOS CEJA - AVENID"
+    },
+    {
+      "inep": "33523258",
+      "sme": "0410801",
+      "nome": "EDI DOUTOR DOMINGOS ARTHUR MACHADO FILHO"
+    },
+    {
+      "inep": "33160902",
+      "sme": "0410802",
+      "nome": "EDI DOUTOR ANTONIO FERNANDES FIGUEIRA"
+    },
+    {
+      "inep": "33160910",
+      "sme": "0410803",
+      "nome": "EDI JOAQUIM VENANCIO"
+    },
+    {
+      "inep": "33163979",
+      "sme": "0410804",
+      "nome": "EDI SARGENTO JORGE FALEIRO SOUZA"
+    },
+    {
+      "inep": "33163987",
+      "sme": "0410805",
+      "nome": "EDI COMPOSITOR NEOCI DIAS DE ANDRADE"
+    },
+    {
+      "inep": "33069387",
+      "sme": "0410806",
+      "nome": "EDI PIERRE JANET"
+    },
+    {
+      "inep": "33171092",
+      "sme": "0410807",
+      "nome": "EDI PROFESSORA TANIA DA ROCHA CORREA"
+    },
+    {
+      "inep": "33171106",
+      "sme": "0410808",
+      "nome": "EDI ALMIR LEITE RIBEIRO"
+    },
+    {
+      "inep": "33070679",
+      "sme": "0410810",
+      "nome": "EDI MIGUEL COUTO"
+    },
+    {
+      "inep": "33069298",
+      "sme": "0410811",
+      "nome": "EDI LAIS NETTO DOS REIS"
+    },
+    {
+      "inep": "33069204",
+      "sme": "0410812",
+      "nome": "EDI CORONEL ASSUNCAO"
+    },
+    {
+      "inep": "33070725",
+      "sme": "0411001",
+      "nome": "EM MONSENHOR ROCHA"
+    },
+    {
+      "inep": "33070458",
+      "sme": "0411002",
+      "nome": "EM BERNARDO DE VASCONCELLOS"
+    },
+    {
+      "inep": "33070660",
+      "sme": "0411004",
+      "nome": "EM LEONOR COELHO PEREIRA"
+    },
+    {
+      "inep": "33070768",
+      "sme": "0411005",
+      "nome": "EM PRESIDENTE EURICO DUTRA"
+    },
+    {
+      "inep": "33070512",
+      "sme": "0411006",
+      "nome": "EM CONDE DE AGROLONGO"
+    },
+    {
+      "inep": "33070423",
+      "sme": "0411007",
+      "nome": "EM ARIOSTO ESPINHEIRA"
+    },
+    {
+      "inep": "33070814",
+      "sme": "0411008",
+      "nome": "EM PROFESSOR SOUZA CARNEIRO"
+    },
+    {
+      "inep": "33070334",
+      "sme": "0411009",
+      "nome": "EM CIENTISTA MARIO KROEFF"
+    },
+    {
+      "inep": "33070466",
+      "sme": "0411010",
+      "nome": "EM BRANT HORTA"
+    },
+    {
+      "inep": "33070792",
+      "sme": "0411011",
+      "nome": "EM PROFESSOR AUGUSTO MOTTA"
+    },
+    {
+      "inep": "33070636",
+      "sme": "0411012",
+      "nome": "EM JOAO MARQUES DOS REIS"
+    },
+    {
+      "inep": "33070580",
+      "sme": "0411013",
+      "nome": "EM FERNANDO TUDE DE SOUZA"
+    },
+    {
+      "inep": "33070628",
+      "sme": "0411014",
+      "nome": "EM JOAO DE DEUS"
+    },
+    {
+      "inep": "33070881",
+      "sme": "0411015",
+      "nome": "EM SUICA"
+    },
+    {
+      "inep": "33070709",
+      "sme": "0411017",
+      "nome": "EM MINISTRO AFRANIO COSTA"
+    },
+    {
+      "inep": "33070784",
+      "sme": "0411018",
+      "nome": "EM PROFESSOR ARY QUINTELLA"
+    },
+    {
+      "inep": "33070113",
+      "sme": "0411020",
+      "nome": "EM GRECIA"
+    },
+    {
+      "inep": "33074593",
+      "sme": "0411021",
+      "nome": "EM MIGUEL ANGELO"
+    },
+    {
+      "inep": "33074542",
+      "sme": "0411022",
+      "nome": "EM MARCILIO DIAS"
+    },
+    {
+      "inep": "33070717",
+      "sme": "0411023",
+      "nome": "EM MINISTRO PLINIO CASADO"
+    },
+    {
+      "inep": "33070865",
+      "sme": "0411028",
+      "nome": "EM SAO PAULO"
+    },
+    {
+      "inep": "33070571",
+      "sme": "0411036",
+      "nome": "EM F J OLIVEIRA VIANA"
+    },
+    {
+      "inep": "33070482",
+      "sme": "0411049",
+      "nome": "EM CANTOR E COMPOSITOR GONZAGUINHA"
+    },
+    {
+      "inep": "33069808",
+      "sme": "0411202",
+      "nome": "CIEP GREGORIO BEZERRA"
+    },
+    {
+      "inep": "33069816",
+      "sme": "0411502",
+      "nome": "CIEP DEPUTADO JOSE CARLOS BRANDAO MONTEIRO"
+    },
+    {
+      "inep": "33122822",
+      "sme": "0411601",
+      "nome": "CM CARLOS DRUMMOND DE ANDRADE"
+    },
+    {
+      "inep": "33144672",
+      "sme": "0411602",
+      "nome": "CM TEMPO DE APRENDER"
+    },
+    {
+      "inep": "33147337",
+      "sme": "0411603",
+      "nome": "CM MORRO DA PAZ"
+    },
+    {
+      "inep": "33123063",
+      "sme": "0411604",
+      "nome": "CM BETINHO"
+    },
+    {
+      "inep": "33096554",
+      "sme": "0411605",
+      "nome": "CM CARACOL"
+    },
+    {
+      "inep": "33122768",
+      "sme": "0411607",
+      "nome": "CM MARIA ALTAMIRA C OLEGARIO"
+    },
+    {
+      "inep": "33096368",
+      "sme": "0411609",
+      "nome": "CM TIA RUTH COSTA DOS SANTOS"
+    },
+    {
+      "inep": "33144680",
+      "sme": "0411610",
+      "nome": "CM MUSSUM - O TRAPALHAO"
+    },
+    {
+      "inep": "33164070",
+      "sme": "0411801",
+      "nome": "EDI MARIANA ROCHA DE SOUZA"
+    },
+    {
+      "inep": "33164096",
+      "sme": "0411802",
+      "nome": "EDI JOEL LUIZ DE AZEVEDO BASTOS"
+    },
+    {
+      "inep": "33167877",
+      "sme": "0411803",
+      "nome": "EDI MARIA DE LOURDES FERREIRA"
+    },
+    {
+      "inep": "33095825",
+      "sme": "0411804",
+      "nome": "EDI MORRO DA FE"
+    },
+    {
+      "inep": "33070547",
+      "sme": "0411805",
+      "nome": "EDI EDMUNDO DA LUZ PINTO"
+    },
+    {
+      "inep": "33070598",
+      "sme": "0411806",
+      "nome": "EDI GOETHE"
+    },
+    {
+      "inep": "33070750",
+      "sme": "0411808",
+      "nome": "EDI PIONEIRAS SOCIAIS Nº12"
+    },
+    {
+      "inep": "33070873",
+      "sme": "0411809",
+      "nome": "EDI SAO VICENTE"
+    },
+    {
+      "inep": "33069417",
+      "sme": "0430001",
+      "nome": "EM PROFESSOR JOSUE DE CASTRO"
+    },
+    {
+      "inep": "33069450",
+      "sme": "0430002",
+      "nome": "EM TEOTONIO VILELA"
+    },
+    {
+      "inep": "33069131",
+      "sme": "0430003",
+      "nome": "EM BAHIA"
+    },
+    {
+      "inep": "33069263",
+      "sme": "0430004",
+      "nome": "EM IV CENTENARIO"
+    },
+    {
+      "inep": "33069441",
+      "sme": "0430005",
+      "nome": "EM TENENTE GENERAL NAPION"
+    },
+    {
+      "inep": "33069514",
+      "sme": "0430007",
+      "nome": "EM NOVA HOLANDA"
+    },
+    {
+      "inep": "33146071",
+      "sme": "0430009",
+      "nome": "EM PROFESSOR PAULO FREIRE"
+    },
+    {
+      "inep": "33167478",
+      "sme": "0430010",
+      "nome": "EM ESCRITOR BARTOLOMEU CAMPOS DE QUEIROS"
+    },
+    {
+      "inep": "33169500",
+      "sme": "0430011",
+      "nome": "EM ESCRITOR LEDO IVO"
+    },
+    {
+      "inep": "33176892",
+      "sme": "0430012",
+      "nome": "EM GENIVAL PEREIRA DE ALBUQUERQUE"
+    },
+    {
+      "inep": "33176884",
+      "sme": "0430013",
+      "nome": "EM OSMAR PAIVA CAMELO"
+    },
+    {
+      "inep": "33175950",
+      "sme": "0430014",
+      "nome": "EM LINO MARTINS DA SILVA"
+    },
+    {
+      "inep": "33176051",
+      "sme": "0430015",
+      "nome": "EM ERPIDIO CABRAL DE SOUZA INDIO DA MARE"
+    },
+    {
+      "inep": "33176060",
+      "sme": "0430016",
+      "nome": "EM OLIMPIADAS RIO 2016"
+    },
+    {
+      "inep": "33179450",
+      "sme": "0430018",
+      "nome": "EM MEDALHISTA OLIMPICO LUCAS SAATKAMP"
+    },
+    {
+      "inep": "33179395",
+      "sme": "0430019",
+      "nome": "EM ESCRITOR MILLOR FERNANDES"
+    },
+    {
+      "inep": "33183813",
+      "sme": "0430020",
+      "nome": "EM VEREADORA MARIELLE FRANCO"
+    },
+    {
+      "inep": "33068771",
+      "sme": "0430201",
+      "nome": "CIEP MINISTRO GUSTAVO CAPANEMA"
+    },
+    {
+      "inep": "33068780",
+      "sme": "0430204",
+      "nome": "CIEP OPERARIO VICENTE MARIANO"
+    },
+    {
+      "inep": "33068747",
+      "sme": "0430206",
+      "nome": "CIEP HELIO SMIDT"
+    },
+    {
+      "inep": "33068801",
+      "sme": "0430501",
+      "nome": "CIEP PRESIDENTE SAMORA MACHEL"
+    },
+    {
+      "inep": "33068739",
+      "sme": "0430502",
+      "nome": "CIEP ELIS REGINA"
+    },
+    {
+      "inep": "33068720",
+      "sme": "0430503",
+      "nome": "CIEP LEONEL DE MOURA BRIZOLA"
+    },
+    {
+      "inep": "33144702",
+      "sme": "0430601",
+      "nome": "CM MENINO MALUQUINHO"
+    },
+    {
+      "inep": "33147264",
+      "sme": "0430602",
+      "nome": "CM VILA PINHEIRO"
+    },
+    {
+      "inep": "33096465",
+      "sme": "0430603",
+      "nome": "CM TIO MARIO"
+    },
+    {
+      "inep": "33095833",
+      "sme": "0430604",
+      "nome": "CM MONTEIRO LOBATO"
+    },
+    {
+      "inep": "33095752",
+      "sme": "0430605",
+      "nome": "CM NOVA HOLANDA"
+    },
+    {
+      "inep": "33122539",
+      "sme": "0430607",
+      "nome": "CM PROFESSOR PAULO FREIRE"
+    },
+    {
+      "inep": "33167486",
+      "sme": "0430701",
+      "nome": "CENTRO DE EDUCACAO DE JOVENS E ADULTOS CEJA - MARE"
+    },
+    {
+      "inep": "33160929",
+      "sme": "0430801",
+      "nome": "EDI PESCADOR ISIDORO DUARTE - DORO"
+    },
+    {
+      "inep": "33164118",
+      "sme": "0430802",
+      "nome": "EDI PROFESSORA KELITA FARIA DE PAULA"
+    },
+    {
+      "inep": "33167885",
+      "sme": "0430803",
+      "nome": "EDI PROFESSOR MOACYR DE GOES"
+    },
+    {
+      "inep": "33167362",
+      "sme": "0430804",
+      "nome": "EDI CREMILDA DA SILVA DOS SANTOS"
+    },
+    {
+      "inep": "33167893",
+      "sme": "0430805",
+      "nome": "EDI PROFESSORA SOLANGE CONCEICAO TRICARICO"
+    },
+    {
+      "inep": "33170983",
+      "sme": "0430806",
+      "nome": "EDI CLEIA SANTOS DE OLIVEIRA"
+    },
+    {
+      "inep": "33176043",
+      "sme": "0430807",
+      "nome": "EDI MARIA AMELIA CASTRO E SILVA BELFORT"
+    },
+    {
+      "inep": "33175942",
+      "sme": "0430808",
+      "nome": "EDI AZOILDA TRINDADE ZO"
+    },
+    {
+      "inep": "33179514",
+      "sme": "0430809",
+      "nome": "EDI MEDALHISTA OLIMPICO LUIZ FELIPE MARQUES FONTELES"
+    },
+    {
+      "inep": "33179573",
+      "sme": "0430810",
+      "nome": "EDI MEDALHISTA OLIMPICO EVANDRO MOTTA MARCONDES GUER"
+    },
+    {
+      "inep": "33179549",
+      "sme": "0430811",
+      "nome": "EDI MEDALHISTA OLIMPICO WILLIAM PEIXOTO ARJONA"
+    },
+    {
+      "inep": "33179581",
+      "sme": "0430812",
+      "nome": "EDI MEDALHISTA OLIMPICO EDER FRANCIS CARBONERA"
+    },
+    {
+      "inep": "33069123",
+      "sme": "0430813",
+      "nome": "EDI ARMANDO DE SALLES OLIVEIRA"
+    },
+    {
+      "inep": "33179565",
+      "sme": "0430814",
+      "nome": "EDI JOAO CRISOSTOMO"
+    },
+    {
+      "inep": "33122776",
+      "sme": "0430815",
+      "nome": "EDI PESCADOR ALBANO ROSA"
+    },
+    {
+      "inep": "33070440",
+      "sme": "0431001",
+      "nome": "EM ARY BARROSO"
+    },
+    {
+      "inep": "33070539",
+      "sme": "0431002",
+      "nome": "EM DAVID PEREZ"
+    },
+    {
+      "inep": "33070687",
+      "sme": "0431003",
+      "nome": "EM MIGUEL GUSTAVO"
+    },
+    {
+      "inep": "33070393",
+      "sme": "0431004",
+      "nome": "EM ALFREDO GOMES"
+    },
+    {
+      "inep": "33070857",
+      "sme": "0431006",
+      "nome": "EM SAO JOAO BATISTA"
+    },
+    {
+      "inep": "33070555",
+      "sme": "0431007",
+      "nome": "EM EMBAIXADOR BARROS HURTADO"
+    },
+    {
+      "inep": "33070741",
+      "sme": "0431008",
+      "nome": "EM ODILON BRAGA"
+    },
+    {
+      "inep": "33070849",
+      "sme": "0431009",
+      "nome": "EM RORAIMA"
+    },
+    {
+      "inep": "33070431",
+      "sme": "0431010",
+      "nome": "EM ARMANDO FAJARDO"
+    },
+    {
+      "inep": "33070822",
+      "sme": "0431011",
+      "nome": "EM RAUL PEDERNEIRAS"
+    },
+    {
+      "inep": "33070733",
+      "sme": "0431013",
+      "nome": "EM MONTESE"
+    },
+    {
+      "inep": "33070695",
+      "sme": "0431014",
+      "nome": "EM MINISTRO LAFAYETTE DE ANDRADA"
+    },
+    {
+      "inep": "33070652",
+      "sme": "0431015",
+      "nome": "EM JOSEPH BLOCH"
+    },
+    {
+      "inep": "33070474",
+      "sme": "0431016",
+      "nome": "EM CRUZADA SAO SEBASTIAO"
+    },
+    {
+      "inep": "33070490",
+      "sme": "0431017",
+      "nome": "EM CARDEAL CAMARA"
+    },
+    {
+      "inep": "33070830",
+      "sme": "0431018",
+      "nome": "EM REPUBLICA DO LIBANO"
+    },
+    {
+      "inep": "33070644",
+      "sme": "0431019",
+      "nome": "EM JORGE DE GOUVEIA"
+    },
+    {
+      "inep": "33070601",
+      "sme": "0431021",
+      "nome": "EM HEITOR BELTRAO"
+    },
+    {
+      "inep": "33070563",
+      "sme": "0431022",
+      "nome": "EM ENEYDA RABELLO DE ANDRADE"
+    },
+    {
+      "inep": "33070776",
+      "sme": "0431023",
+      "nome": "EM PRESIDENTE GRONCHI"
+    },
+    {
+      "inep": "33070415",
+      "sme": "0431024",
+      "nome": "EM ANDRADE NEVES"
+    },
+    {
+      "inep": "33070610",
+      "sme": "0431026",
+      "nome": "EM HERBERT MOSES"
+    },
+    {
+      "inep": "33070890",
+      "sme": "0431027",
+      "nome": "EM ZELIA BRAUNE"
+    },
+    {
+      "inep": "33069824",
+      "sme": "0431501",
+      "nome": "CIEP MESTRE CARTOLA ANGENOR DE OLIVEIRA"
+    },
+    {
+      "inep": "33073988",
+      "sme": "0431502",
+      "nome": "CIEP GRACILIANO RAMOS"
+    },
+    {
+      "inep": "33144699",
+      "sme": "0431601",
+      "nome": "CM LUIS CARLOS DE OLIVEIRA CAMARA"
+    },
+    {
+      "inep": "33137331",
+      "sme": "0431602",
+      "nome": "CM BARBOSA LIMA SOBRINHO"
+    },
+    {
+      "inep": "33096503",
+      "sme": "0431603",
+      "nome": "CM CHICO MENDES"
+    },
+    {
+      "inep": "33096546",
+      "sme": "0431604",
+      "nome": "CM CORACAO DE GENEVE"
+    },
+    {
+      "inep": "33096520",
+      "sme": "0431605",
+      "nome": "CM SEMPRE VIDA DIQUE"
+    },
+    {
+      "inep": "33095892",
+      "sme": "0431606",
+      "nome": "CM VISCONDE DE SABUGOSA"
+    },
+    {
+      "inep": "33147248",
+      "sme": "0431607",
+      "nome": "CM ACAUA"
+    },
+    {
+      "inep": "33144710",
+      "sme": "0431608",
+      "nome": "CM ARI PIMENTEL"
+    },
+    {
+      "inep": "33070504",
+      "sme": "0431801",
+      "nome": "EDI CARVALHO MOURAO"
+    },
+    {
+      "inep": "33170991",
+      "sme": "0431802",
+      "nome": "EDI PROFESSOR CARLOS FALSETH"
+    },
+    {
+      "inep": "33070806",
+      "sme": "0431803",
+      "nome": "EDI PROFESSOR EMMANUEL PEREIRA FILHO"
+    },
+    {
+      "inep": "33070407",
+      "sme": "0431804",
+      "nome": "EDI ALFREDO VALLADAO"
+    },
+    {
+      "inep": "33070520",
+      "sme": "0431805",
+      "nome": "EDI CONEGO FERNANDES PINHEIRO"
+    }
+  ]
+}
