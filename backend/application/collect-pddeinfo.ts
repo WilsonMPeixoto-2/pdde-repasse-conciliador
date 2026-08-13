@@ -38,7 +38,6 @@ const baseOptionsSchema = z.object({
 }).strict();
 
 type CollectionStatus = 'COMPLETE' | 'PARTIAL';
-type SchoolStatus = 'SUCCESS' | 'FAILED';
 
 type FetchSchoolHtml = (
   options: FetchPddeInfoSchoolHtmlOptions,
