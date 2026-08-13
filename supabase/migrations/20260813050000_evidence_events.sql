@@ -62,6 +62,60 @@ create trigger prevent_evidence_event_mutation
 before update or delete on public.evidence_events
 for each row execute function public.prevent_evidence_event_mutation();
 
+create or replace function public.compute_evidence_event_hash(
+  p_sequence bigint,
+  p_event_id text,
+  p_run_id text,
+  p_event_type text,
+  p_occurred_at timestamptz,
+  p_source text,
+  p_fiscal_year smallint,
+  p_school_inep text,
+  p_previous_hash text,
+  p_payload jsonb
+)
+returns text
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select encode(
+    digest(
+      convert_to(
+        concat_ws(
+          E'\x1f',
+          p_sequence::text,
+          p_event_id,
+          p_run_id,
+          p_event_type,
+          to_char(
+            p_occurred_at at time zone 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+          ),
+          p_source,
+          p_fiscal_year::text,
+          coalesce(p_school_inep, ''),
+          coalesce(p_previous_hash, ''),
+          p_payload::text
+        ),
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+$$;
+
+revoke all on function public.compute_evidence_event_hash(
+  bigint, text, text, text, timestamptz, text, smallint, text, text, jsonb
+) from public;
+revoke all on function public.compute_evidence_event_hash(
+  bigint, text, text, text, timestamptz, text, smallint, text, text, jsonb
+) from anon;
+revoke all on function public.compute_evidence_event_hash(
+  bigint, text, text, text, timestamptz, text, smallint, text, text, jsonb
+) from authenticated;
+
 create or replace function public.append_evidence_event(
   p_event_id text,
   p_run_id text,
@@ -78,6 +132,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_last_sequence bigint;
   v_sequence bigint;
   v_previous_hash text;
   v_event_hash text;
@@ -91,33 +146,24 @@ begin
     raise exception 'eventId duplicado: %', p_event_id;
   end if;
 
-  select
-    coalesce(max(sequence), 0) + 1,
-    (array_agg(event_hash order by sequence desc))[1]
-  into v_sequence, v_previous_hash
-  from public.evidence_events;
+  select sequence, event_hash
+  into v_last_sequence, v_previous_hash
+  from public.evidence_events
+  order by sequence desc
+  limit 1;
 
-  v_event_hash := encode(
-    digest(
-      convert_to(
-        concat_ws(
-          E'\x1f',
-          v_sequence::text,
-          p_event_id,
-          p_run_id,
-          p_event_type,
-          p_occurred_at::text,
-          p_source,
-          p_fiscal_year::text,
-          coalesce(p_school_inep, ''),
-          coalesce(v_previous_hash, ''),
-          p_payload::text
-        ),
-        'UTF8'
-      ),
-      'sha256'
-    ),
-    'hex'
+  v_sequence := coalesce(v_last_sequence, 0) + 1;
+  v_event_hash := public.compute_evidence_event_hash(
+    v_sequence,
+    p_event_id,
+    p_run_id,
+    p_event_type,
+    p_occurred_at,
+    p_source,
+    p_fiscal_year,
+    p_school_inep,
+    v_previous_hash,
+    p_payload
   );
 
   insert into public.evidence_events (
@@ -163,3 +209,67 @@ revoke all on function public.append_evidence_event(
 grant execute on function public.append_evidence_event(
   text, text, text, timestamptz, text, smallint, text, jsonb
 ) to service_role;
+
+create or replace function public.verify_evidence_chain()
+returns table (
+  valid boolean,
+  events bigint,
+  broken_at_sequence bigint,
+  reason text
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_row public.evidence_events%rowtype;
+  v_expected_sequence bigint := 1;
+  v_previous_hash text := null;
+  v_expected_hash text;
+  v_events bigint := 0;
+begin
+  for v_row in
+    select * from public.evidence_events order by sequence
+  loop
+    v_events := v_events + 1;
+
+    if v_row.sequence <> v_expected_sequence then
+      return query select false, v_events, v_expected_sequence, 'sequência não contígua'::text;
+      return;
+    end if;
+
+    if v_row.previous_hash is distinct from v_previous_hash then
+      return query select false, v_events, v_row.sequence, 'previousHash divergente'::text;
+      return;
+    end if;
+
+    v_expected_hash := public.compute_evidence_event_hash(
+      v_row.sequence,
+      v_row.event_id,
+      v_row.run_id,
+      v_row.event_type,
+      v_row.occurred_at,
+      v_row.source,
+      v_row.fiscal_year,
+      v_row.school_inep,
+      v_row.previous_hash,
+      v_row.payload
+    );
+
+    if v_row.event_hash is distinct from v_expected_hash then
+      return query select false, v_events, v_row.sequence, 'eventHash divergente'::text;
+      return;
+    end if;
+
+    v_previous_hash := v_row.event_hash;
+    v_expected_sequence := v_expected_sequence + 1;
+  end loop;
+
+  return query select true, v_events, null::bigint, null::text;
+end;
+$$;
+
+revoke all on function public.verify_evidence_chain() from public;
+revoke all on function public.verify_evidence_chain() from anon;
+revoke all on function public.verify_evidence_chain() from authenticated;
+grant execute on function public.verify_evidence_chain() to service_role;
