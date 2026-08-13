@@ -111,8 +111,11 @@ function safeTimestampForRunId(value: string): string {
   return value.replace(/[^0-9A-Za-z]+/g, '').slice(0, 20);
 }
 
-function sha256(content: string): string {
-  return createHash('sha256').update(content, 'utf8').digest('hex');
+function sha256(content: string | Uint8Array): string {
+  const hash = createHash('sha256');
+  if (typeof content === 'string') hash.update(content, 'utf8');
+  else hash.update(content);
+  return hash.digest('hex');
 }
 
 async function writeJson(path: string, value: unknown): Promise<string> {
@@ -179,9 +182,10 @@ export async function collectPddeInfo(
         inep: school.inep,
       });
 
+      const rawBytes = httpResult.rawBytes ?? Buffer.from(httpResult.html, 'utf8');
       rawPath = `raw/${school.inep}.html`;
-      rawSha256 = sha256(httpResult.html);
-      await writeFile(join(runDirectory, rawPath), httpResult.html, { encoding: 'utf8', flag: 'wx' });
+      rawSha256 = sha256(rawBytes);
+      await writeFile(join(runDirectory, rawPath), rawBytes, { flag: 'wx' });
 
       const parsedSchool = parsePddeInfoSchoolHtml(httpResult.html, {
         expectedSchool: school,
