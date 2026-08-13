@@ -17,6 +17,7 @@ export const evidenceSourceSchema = z.enum([
   'SIGEF_EXTRATO',
   'DADOS_ABERTOS_FNDE',
   'EXTRATO_BANCARIO_AUTORIZADO',
+  'CONCILIADOR',
 ]);
 
 export const evidenceEventTypeSchema = z.enum([
