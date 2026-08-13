@@ -416,6 +416,16 @@ describe('ExecutionCommandService', () => {
       fiscalYear: 2026,
       schoolIneps: ['123'],
     })).rejects.toThrow(/inep/i);
+    await expect(service.requestReconciliation('data-impossivel', {
+      fiscalYear: 2026,
+      requestedThrough: '2026-02-31',
+      pddeInfoArtifact: {
+        bucket: 'pdde-evidence', path: 'runs/x/pddeinfo-2026.json', sha256: 'a'.repeat(64),
+      },
+      movementsArtifact: {
+        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
+      },
+    })).rejects.toThrow(/data ISO/i);
     await expect(service.requestReconciliation('chave', {
       fiscalYear: 2026,
       requestedThrough: '2026-08-13',

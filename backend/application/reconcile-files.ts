@@ -7,6 +7,7 @@ import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import { parseSigefMovementCsv } from '../adapters/sigef-movements-csv';
 import { canonicalCnpj, canonicalProgramCode } from '../core/normalization';
 import type { EvidenceEventInput } from '../core/evidence';
+import { isoDateSchema } from '../core/schemas';
 import type { ArtifactStore } from './artifact-store';
 import {
   buildReconciliationWorkbook,
@@ -24,10 +25,6 @@ const timestampSchema = z.string().refine(
 const identifierSchema = z.string().min(1).max(160).regex(
   /^[A-Za-z0-9._:-]+$/,
   'identificador contém caracteres inválidos',
-);
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
-  (value) => Number.isFinite(Date.parse(`${value}T00:00:00Z`)),
-  'data ISO inválida',
 );
 const pddeInfoEnvelopeSchema = z.object({
   fetchedAt: timestampSchema,

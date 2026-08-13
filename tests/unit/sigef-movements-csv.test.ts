@@ -156,6 +156,14 @@ describe('parseSigefMovementCsv', () => {
     })).rejects.toThrow(/NU_CNPJ/);
   });
 
+  test('rejeita data de cobertura civil impossível', async () => {
+    await expect(parse(`${header}\n${rows[0]}\n`, {
+      targetCnpjs: [targetCnpj],
+      queriedAt: '2026-08-11T23:30:00-03:00',
+      requestedThrough: '2026-02-31',
+    })).rejects.toThrow(/data ISO/i);
+  });
+
   test('rejeita valor monetário inválido em registro pertencente à 4ª CRE', async () => {
     const invalidTargetRow = rows[0].replace(';3000;3000;', ';3.000,00;3000;');
 

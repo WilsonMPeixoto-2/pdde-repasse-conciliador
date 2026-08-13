@@ -1,9 +1,13 @@
 import { load, type CheerioAPI } from 'cheerio';
 import { z } from 'zod';
 import { canonicalCnpj, canonicalText } from '../core/normalization';
-import { sigefReleaseSchema, sourceSnapshotSchema, type SigefRelease, type SourceSnapshot } from '../core/schemas';
-
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import {
+  isoDateSchema,
+  sigefReleaseSchema,
+  sourceSnapshotSchema,
+  type SigefRelease,
+  type SourceSnapshot,
+} from '../core/schemas';
 
 const optionsSchema = z.object({
   fiscalYear: z.number().int().min(2000).max(2100),
@@ -89,7 +93,7 @@ function parseQueryTimestamp(value: string, timezoneOffset: string): { timestamp
   const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
   if (!match) throw new Error(`Data da consulta inválida no XLS de Liberações: ${value}.`);
   const date = `${match[3]}-${match[2]}-${match[1]}`;
-  isoDate.parse(date);
+  isoDateSchema.parse(date);
   return { timestamp: `${date}T${match[4]}:${match[5]}:${match[6]}${timezoneOffset}`, date };
 }
 

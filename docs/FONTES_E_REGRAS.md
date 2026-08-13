@@ -127,6 +127,8 @@ Uma conta ausente pode receber informação complementar de outra fonte somente 
 
 Toda conclusão é limitada à cobertura temporal efetivamente consultada.
 
+Datas civis de corte e cobertura precisam existir no calendário gregoriano. Valores apenas formatados como `AAAA-MM-DD`, mas impossíveis (por exemplo, `2026-02-31`), são rejeitados; não podem ser normalizados silenciosamente para outro dia ou mês.
+
 Exemplo: se um CSV de Movimentações termina em 29/05/2026, a ausência de um crédito posterior a essa data não pode ser interpretada como ausência bancária até agosto.
 
 Consultas e arquivos relevantes devem registrar, quando possível:
