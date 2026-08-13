@@ -196,6 +196,90 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     }
   });
 
+  test('fecha uma única vez o job cujo último lease expirou no limite de tentativas', async () => {
+    await database.exec('set role service_role');
+    try {
+      await database.query(`
+        select * from public.enqueue_execution_job(
+          '44444444-4444-4444-8444-444444444444'::uuid,
+          'pglite-expired-run-1'::text,
+          'PDDEINFO'::text,
+          'pglite-expired-contract-1'::text,
+          2026::smallint,
+          '${'d'.repeat(64)}'::text,
+          '{"fiscalYear": 2026, "schoolIneps": ["33069247"]}'::jsonb,
+          '2000-01-01T00:02:00Z'::timestamptz,
+          1::integer
+        )
+      `);
+      const claimed = await database.query<{ status: string; attempts: number }>(`
+        select status, attempts
+        from public.claim_execution_job('pglite-crashed-worker', 30)
+      `);
+      expect(claimed.rows).toEqual([{ status: 'RUNNING', attempts: 1 }]);
+
+      await database.exec('reset role');
+      await database.query(`
+        update public.execution_jobs
+        set lease_expires_at = pg_catalog.clock_timestamp() - interval '1 second'
+        where job_id = '44444444-4444-4444-8444-444444444444'::uuid
+      `);
+      await database.exec('set role service_role');
+
+      const firstRecovery = await database.query<{ job_id: string | null }>(`
+        select (public.claim_execution_job('pglite-recovery-worker', 30)).job_id as job_id
+      `);
+      const secondRecovery = await database.query<{ job_id: string | null }>(`
+        select (public.claim_execution_job('pglite-recovery-worker', 30)).job_id as job_id
+      `);
+      expect(firstRecovery.rows).toEqual([{ job_id: null }]);
+      expect(secondRecovery.rows).toEqual([{ job_id: null }]);
+
+      const stored = await database.query<{
+        status: string;
+        attempts: number;
+        completed_at: string | null;
+        lease_expires_at: string | null;
+        last_error: string | null;
+      }>(`
+        select status, attempts, completed_at, lease_expires_at, last_error
+        from public.execution_jobs
+        where job_id = '44444444-4444-4444-8444-444444444444'::uuid
+      `);
+      expect(stored.rows).toEqual([expect.objectContaining({
+        status: 'FAILED',
+        attempts: 1,
+        lease_expires_at: null,
+        last_error: 'Lease expirou após o limite de tentativas.',
+      })]);
+      expect(stored.rows[0].completed_at).not.toBeNull();
+
+      const events = await database.query<{
+        event_type: string;
+        payload: Record<string, unknown>;
+      }>(`
+        select event_type, payload
+        from public.evidence_events
+        where run_id = 'pglite-expired-run-1'
+        order by sequence
+      `);
+      expect(events.rows.map((event) => event.event_type)).toEqual([
+        'EXECUTION_REQUESTED', 'EXECUTION_STARTED', 'EXECUTION_FINISHED',
+      ]);
+      expect(events.rows[2].payload).toMatchObject({
+        status: 'FAILED', attempt: 1, failed: 1,
+        error: 'Lease expirou após o limite de tentativas.',
+      });
+
+      const integrity = await database.query<{ valid: boolean }>(
+        'select valid from public.verify_evidence_chain()',
+      );
+      expect(integrity.rows).toEqual([{ valid: true }]);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
   test('mantém lotes de upload no log sem projetá-los como execuções UNKNOWN', async () => {
     await database.exec('set role service_role');
     try {
