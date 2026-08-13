@@ -157,6 +157,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       evidenceStore: this.dependencies.evidenceStore,
       artifactStore: this.dependencies.artifactStore,
       reconciliationRunId: job.runId,
+      sourceCollectionRunId: null,
       manageExecutionLifecycle: false,
       institutionalPathPrefix: 'run',
       ...(signal ? { signal } : {}),
