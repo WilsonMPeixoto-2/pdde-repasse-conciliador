@@ -1,6 +1,8 @@
 import { load, type CheerioAPI } from 'cheerio';
 import { canonicalText } from '../core/normalization';
 
+export const PDDEINFO_HTML_PARSER_VERSION = '0.3.0';
+
 export interface PddeInfoExpectedSchool {
   inep: string;
   sme: string;
