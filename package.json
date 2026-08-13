@@ -1,8 +1,8 @@
 {
   "name": "pdde-repasse-conciliador",
   "private": true,
-  "version": "0.2.0",
-  "description": "Conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
+  "version": "0.3.0",
+  "description": "Coleta e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
   "type": "module",
   "engines": {
     "node": ">=22"
