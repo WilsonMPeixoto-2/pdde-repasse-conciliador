@@ -63,6 +63,10 @@ create trigger prevent_evidence_event_mutation
 before update or delete on public.evidence_events
 for each row execute function public.prevent_evidence_event_mutation();
 
+create trigger prevent_evidence_event_truncate
+before truncate on public.evidence_events
+for each statement execute function public.prevent_evidence_event_mutation();
+
 create or replace function public.compute_evidence_event_hash(
   p_sequence bigint,
   p_event_id text,

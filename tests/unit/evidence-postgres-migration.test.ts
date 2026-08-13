@@ -20,6 +20,7 @@ describe('migration Postgres de evidências', () => {
     expect(sql).toMatch(/create.*index.*school_inep.*sequence/s);
     expect(sql).toMatch(/prevent_evidence_event_mutation/);
     expect(sql).toMatch(/before update or delete/);
+    expect(sql).toMatch(/before truncate/);
     expect(sql).toMatch(/pg_advisory_xact_lock/);
     expect(sql).toMatch(/pg_catalog\.hashtext/);
     expect(sql).toMatch(/order by sequence desc\s+limit 1/);

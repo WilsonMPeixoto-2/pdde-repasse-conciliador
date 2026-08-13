@@ -36,7 +36,7 @@ Este arquivo registra somente decisões que seriam caras de rediscutir ou recons
 
 **Decisão:** coletas, artefatos, observações e achados relevantes entram em uma trilha de eventos append-only. Eventos já persistidos não são atualizados nem apagados para representar “estado atual”; projeções de leitura reconstroem execução e histórico escolar a partir da sequência registrada.
 
-Cada evento possui sequência, `previousHash` e SHA-256 próprio. A implementação local usa JSONL com verificação de integridade e o schema Postgres/Supabase adota o mesmo princípio, com escrita serializada e bloqueio de `UPDATE`/`DELETE`.
+Cada evento possui sequência, `previousHash` e SHA-256 próprio. A implementação local usa JSONL com verificação de integridade e o schema Postgres/Supabase adota o mesmo princípio, com escrita serializada e bloqueio de `UPDATE`/`DELETE`/`TRUNCATE`.
 
 Observações de fontes externas mantêm a origem da própria fonte. Conclusões derivadas pelo motor são registradas separadamente com origem `CONCILIADOR` e podem apontar para a coleta que as fundamentou.
 

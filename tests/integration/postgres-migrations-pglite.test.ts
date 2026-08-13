@@ -401,7 +401,7 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     }
   });
 
-  test('nega leitura anônima e bloqueia UPDATE/DELETE até para o owner', async () => {
+  test('nega leitura anônima e bloqueia UPDATE/DELETE/TRUNCATE até para o owner', async () => {
     await database.exec('set role anon');
     try {
       await expect(database.query('select * from public.evidence_events'))
@@ -416,5 +416,13 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     await expect(database.exec(`
       delete from public.evidence_events where sequence = 1
     `)).rejects.toThrow(/append-only|not allowed/i);
+
+    await database.exec('begin');
+    try {
+      await expect(database.exec('truncate table public.evidence_events'))
+        .rejects.toThrow(/append-only|not allowed/i);
+    } finally {
+      await database.exec('rollback');
+    }
   });
 });
