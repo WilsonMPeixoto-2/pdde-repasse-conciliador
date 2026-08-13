@@ -157,13 +157,15 @@ const portfolio: PortfolioReconciliationResult = {
   },
 };
 
-async function buildWorkbook(): Promise<ExcelJS.Workbook | null> {
+async function buildWorkbook(
+  sourcePortfolio: PortfolioReconciliationResult = portfolio,
+): Promise<ExcelJS.Workbook | null> {
   const subject = await loadSubject();
   expect(subject, 'o gerador do relatório ainda não foi implementado').not.toBeNull();
   if (!subject) return null;
   expect(subject.buildReconciliationWorkbook).toBeTypeOf('function');
   const output = await (subject.buildReconciliationWorkbook as (value: unknown) => Promise<Buffer>)({
-    portfolio,
+    portfolio: sourcePortfolio,
     generatedAt: '2026-08-11T23:59:00-03:00',
     title: 'Conciliação PDDE — 4ª CRE',
   });
@@ -201,6 +203,52 @@ describe('buildReconciliationWorkbook', () => {
     expect(sheet?.getRow(2).getCell(headers.get('Ajuste')!).value).toBe(-5);
     expect(sheet?.getRow(2).getCell(headers.get('Data pagamento PDDEInfo')!).value).toBeInstanceOf(Date);
     expect(sheet?.getRow(2).getCell(headers.get('Ordem bancária')!).value).toBe('0000900001');
+  });
+
+  test('distingue créditos e débitos vinculados sem somar o estorno ao valor creditado', async () => {
+    const confirmed = row('payment-1', false);
+    const reversal = {
+      ...confirmed.matchedMovements[0]!,
+      id: 'movement-reversal',
+      operation: 'debit' as const,
+      history: 'ESTORNO DE ORDEM BANCARIA',
+    };
+    const reversedRow: PortfolioRow = {
+      ...confirmed,
+      matchedMovements: [...confirmed.matchedMovements, reversal],
+      reconciliation: {
+        ...confirmed.reconciliation,
+        status: 'DIVERGENCIA_REVISAO_NECESSARIA',
+        statusLabel: 'DIVERGÊNCIA — REVISÃO NECESSÁRIA',
+        reasonCode: 'MOVEMENT_REVERSAL_FOUND',
+        reason: 'Foi localizado débito de estorno ou devolução vinculado ao crédito.',
+        requiresHumanReview: true,
+        matchedMovementIds: ['movement-1', 'movement-reversal'],
+      },
+    };
+    const reversalPortfolio: PortfolioReconciliationResult = {
+      rows: [reversedRow],
+      summary: {
+        ...portfolio.summary,
+        total: 1,
+        confirmed: 0,
+        divergent: 1,
+        inconclusive: 0,
+        requiringHumanReview: 1,
+        accountsFromPddeInfoOnly: 0,
+      },
+    };
+    const workbook = await buildWorkbook(reversalPortfolio);
+    const sheet = workbook?.getWorksheet('Conciliação');
+    const headers = new Map<string, number>();
+    sheet?.getRow(1).eachCell((cell, column) => headers.set(String(cell.value), column));
+
+    expect(headers.has('Qtd. movimentos vinculados')).toBe(true);
+    expect(headers.has('Operações dos movimentos')).toBe(true);
+    expect(sheet?.getRow(2).getCell(headers.get('Qtd. movimentos vinculados')!).value).toBe(2);
+    expect(sheet?.getRow(2).getCell(headers.get('Operações dos movimentos')!).value)
+      .toBe('CRÉDITO | DÉBITO');
+    expect(sheet?.getRow(2).getCell(headers.get('Valor créditos localizados')!).value).toBe(5060);
   });
 
   test('leva apenas revisões à aba de exceções e neutraliza fórmulas vindas das fontes', async () => {
@@ -245,7 +293,7 @@ describe('buildReconciliationWorkbook', () => {
       expected: PortfolioReconciliationResult,
     ) => Promise<Record<string, number>>)(output, portfolio);
 
-    expect(audit).toEqual({ sheets: 3, rows: 2, exceptions: 1, columns: 53 });
+    expect(audit).toEqual({ sheets: 3, rows: 2, exceptions: 1, columns: 54 });
   });
 
   test('a auditoria rejeita uma fórmula introduzida depois da geração', async () => {

@@ -136,7 +136,7 @@ describe('reconcileFiles', () => {
       missingPairs: [],
     });
     expect(result.reconciliation).toMatchObject({ total: 1, confirmed: 1, inconclusive: 0 });
-    expect(result.workbookAudit).toEqual({ sheets: 3, rows: 1, exceptions: 0, columns: 53 });
+    expect(result.workbookAudit).toEqual({ sheets: 3, rows: 1, exceptions: 0, columns: 54 });
     expect((await readFile(outputPath)).subarray(0, 2).toString('hex')).toBe('504b');
 
     const events = await evidenceStore.listByRun('reconcile-test-run');

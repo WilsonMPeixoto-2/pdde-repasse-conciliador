@@ -149,6 +149,7 @@ Relatórios financeiros devem:
 
 - materializar valores, sem depender de fórmulas voláteis ou ocultas para provar o resultado;
 - preservar identificadores bancários e cadastrais como texto quando necessário;
+- distinguir cada movimento vinculado como crédito ou débito; a quantidade inclui ambos, enquanto o valor de créditos localizados soma somente créditos;
 - neutralizar formula injection proveniente de conteúdo externo;
 - ser relidos e validados antes de serem considerados concluídos.
 
