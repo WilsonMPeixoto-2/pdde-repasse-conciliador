@@ -18,6 +18,7 @@ export interface FetchPddeInfoSchoolHtmlOptions extends BuildPddeInfoSchoolUrlOp
   timeoutMs?: number;
   retryBackoffMs?: number;
   maxResponseBytes?: number;
+  signal?: AbortSignal;
 }
 
 export interface PddeInfoHttpResult {
@@ -61,6 +62,29 @@ function isTransientStatus(status: number): boolean {
 
 function defaultSleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function abortableSleep(
+  milliseconds: number,
+  sleep: (duration: number) => Promise<void>,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  if (!signal) {
+    await sleep(milliseconds);
+    return;
+  }
+  signal.throwIfAborted();
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    await Promise.race([sleep(milliseconds), aborted]);
+    signal.throwIfAborted();
+  } finally {
+    if (onAbort) signal.removeEventListener('abort', onAbort);
+  }
 }
 
 function decodeHtml(bytes: Buffer, contentType: string | null): string {
@@ -139,7 +163,12 @@ export async function fetchPddeInfoSchoolHtml(
 
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    options.signal?.throwIfAborted();
     try {
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
+      const requestSignal = options.signal
+        ? AbortSignal.any([options.signal, timeoutSignal])
+        : timeoutSignal;
       const response = await fetchImpl(sourceUrl, {
         method: 'GET',
         headers: {
@@ -147,19 +176,21 @@ export async function fetchPddeInfoSchoolHtml(
           Accept: 'text/html,application/xhtml+xml',
           'Accept-Language': 'pt-BR,pt;q=0.9',
         },
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: requestSignal,
       });
+      options.signal?.throwIfAborted();
 
       if (!response.ok) {
         const error = new Error(`PDDEInfo retornou HTTP ${response.status} para o INEP ${options.inep}.`);
         if (!isTransientStatus(response.status) || attempt === maxAttempts) throw error;
         lastError = error;
         await response.body?.cancel().catch(() => undefined);
-        await sleep(retryBackoffMs * attempt);
+        await abortableSleep(retryBackoffMs * attempt, sleep, options.signal);
         continue;
       }
 
       const bytes = await readResponseBytes(response, maxResponseBytes);
+      options.signal?.throwIfAborted();
       const html = decodeHtml(bytes, response.headers.get('content-type'));
       if (!html.trim()) throw new Error(`PDDEInfo retornou resposta vazia para o INEP ${options.inep}.`);
       return {
@@ -172,13 +203,14 @@ export async function fetchPddeInfoSchoolHtml(
         responseBytes: bytes.byteLength,
       };
     } catch (cause) {
+      options.signal?.throwIfAborted();
       const error = cause instanceof Error ? cause : new Error(String(cause));
       if (error instanceof PddeInfoResponseTooLargeError) throw error;
       const definitiveHttpError = /HTTP \d{3}/.test(error.message)
         && !/HTTP (408|425|429|5\d\d)/.test(error.message);
       if (definitiveHttpError || attempt === maxAttempts) throw error;
       lastError = error;
-      await sleep(retryBackoffMs * attempt);
+      await abortableSleep(retryBackoffMs * attempt, sleep, options.signal);
     }
   }
 

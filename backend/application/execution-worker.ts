@@ -1,19 +1,23 @@
 import { z } from 'zod';
 import type { ExecutionJob } from '../core/execution-job';
-import type { ExecutionJobQueue } from './execution-queue';
+import {
+  ExecutionLeaseLostError,
+  isExecutionLeaseLostError,
+  type ExecutionJobQueue,
+} from './execution-queue';
 
 export interface ExecutionJobResult {
   status: 'COMPLETE' | 'PARTIAL';
 }
 
 export interface ExecutionJobExecutor {
-  execute(job: ExecutionJob): Promise<ExecutionJobResult>;
+  execute(job: ExecutionJob, context: { signal: AbortSignal }): Promise<ExecutionJobResult>;
 }
 
 export interface ExecutionWorkerResult {
   jobId: string;
   runId: string;
-  status: 'COMPLETE' | 'PARTIAL' | 'FAILED';
+  status: 'COMPLETE' | 'PARTIAL' | 'FAILED' | 'LEASE_LOST';
   error?: string;
 }
 
@@ -55,9 +59,12 @@ export class ExecutionWorker {
     });
     if (!job) return null;
 
+    const execution = new AbortController();
+    let leaseLoss: ExecutionLeaseLostError | null = null;
     let renewalChain = Promise.resolve();
     const timer = setInterval(() => {
       renewalChain = renewalChain.then(async () => {
+        if (leaseLoss) return;
         try {
           await this.queue.renewLease({
             jobId: job.jobId,
@@ -65,7 +72,15 @@ export class ExecutionWorker {
             attempt: job.attempts,
             leaseSeconds: this.leaseSeconds,
           });
-        } catch {
+        } catch (cause) {
+          if (isExecutionLeaseLostError(cause)) {
+            leaseLoss = cause instanceof ExecutionLeaseLostError
+              ? cause
+              : new ExecutionLeaseLostError(errorMessage(cause));
+            clearInterval(timer);
+            execution.abort(leaseLoss);
+            return;
+          }
           // Uma falha de transporte não prova perda do lease. O próximo
           // intervalo tenta novamente; a conclusão terminal, cercada por
           // worker/tentativa/validade no Postgres, decide a propriedade.
@@ -78,29 +93,55 @@ export class ExecutionWorker {
       await renewalChain;
     };
 
+    const leaseLostResult = (): ExecutionWorkerResult | null => leaseLoss ? ({
+      jobId: job.jobId,
+      runId: job.runId,
+      status: 'LEASE_LOST',
+      error: errorMessage(leaseLoss),
+    }) : null;
+
+    const complete = async (
+      status: 'COMPLETE' | 'PARTIAL' | 'FAILED',
+      error?: string,
+    ): Promise<ExecutionWorkerResult> => {
+      try {
+        await this.queue.complete({
+          jobId: job.jobId,
+          workerId: this.workerId,
+          attempt: job.attempts,
+          status,
+          ...(error ? { error } : {}),
+        });
+      } catch (cause) {
+        if (!isExecutionLeaseLostError(cause)) throw cause;
+        leaseLoss = cause instanceof ExecutionLeaseLostError
+          ? cause
+          : new ExecutionLeaseLostError(errorMessage(cause));
+        execution.abort(leaseLoss);
+        return leaseLostResult()!;
+      }
+      return {
+        jobId: job.jobId,
+        runId: job.runId,
+        status,
+        ...(error ? { error } : {}),
+      };
+    };
+
     let result: ExecutionJobResult;
     try {
-      result = await this.executor.execute(job);
+      result = await this.executor.execute(job, { signal: execution.signal });
     } catch (cause) {
       await stopHeartbeat();
+      const lost = leaseLostResult();
+      if (lost) return lost;
       const error = errorMessage(cause);
-      await this.queue.complete({
-        jobId: job.jobId,
-        workerId: this.workerId,
-        attempt: job.attempts,
-        status: 'FAILED',
-        error,
-      });
-      return { jobId: job.jobId, runId: job.runId, status: 'FAILED', error };
+      return complete('FAILED', error);
     }
 
     await stopHeartbeat();
-    await this.queue.complete({
-      jobId: job.jobId,
-      workerId: this.workerId,
-      attempt: job.attempts,
-      status: result.status,
-    });
-    return { jobId: job.jobId, runId: job.runId, status: result.status };
+    const lost = leaseLostResult();
+    if (lost) return lost;
+    return complete(result.status);
   }
 }

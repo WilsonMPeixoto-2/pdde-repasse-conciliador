@@ -27,6 +27,8 @@ describe('migração Postgres do backend institucional', () => {
     expect(sql).not.toMatch(/split_part\([\s\S]*pddeinfoartifact/);
     expect(sql).toMatch(/create or replace function public\.renew_execution_job_lease/);
     expect(sql).toMatch(/create or replace function public\.complete_execution_job/);
+    expect(sql.match(/using errcode\s*=\s*'pde01'/g)).toHaveLength(2);
+    expect(sql.match(/pdde_lease_lost/g)).toHaveLength(2);
     expect(sql).toMatch(/complete_execution_job[\s\S]*execution_finished/);
     expect(sql).toMatch(/when p_status = 'partial' then null/);
     expect(sql).toMatch(/lease_expires_at\s*>\s*pg_catalog\.clock_timestamp\(\)/);

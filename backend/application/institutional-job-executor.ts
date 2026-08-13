@@ -42,9 +42,12 @@ async function stageArtifact(
   store: ArtifactStore,
   reference: ArtifactReference,
   destination: string,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
   const bytes = await store.download(reference);
-  await writeFile(destination, bytes, { flag: 'wx' });
+  signal?.throwIfAborted();
+  await writeFile(destination, bytes, { flag: 'wx', ...(signal ? { signal } : {}) });
 }
 
 export class InstitutionalJobExecutor implements ExecutionJobExecutor {
@@ -65,16 +68,21 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
     this.reconcile = dependencies.reconcileFiles ?? reconcileFiles;
   }
 
-  execute(job: ExecutionJob): Promise<ExecutionJobResult> {
-    if (job.kind === 'PDDEINFO') return this.executePddeInfo(job);
-    return this.executeReconciliation(job);
+  execute(job: ExecutionJob, context?: { signal: AbortSignal }): Promise<ExecutionJobResult> {
+    context?.signal.throwIfAborted();
+    if (job.kind === 'PDDEINFO') return this.executePddeInfo(job, context?.signal);
+    return this.executeReconciliation(job, context?.signal);
   }
 
   private attemptPath(job: ExecutionJob): string {
     return resolve(this.workspacePath, 'jobs', job.jobId, `attempt-${job.attempts}`);
   }
 
-  private async executePddeInfo(job: ExecutionJob): Promise<ExecutionJobResult> {
+  private async executePddeInfo(
+    job: ExecutionJob,
+    signal?: AbortSignal,
+  ): Promise<ExecutionJobResult> {
+    signal?.throwIfAborted();
     const request = pddeInfoJobRequestSchema.parse(job.payload);
     const selected = request.schoolIneps
       ? new Set(request.schoolIneps)
@@ -93,37 +101,58 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       batchDelayMs: request.batchDelayMs,
       evidenceStore: this.dependencies.evidenceStore,
       artifactStore: this.dependencies.artifactStore,
+      ...(signal ? { signal } : {}),
       manageExecutionLifecycle: false,
       institutionalPathPrefix: `attempts/${job.attempts}`,
     });
     return { status: result.status };
   }
 
-  private async executeReconciliation(job: ExecutionJob): Promise<ExecutionJobResult> {
+  private async executeReconciliation(
+    job: ExecutionJob,
+    signal?: AbortSignal,
+  ): Promise<ExecutionJobResult> {
+    signal?.throwIfAborted();
     const request = reconciliationJobPayloadSchema.parse(job.payload);
     const attemptPath = this.attemptPath(job);
     const inputPath = join(attemptPath, 'inputs');
     const releasePath = join(inputPath, 'releases');
     const reportPath = join(attemptPath, 'reports', 'reconciliation.xlsx');
     await mkdir(inputPath, { recursive: true });
+    signal?.throwIfAborted();
 
     const pddeInfoPath = join(inputPath, 'pddeinfo.json');
     const movementsPath = join(inputPath, 'movements.csv');
-    await stageArtifact(this.dependencies.artifactStore, request.pddeInfoArtifact, pddeInfoPath);
-    await stageArtifact(this.dependencies.artifactStore, request.movementsArtifact, movementsPath);
+    await stageArtifact(
+      this.dependencies.artifactStore,
+      request.pddeInfoArtifact,
+      pddeInfoPath,
+      signal,
+    );
+    await stageArtifact(
+      this.dependencies.artifactStore,
+      request.movementsArtifact,
+      movementsPath,
+      signal,
+    );
 
     if (request.releaseArtifacts.length > 0) {
       await mkdir(releasePath);
       const filenames = new Set<string>();
       for (const reference of request.releaseArtifacts) {
+        signal?.throwIfAborted();
         const bytes = await this.dependencies.artifactStore.download(reference);
+        signal?.throwIfAborted();
         const inspection = inspectSigefReleaseHtml(bytes, { fiscalYear: request.fiscalYear });
         const filename = `${inspection.cnpj}__${inspection.programCode}.xls`;
         if (filenames.has(filename)) {
           throw new Error(`Nome de exportação SIGEF duplicado: ${filename}.`);
         }
         filenames.add(filename);
-        await writeFile(join(releasePath, filename), bytes, { flag: 'wx' });
+        await writeFile(join(releasePath, filename), bytes, {
+          flag: 'wx',
+          ...(signal ? { signal } : {}),
+        });
       }
     }
 
@@ -141,6 +170,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       sourceCollectionRunId: request.sourceCollectionRunId ?? null,
       manageExecutionLifecycle: false,
       institutionalPathPrefix: `attempts/${job.attempts}`,
+      ...(signal ? { signal } : {}),
     });
     return { status: 'COMPLETE' };
   }

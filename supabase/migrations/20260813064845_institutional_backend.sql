@@ -356,7 +356,9 @@ begin
   returning * into v_job;
 
   if not found then
-    raise exception 'tentativa não pertence ao worker ou o lease expirou: %/%', p_job_id, p_attempt;
+    raise exception 'PDDE_LEASE_LOST: tentativa não pertence ao worker ou o lease expirou: %/%',
+      p_job_id, p_attempt
+      using errcode = 'PDE01';
   end if;
   return v_job;
 end;
@@ -398,7 +400,9 @@ begin
   returning * into v_job;
 
   if not found then
-    raise exception 'tentativa não está RUNNING para o worker informado: %/%', p_job_id, p_attempt;
+    raise exception 'PDDE_LEASE_LOST: tentativa não está RUNNING para o worker informado: %/%',
+      p_job_id, p_attempt
+      using errcode = 'PDE01';
   end if;
 
   v_source := case when v_job.job_kind = 'PDDEINFO'

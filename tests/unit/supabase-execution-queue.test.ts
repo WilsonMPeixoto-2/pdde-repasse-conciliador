@@ -124,4 +124,48 @@ describe('SupabaseExecutionQueue', () => {
       maxAttempts: 3,
     })).rejects.toThrow(/fila.*idempotency conflict/i);
   });
+
+  test('classifica separadamente a perda definitiva do lease', async () => {
+    const client = new FakeClient();
+    client.responses.set('renew_execution_job_lease', {
+      data: null,
+      error: { code: 'PDE01', message: 'PDDE_LEASE_LOST: lease expirou: job/1' },
+    });
+    const queue = new SupabaseExecutionQueue(client);
+
+    await expect(queue.renewLease({
+      jobId: row.job_id,
+      workerId: 'worker-1',
+      attempt: 1,
+      leaseSeconds: 120,
+    })).rejects.toMatchObject({
+      name: 'ExecutionLeaseLostError',
+      message: expect.stringMatching(/lease expirou/i),
+    });
+
+    client.responses.set('complete_execution_job', {
+      data: null,
+      error: {
+        code: 'PDE01',
+        message: 'PDDE_LEASE_LOST: tentativa não está RUNNING para o worker: job/1',
+      },
+    });
+    await expect(queue.complete({
+      jobId: row.job_id,
+      workerId: 'worker-1',
+      attempt: 1,
+      status: 'COMPLETE',
+    })).rejects.toMatchObject({ name: 'ExecutionLeaseLostError' });
+
+    client.responses.set('renew_execution_job_lease', {
+      data: null,
+      error: { message: 'proxy indisponível ao verificar se o lease expirou' },
+    });
+    await expect(queue.renewLease({
+      jobId: row.job_id,
+      workerId: 'worker-1',
+      attempt: 1,
+      leaseSeconds: 120,
+    })).rejects.toMatchObject({ name: 'Error' });
+  });
 });

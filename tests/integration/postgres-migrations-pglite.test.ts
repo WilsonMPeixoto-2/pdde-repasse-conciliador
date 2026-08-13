@@ -324,7 +324,10 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
           1,
           30
         )
-      `)).rejects.toThrow(/tentativa.*não pertence|lease expirou/i);
+      `)).rejects.toMatchObject({
+        code: 'PDE01',
+        message: expect.stringMatching(/PDDE_LEASE_LOST.*lease expirou/i),
+      });
       await expect(database.query(`
         select * from public.complete_execution_job(
           '55555555-5555-4555-8555-555555555555'::uuid,
@@ -333,7 +336,10 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
           'COMPLETE',
           null
         )
-      `)).rejects.toThrow(/tentativa.*não pertence|não está running/i);
+      `)).rejects.toMatchObject({
+        code: 'PDE01',
+        message: expect.stringMatching(/PDDE_LEASE_LOST.*não está RUNNING/i),
+      });
 
       const completed = await database.query<{ status: string; attempts: number }>(`
         select status, attempts from public.complete_execution_job(

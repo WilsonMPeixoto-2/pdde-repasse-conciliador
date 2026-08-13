@@ -189,4 +189,54 @@ describe('reconcileFiles', () => {
     });
     expect(await evidenceStore.verifyIntegrity()).toEqual({ valid: true, events: events.length });
   });
+
+  test('não grava achados depois que a tentativa perde o lease durante a conciliação', async () => {
+    const root = await temporaryDirectory();
+    const pddeInfoPath = join(root, 'pddeinfo.json');
+    const movementsPath = join(root, 'movements.csv');
+    const outputPath = join(root, 'result.xlsx');
+    const evidenceStore = new JsonlEvidenceStore(join(root, 'evidence', 'events.jsonl'));
+    const cancellation = new AbortController();
+    const leaseLoss = new Error('lease institucional perdido');
+    const artifactStore: ArtifactStore = {
+      async preserve(input) {
+        cancellation.abort(leaseLoss);
+        return {
+          provider: 'SUPABASE_STORAGE',
+          bucket: 'pdde-evidence',
+          path: `runs/${input.runId}/${input.relativePath}`,
+          kind: input.kind,
+          sha256: 'c'.repeat(64),
+          bytes: input.bytes.byteLength,
+          mediaType: input.mediaType,
+          metadata: input.metadata ?? {},
+        };
+      },
+      async download() { throw new Error('não usado'); },
+      async createSignedDownload() { throw new Error('não usado'); },
+    };
+    await writeFile(pddeInfoPath, JSON.stringify({
+      fetchedAt: '2026-08-12T08:00:00-03:00',
+      collectionStatus: 'COMPLETE',
+      runId: 'collect-source-run',
+      schools: [school],
+    }), 'utf8');
+    await writeFile(movementsPath, `${movementHeader}\n${movementRow}\n`, 'utf8');
+
+    await expect(reconcileFiles({
+      pddeInfoPath,
+      movementsPath,
+      outputPath,
+      fiscalYear: 2026,
+      requestedThrough: '2026-08-12',
+      generatedAt: '2026-08-12T09:00:00-03:00',
+      reconciliationRunId: 'reconcile-lease-loss',
+      evidenceStore,
+      artifactStore,
+      manageExecutionLifecycle: false,
+      signal: cancellation.signal,
+    })).rejects.toBe(leaseLoss);
+
+    await expect(evidenceStore.listByRun('reconcile-lease-loss')).resolves.toEqual([]);
+  });
 });

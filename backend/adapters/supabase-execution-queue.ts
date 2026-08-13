@@ -7,6 +7,7 @@ import type {
   EnqueueExecutionJobInput,
   ExecutionJobQueue,
 } from '../application/execution-queue';
+import { ExecutionLeaseLostError } from '../application/execution-queue';
 
 interface SupabaseResult {
   data: unknown;
@@ -20,6 +21,12 @@ interface SupabaseRpcClient {
 function message(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return String(error);
+}
+
+function code(error: unknown): string | null {
+  return error && typeof error === 'object' && 'code' in error
+    ? String(error.code)
+    : null;
 }
 
 function rowRecord(value: unknown): Record<string, unknown> | null {
@@ -59,7 +66,16 @@ async function rpcJob(
   allowEmpty = false,
 ): Promise<ExecutionJob | null> {
   const { data, error } = await client.rpc(name, parameters);
-  if (error) throw new Error(`Fila de execuções (${name}): ${message(error)}.`);
+  if (error) {
+    const detail = message(error);
+    const contextual = `Fila de execuções (${name}): ${detail}.`;
+    const leaseRpc = name === 'renew_execution_job_lease' || name === 'complete_execution_job';
+    const leaseLost = code(error) === 'PDE01' || /^PDDE_LEASE_LOST:/i.test(detail);
+    if (leaseRpc && leaseLost) {
+      throw new ExecutionLeaseLostError(contextual);
+    }
+    throw new Error(contextual);
+  }
   const row = rowRecord(data);
   if (allowEmpty && (!row || row.job_id === null || row.job_id === undefined)) return null;
   return toJob(data);

@@ -13,7 +13,7 @@ Para diagnóstico ou execução controlada de um único job:
 npm run worker:once
 ```
 
-`SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Uma falha transitória de heartbeat é tentada novamente no intervalo seguinte; a conclusão cercada no Postgres determina se o lease ainda pertence à tentativa. Erros da fila ou da RPC de conclusão encerram o processo com falha para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
+`SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Uma falha transitória de heartbeat é tentada novamente no intervalo seguinte; a conclusão cercada no Postgres determina se o lease ainda pertence à tentativa. Se o Postgres confirmar que o lease expirou ou pertence a outra tentativa, o executor antigo recebe cancelamento cooperativo, não chama a conclusão terminal e registra `LEASE_LOST` apenas no log operacional do processo; a fila permanece responsável pela retomada. Erros de infraestrutura da fila ou da RPC de conclusão encerram o processo para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
 
 A API também trata `SIGTERM`/`SIGINT`: deixa de aceitar conexões, fecha as conexões ociosas e aguarda respostas ativas por até `PDDE_API_SHUTDOWN_MS` (30 segundos por padrão) antes de encerrar as conexões remanescentes. O listener de erro usado no startup é removido assim que a porta abre; erros posteriores são propagados ao processo em vez de serem consumidos por uma promise já resolvida.
 
@@ -145,6 +145,7 @@ Ao executar uma conciliação, o runner não confia no nome original de uma Libe
 - `execution_jobs` é transporte operacional com idempotência, tentativas, owner e lease;
 - claim e conclusão registram `EXECUTION_STARTED`/`EXECUTION_FINISHED` na mesma transação do job;
 - heartbeat e conclusão exigem o número da tentativa reclamada, impedindo um processo antigo de atuar sobre um lease novo mesmo com `workerId` reutilizado;
+- perda de lease confirmada pelo SQLSTATE `PDE01` aborta HTTP, esperas e pipelines cooperativos antes de iniciar novos eventos; uma operação externa já em voo pode terminar e falha de transporte isolada não dispara cancelamento;
 - um lease expirado pode ser reclamado até `max_attempts`;
 - ao esgotar tentativas, o próximo ciclo fecha o job como `FAILED` e registra o evento terminal;
 - cada tentativa usa diretório próprio, evitando colisão de arquivos após crash;

@@ -63,6 +63,7 @@ export type ReconcileFilesOptions = z.input<typeof optionsSchema> & {
   sourceCollectionRunId?: string | null;
   manageExecutionLifecycle?: boolean;
   institutionalPathPrefix?: string;
+  signal?: AbortSignal;
 };
 
 export interface ReconcileFilesResult {
@@ -110,10 +111,20 @@ async function parseJsonFile(path: string): Promise<unknown> {
   }
 }
 
-async function writeWorkbook(path: string, bytes: Buffer, overwrite: boolean): Promise<void> {
+async function writeWorkbook(
+  path: string,
+  bytes: Buffer,
+  overwrite: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
   await mkdir(dirname(path), { recursive: true });
   try {
-    await writeFile(path, bytes, { flag: overwrite ? 'w' : 'wx' });
+    await writeFile(path, bytes, {
+      flag: overwrite ? 'w' : 'wx',
+      ...(signal ? { signal } : {}),
+    });
+    signal?.throwIfAborted();
   } catch (error) {
     const code = error && typeof error === 'object' && 'code' in error
       ? String(error.code)
@@ -137,7 +148,9 @@ function generatedRunId(generatedAt: string): string {
 async function appendEvidence(
   store: EvidenceEventWriter | undefined,
   event: Omit<EvidenceEventInput, 'eventId'>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
   if (!store) return;
   await store.append({ ...event, eventId: randomUUID() } as EvidenceEventInput);
 }
@@ -152,8 +165,10 @@ export async function reconcileFiles(
     sourceCollectionRunId: requestedSourceCollectionRunId,
     manageExecutionLifecycle = true,
     institutionalPathPrefix: rawInstitutionalPathPrefix,
+    signal,
     ...serializableOptions
   } = rawOptions;
+  signal?.throwIfAborted();
   const options = optionsSchema.parse(serializableOptions);
   const institutionalPathPrefix = rawInstitutionalPathPrefix === undefined
     ? undefined
@@ -163,6 +178,7 @@ export async function reconcileFiles(
     ).parse(rawInstitutionalPathPrefix);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const envelope = pddeInfoEnvelopeSchema.parse(await parseJsonFile(options.pddeInfoPath));
+  signal?.throwIfAborted();
   if (envelope.collectionStatus === 'PARTIAL') {
     throw new Error('A coleta PDDEInfo está marcada como PARTIAL; conclua as escolas pendentes antes de iniciar a conciliação.');
   }
@@ -194,11 +210,12 @@ export async function reconcileFiles(
         requestedThrough: options.requestedThrough,
         pddeInfoFetchedAt: envelope.fetchedAt,
       },
-    });
+    }, signal);
     evidenceRunStarted = Boolean(evidenceStore);
   }
 
   try {
+    signal?.throwIfAborted();
     const targetCnpjs = [...new Set(pddeInfo.payments.map(
       (payment) => canonicalCnpj(payment.school.cnpj),
     ))];
@@ -210,12 +227,16 @@ export async function reconcileFiles(
       programCode: canonicalProgramCode(payment.programCode),
     }));
 
-    const movements = await parseSigefMovementCsv(createReadStream(options.movementsPath), {
+    const movementStream = signal
+      ? createReadStream(options.movementsPath, { signal })
+      : createReadStream(options.movementsPath);
+    const movements = await parseSigefMovementCsv(movementStream, {
       targetCnpjs,
       programCodes,
       queriedAt: generatedAt,
       requestedThrough: options.requestedThrough,
     });
+    signal?.throwIfAborted();
 
     const loadedReleases = await loadSigefReleaseExports({
       fiscalYear: options.fiscalYear,
@@ -226,6 +247,7 @@ export async function reconcileFiles(
         ? { directorySourceUrl: options.releaseDirectorySourceUrl }
         : {}),
     });
+    signal?.throwIfAborted();
     const releaseExports = loadedReleases.exports;
 
     const portfolio = assembleReconciliationPortfolio({ pddeInfo, releaseExports, movements });
@@ -234,9 +256,12 @@ export async function reconcileFiles(
       generatedAt,
       title: options.title ?? `Conciliação de repasses PDDE ${options.fiscalYear} — 4ª CRE`,
     });
+    signal?.throwIfAborted();
     const workbookAudit = await validateReconciliationWorkbook(workbook, portfolio);
+    signal?.throwIfAborted();
     const outputPath = resolve(options.outputPath);
-    await writeWorkbook(outputPath, workbook, options.overwrite);
+    await writeWorkbook(outputPath, workbook, options.overwrite, signal);
+    signal?.throwIfAborted();
     const institutionalReport = artifactStore
       ? await artifactStore.preserve({
         runId: reconciliationRunId,
@@ -253,8 +278,10 @@ export async function reconcileFiles(
         },
       })
       : undefined;
+    signal?.throwIfAborted();
 
     for (const row of portfolio.rows) {
+      signal?.throwIfAborted();
       await appendEvidence(evidenceStore, {
         runId: reconciliationRunId,
         type: 'FINDING_RECORDED',
@@ -279,7 +306,7 @@ export async function reconcileFiles(
             accountResolution: row.accountResolution,
           },
         },
-      });
+      }, signal);
     }
 
     await appendEvidence(evidenceStore, {
@@ -301,7 +328,7 @@ export async function reconcileFiles(
           metadata: institutionalReport.metadata,
         } : {}),
       },
-    });
+    }, signal);
 
     if (manageExecutionLifecycle) {
       await appendEvidence(evidenceStore, {
@@ -317,7 +344,7 @@ export async function reconcileFiles(
           summary: portfolio.summary,
           sourceCollectionRunId,
         },
-      });
+      }, signal);
     }
 
     return {
@@ -349,6 +376,7 @@ export async function reconcileFiles(
       reconciliation: portfolio.summary,
     };
   } catch (cause) {
+    signal?.throwIfAborted();
     if (evidenceRunStarted) {
       await appendEvidence(evidenceStore, {
         runId: reconciliationRunId,
@@ -362,7 +390,7 @@ export async function reconcileFiles(
           sourceCollectionRunId,
           error: cause instanceof Error ? cause.message : String(cause),
         },
-      });
+      }, signal);
     }
     throw cause;
   }

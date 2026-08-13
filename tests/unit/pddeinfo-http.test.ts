@@ -110,4 +110,32 @@ describe('cliente HTTP do PDDEInfo', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
   });
+
+  test('propaga cancelamento externo sem transformar perda de lease em retry', async () => {
+    const subject = await loadSubject();
+    expect(subject, 'o cliente HTTP do PDDEInfo ainda não foi implementado').not.toBeNull();
+    if (!subject) return;
+
+    const cancellation = new AbortController();
+    const leaseLoss = new Error('lease institucional perdido');
+    const fetchImpl = vi.fn(async () => {
+      cancellation.abort(leaseLoss);
+      return new Response('<html>resposta tardia</html>', { status: 200 });
+    });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect((subject.fetchPddeInfoSchoolHtml as (
+      options: Record<string, unknown>,
+    ) => Promise<unknown>)({
+      fiscalYear: 2026,
+      inep: '33069247',
+      fetchImpl,
+      sleep,
+      signal: cancellation.signal,
+      maxAttempts: 4,
+    })).rejects.toBe(leaseLoss);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
 });

@@ -304,4 +304,38 @@ describe('collectPddeInfo + EvidenceStore', () => {
       }),
     ]));
   });
+
+  test('não grava evidência nova depois que a tentativa perde o lease', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'pdde-collect-lease-loss-'));
+    const evidenceStore = new JsonlEvidenceStore(join(workspacePath, 'evidence', 'events.jsonl'));
+    const cancellation = new AbortController();
+    const leaseLoss = new Error('lease institucional perdido');
+    const html = schoolHtml(schools[0]);
+
+    await expect(collectPddeInfo({
+      schools: [schools[0]],
+      workspacePath,
+      fiscalYear: 2026,
+      runId: 'run-lease-loss',
+      batchSize: 1,
+      batchDelayMs: 0,
+      evidenceStore,
+      manageExecutionLifecycle: false,
+      signal: cancellation.signal,
+      fetchSchoolHtml: async () => {
+        cancellation.abort(leaseLoss);
+        return {
+          html,
+          rawBytes: Buffer.from(html, 'utf8'),
+          sourceUrl: 'https://www.fnde.gov.br/pddeinfo/test/33069247',
+          queriedAt: '2026-08-13T01:55:30-03:00',
+          attempts: 1,
+          httpStatus: 200,
+          responseBytes: Buffer.byteLength(html),
+        };
+      },
+    })).rejects.toBe(leaseLoss);
+
+    await expect(evidenceStore.listByRun('run-lease-loss')).resolves.toEqual([]);
+  });
 });

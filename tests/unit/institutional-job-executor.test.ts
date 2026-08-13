@@ -69,13 +69,14 @@ describe('InstitutionalJobExecutor', () => {
       collectPddeInfo: collect,
       reconcileFiles: vi.fn(),
     });
+    const cancellation = new AbortController();
 
     await expect(executor.execute(job('PDDEINFO', {
       fiscalYear: 2026,
       schoolIneps: ['33069093'],
       batchSize: 1,
       batchDelayMs: 0,
-    }))).resolves.toEqual({ status: 'COMPLETE' });
+    }), { signal: cancellation.signal })).resolves.toEqual({ status: 'COMPLETE' });
 
     expect(collect).toHaveBeenCalledWith(expect.objectContaining({
       schools: [schools[1]],
@@ -85,6 +86,7 @@ describe('InstitutionalJobExecutor', () => {
       batchDelayMs: 0,
       workspacePath: resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'attempt-1'),
       evidenceStore,
+      signal: cancellation.signal,
       manageExecutionLifecycle: false,
       institutionalPathPrefix: 'attempts/1',
     }));
@@ -117,6 +119,7 @@ describe('InstitutionalJobExecutor', () => {
       download: vi.fn(async ({ path }: { path: string }) => artifactBytes.get(path)!),
     } as unknown as ArtifactStore;
     const reconcile = vi.fn(async () => ({}));
+    const cancellation = new AbortController();
     const executor = new InstitutionalJobExecutor({
       workspacePath: root, schools, evidenceStore, artifactStore,
       collectPddeInfo: vi.fn(), reconcileFiles: reconcile,
@@ -133,7 +136,7 @@ describe('InstitutionalJobExecutor', () => {
       releaseArtifacts: [ref('runs/inputs/sigef-liberacoes/upload-id.xls')],
       title: 'Relatório institucional',
       sourceCollectionRunId: 'coleta-validada',
-    }))).resolves.toEqual({ status: 'COMPLETE' });
+    }), { signal: cancellation.signal })).resolves.toEqual({ status: 'COMPLETE' });
 
     const attempt = resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'attempt-1');
     expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({
@@ -148,6 +151,7 @@ describe('InstitutionalJobExecutor', () => {
       title: 'Relatório institucional',
       evidenceStore,
       artifactStore,
+      signal: cancellation.signal,
       manageExecutionLifecycle: false,
       institutionalPathPrefix: 'attempts/1',
     }));

@@ -65,6 +65,7 @@ export interface CollectPddeInfoOptions {
   artifactStore?: ArtifactStore;
   manageExecutionLifecycle?: boolean;
   institutionalPathPrefix?: string;
+  signal?: AbortSignal;
 }
 
 interface SuccessManifestEntry {
@@ -141,19 +142,30 @@ class InstitutionalArtifactPersistenceError extends Error {}
 async function preserveInstitutionalArtifact(
   store: ArtifactStore,
   input: PreserveArtifactInput,
+  signal?: AbortSignal,
 ): Promise<PreservedArtifact> {
+  signal?.throwIfAborted();
   try {
-    return await store.preserve(input);
+    const preserved = await store.preserve(input);
+    signal?.throwIfAborted();
+    return preserved;
   } catch (cause) {
+    signal?.throwIfAborted();
     throw new InstitutionalArtifactPersistenceError(
       cause instanceof Error ? cause.message : String(cause),
     );
   }
 }
 
-async function writeJson(path: string, value: unknown): Promise<WrittenJsonArtifact> {
+async function writeJson(
+  path: string,
+  value: unknown,
+  signal?: AbortSignal,
+): Promise<WrittenJsonArtifact> {
+  signal?.throwIfAborted();
   const content = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await writeFile(path, content, { flag: 'wx' });
+  await writeFile(path, content, { flag: 'wx', ...(signal ? { signal } : {}) });
+  signal?.throwIfAborted();
   return {
     sha256: sha256(content),
     bytes: content.byteLength,
@@ -192,14 +204,40 @@ function validateMasterSubset(schools: PddeInfoExpectedSchool[]): void {
 async function appendEvidence(
   store: EvidenceEventWriter | undefined,
   event: Omit<EvidenceEventInput, 'eventId'>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
   if (!store) return;
   await store.append({ ...event, eventId: randomUUID() } as EvidenceEventInput);
+}
+
+async function abortableSleep(
+  milliseconds: number,
+  sleep: (duration: number) => Promise<void>,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  if (!signal) {
+    await sleep(milliseconds);
+    return;
+  }
+  signal.throwIfAborted();
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    await Promise.race([sleep(milliseconds), aborted]);
+    signal.throwIfAborted();
+  } finally {
+    if (onAbort) signal.removeEventListener('abort', onAbort);
+  }
 }
 
 export async function collectPddeInfo(
   rawOptions: CollectPddeInfoOptions,
 ): Promise<CollectPddeInfoResult> {
+  rawOptions.signal?.throwIfAborted();
   const parsed = baseOptionsSchema.parse({
     schools: rawOptions.schools,
     workspacePath: rawOptions.workspacePath,
@@ -231,6 +269,7 @@ export async function collectPddeInfo(
   await mkdir(runDirectory, { recursive: false });
   await mkdir(rawDirectory);
   await mkdir(normalizedDirectory);
+  rawOptions.signal?.throwIfAborted();
 
   const manageExecutionLifecycle = rawOptions.manageExecutionLifecycle ?? true;
   if (manageExecutionLifecycle) {
@@ -244,7 +283,7 @@ export async function collectPddeInfo(
         portfolioSize: parsed.schools.length,
         parserVersion: PDDEINFO_HTML_PARSER_VERSION,
       },
-    });
+    }, rawOptions.signal);
   }
 
   const fetchSchoolHtml = rawOptions.fetchSchoolHtml ?? fetchPddeInfoSchoolHtml;
@@ -257,6 +296,7 @@ export async function collectPddeInfo(
   }>();
 
   const processSchool = async (school: PddeInfoExpectedSchool): Promise<void> => {
+    rawOptions.signal?.throwIfAborted();
     let httpResult: PddeInfoHttpResult | null = null;
     let rawPath: string | undefined;
     let rawSha256: string | undefined;
@@ -270,12 +310,18 @@ export async function collectPddeInfo(
       httpResult = await fetchSchoolHtml({
         fiscalYear: parsed.fiscalYear,
         inep: school.inep,
+        ...(rawOptions.signal ? { signal: rawOptions.signal } : {}),
       });
+      rawOptions.signal?.throwIfAborted();
 
       const rawBytes = httpResult.rawBytes ?? Buffer.from(httpResult.html, 'utf8');
       rawPath = `raw/${school.inep}.html`;
       rawSha256 = sha256(rawBytes);
-      await writeFile(join(runDirectory, rawPath), rawBytes, { flag: 'wx' });
+      await writeFile(join(runDirectory, rawPath), rawBytes, {
+        flag: 'wx',
+        ...(rawOptions.signal ? { signal: rawOptions.signal } : {}),
+      });
+      rawOptions.signal?.throwIfAborted();
 
       const parsedSchool = parsePddeInfoSchoolHtml(httpResult.html, {
         expectedSchool: school,
@@ -291,7 +337,11 @@ export async function collectPddeInfo(
       }
 
       const normalizedPath = `normalized/${school.inep}.json`;
-      const normalizedArtifact = await writeJson(join(runDirectory, normalizedPath), parsedSchool);
+      const normalizedArtifact = await writeJson(
+        join(runDirectory, normalizedPath),
+        parsedSchool,
+        rawOptions.signal,
+      );
       let rawInstitutional: PreservedArtifact | undefined;
       let normalizedInstitutional: PreservedArtifact | undefined;
       if (rawOptions.artifactStore) {
@@ -307,7 +357,7 @@ export async function collectPddeInfo(
             queriedAt: httpResult.queriedAt,
             localPath: rawPath,
           },
-        });
+        }, rawOptions.signal);
         normalizedInstitutional = await preserveInstitutionalArtifact(rawOptions.artifactStore, {
           runId,
           relativePath: institutionalPath(`schools/${school.inep}/normalized.json`),
@@ -320,7 +370,7 @@ export async function collectPddeInfo(
             queriedAt: httpResult.queriedAt,
             localPath: normalizedPath,
           },
-        });
+        }, rawOptions.signal);
       }
       institutionalArtifactsByInep.set(school.inep, {
         ...(rawInstitutional ? { raw: rawInstitutional } : {}),
@@ -345,6 +395,7 @@ export async function collectPddeInfo(
         warnings: validation.warnings,
       };
     } catch (cause) {
+      rawOptions.signal?.throwIfAborted();
       if (cause instanceof InstitutionalArtifactPersistenceError) throw cause;
       entry = {
         inep: school.inep,
@@ -362,6 +413,7 @@ export async function collectPddeInfo(
       };
     }
 
+    rawOptions.signal?.throwIfAborted();
     entriesByInep.set(school.inep, entry);
 
     if (entry.status === 'SUCCESS') {
@@ -380,7 +432,7 @@ export async function collectPddeInfo(
           responseBytes: entry.responseBytes,
           sourceUrl: entry.sourceUrl,
         },
-      });
+      }, rawOptions.signal);
       await appendEvidence(rawOptions.evidenceStore, {
         runId,
         type: 'ARTIFACT_PRESERVED',
@@ -395,7 +447,7 @@ export async function collectPddeInfo(
           bytes: entry.responseBytes,
           mediaType: 'text/html',
         }, institutional?.raw),
-      });
+      }, rawOptions.signal);
       await appendEvidence(rawOptions.evidenceStore, {
         runId,
         type: 'ARTIFACT_PRESERVED',
@@ -410,7 +462,7 @@ export async function collectPddeInfo(
           bytes: entry.normalizedBytes,
           mediaType: 'application/json',
         }, institutional?.normalized),
-      });
+      }, rawOptions.signal);
     } else {
       await appendEvidence(rawOptions.evidenceStore, {
         runId,
@@ -427,19 +479,21 @@ export async function collectPddeInfo(
           error: entry.error,
           sourceUrl: entry.sourceUrl,
         },
-      });
+      }, rawOptions.signal);
     }
   };
 
   for (let start = 0; start < parsed.schools.length; start += parsed.batchSize) {
+    rawOptions.signal?.throwIfAborted();
     const batch = parsed.schools.slice(start, start + parsed.batchSize);
     const results = await Promise.allSettled(batch.map(processSchool));
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
     if (rejected) throw rejected.reason;
+    rawOptions.signal?.throwIfAborted();
     if (start + parsed.batchSize < parsed.schools.length && parsed.batchDelayMs > 0) {
-      await sleep(parsed.batchDelayMs);
+      await abortableSleep(parsed.batchDelayMs, sleep, rawOptions.signal);
     }
   }
 
@@ -453,6 +507,7 @@ export async function collectPddeInfo(
     return parsedSchool ? [parsedSchool] : [];
   });
 
+  rawOptions.signal?.throwIfAborted();
   const completedAt = rawOptions.completedAt?.() ?? new Date().toISOString();
   isoTimestampSchema.parse(completedAt);
   const succeeded = orderedEntries.filter((entry) => entry.status === 'SUCCESS').length;
@@ -471,7 +526,7 @@ export async function collectPddeInfo(
     statistics,
     schools: orderedEntries,
   };
-  const manifestArtifact = await writeJson(manifestPath, manifest);
+  const manifestArtifact = await writeJson(manifestPath, manifest, rawOptions.signal);
 
   const envelope = {
     source: 'PDDEINFO',
@@ -482,7 +537,7 @@ export async function collectPddeInfo(
     parserVersion: PDDEINFO_HTML_PARSER_VERSION,
     schools: successfulSchools,
   };
-  const envelopeArtifact = await writeJson(pddeInfoPath, envelope);
+  const envelopeArtifact = await writeJson(pddeInfoPath, envelope, rawOptions.signal);
 
   const manifestInstitutional = rawOptions.artifactStore
     ? await preserveInstitutionalArtifact(rawOptions.artifactStore, {
@@ -492,7 +547,7 @@ export async function collectPddeInfo(
       bytes: manifestArtifact.content,
       mediaType: 'application/json',
       metadata: { localPath: 'manifest.json', completedAt },
-    })
+    }, rawOptions.signal)
     : undefined;
   const envelopeInstitutional = rawOptions.artifactStore
     ? await preserveInstitutionalArtifact(rawOptions.artifactStore, {
@@ -506,7 +561,7 @@ export async function collectPddeInfo(
         localPath: `pddeinfo-${parsed.fiscalYear}.json`,
         completedAt,
       },
-    })
+    }, rawOptions.signal)
     : undefined;
 
   await appendEvidence(rawOptions.evidenceStore, {
@@ -522,7 +577,7 @@ export async function collectPddeInfo(
       bytes: manifestArtifact.bytes,
       mediaType: 'application/json',
     }, manifestInstitutional),
-  });
+  }, rawOptions.signal);
   await appendEvidence(rawOptions.evidenceStore, {
     runId,
     type: 'ARTIFACT_PRESERVED',
@@ -536,7 +591,7 @@ export async function collectPddeInfo(
       bytes: envelopeArtifact.bytes,
       mediaType: 'application/json',
     }, envelopeInstitutional),
-  });
+  }, rawOptions.signal);
   if (manageExecutionLifecycle) {
     await appendEvidence(rawOptions.evidenceStore, {
       runId,
@@ -549,7 +604,7 @@ export async function collectPddeInfo(
         succeeded,
         failed,
       },
-    });
+    }, rawOptions.signal);
   }
 
   return {

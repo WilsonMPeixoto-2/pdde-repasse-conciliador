@@ -3,6 +3,18 @@ import type {
   ExecutionJobKind,
 } from '../core/execution-job';
 
+export class ExecutionLeaseLostError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ExecutionLeaseLostError';
+  }
+}
+
+export function isExecutionLeaseLostError(cause: unknown): cause is Error {
+  return cause instanceof ExecutionLeaseLostError
+    || (cause instanceof Error && cause.name === 'ExecutionLeaseLostError');
+}
+
 export interface EnqueueExecutionJobInput {
   jobId: string;
   runId: string;

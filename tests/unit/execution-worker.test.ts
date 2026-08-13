@@ -1,6 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 import { ExecutionWorker } from '../../backend/application/execution-worker';
-import type { ExecutionJobQueue } from '../../backend/application/execution-queue';
+import {
+  ExecutionLeaseLostError,
+  type ExecutionJobQueue,
+} from '../../backend/application/execution-queue';
 import type { ExecutionJob } from '../../backend/core/execution-job';
 
 const runningJob: ExecutionJob = {
@@ -63,7 +66,9 @@ describe('ExecutionWorker', () => {
       runId: runningJob.runId,
       status: 'PARTIAL',
     });
-    expect(execute).toHaveBeenCalledWith(runningJob);
+    expect(execute).toHaveBeenCalledWith(runningJob, {
+      signal: expect.any(AbortSignal),
+    });
     expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
       workerId: 'worker-1',
@@ -89,6 +94,26 @@ describe('ExecutionWorker', () => {
       attempt: 1,
       status: 'COMPLETE',
     });
+  });
+
+  test('não reclassifica como falha quando a conclusão confirma que o lease já foi perdido', async () => {
+    const { queue } = fixture();
+    vi.mocked(queue.complete).mockRejectedValueOnce(new ExecutionLeaseLostError(
+      'tentativa não está RUNNING para o worker informado',
+    ));
+    const worker = new ExecutionWorker(queue, {
+      execute: async () => ({ status: 'COMPLETE' as const }),
+    }, {
+      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
+    });
+
+    await expect(worker.runOnce()).resolves.toEqual({
+      jobId: runningJob.jobId,
+      runId: runningJob.runId,
+      status: 'LEASE_LOST',
+      error: 'tentativa não está RUNNING para o worker informado',
+    });
+    expect(queue.complete).toHaveBeenCalledTimes(1);
   });
 
   test('persiste FAILED com mensagem clara quando o executor falha', async () => {
@@ -162,6 +187,44 @@ describe('ExecutionWorker', () => {
       expect(queue.complete).toHaveBeenCalledWith(expect.objectContaining({
         status: 'COMPLETE', attempt: 1,
       }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('aborta a tentativa antiga e não a conclui depois da perda definitiva do lease', async () => {
+    vi.useFakeTimers();
+    try {
+      const { queue } = fixture();
+      vi.mocked(queue.renewLease).mockRejectedValueOnce(new ExecutionLeaseLostError(
+        'Fila de execuções (renew_execution_job_lease): tentativa não pertence ao worker ou o lease expirou.',
+      ));
+      let finish: (() => void) | undefined;
+      let executionSignal: AbortSignal | undefined;
+      const execute = vi.fn((
+        _job: ExecutionJob,
+        context?: { signal: AbortSignal },
+      ) => new Promise<{ status: 'COMPLETE' }>((resolve) => {
+        executionSignal = context?.signal;
+        finish = () => resolve({ status: 'COMPLETE' });
+        context?.signal.addEventListener('abort', finish, { once: true });
+      }));
+      const worker = new ExecutionWorker(queue, { execute }, {
+        workerId: 'worker-1', leaseSeconds: 60, heartbeatIntervalMs: 20_000,
+      });
+
+      const pending = worker.runOnce();
+      await vi.advanceTimersByTimeAsync(20_000);
+      finish?.();
+
+      await expect(pending).resolves.toEqual({
+        jobId: runningJob.jobId,
+        runId: runningJob.runId,
+        status: 'LEASE_LOST',
+        error: expect.stringMatching(/lease expirou/i),
+      });
+      expect(executionSignal?.aborted).toBe(true);
+      expect(queue.complete).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
