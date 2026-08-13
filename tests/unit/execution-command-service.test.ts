@@ -114,16 +114,18 @@ FakeArtifactEvidence {
     artifactEvent({
       eventId: 'pddeinfo-artifact', runId: 'coleta-1',
       path: 'runs/coleta-1/pddeinfo-2026.json', source: 'PDDEINFO', kind: 'NORMALIZED_JSON',
-      ...(options.collectionLifecycle === false ? { role: 'PDDEINFO_JSON' } : {}),
+      role: 'PDDEINFO_JSON',
     }),
     ...(options.collectionLifecycle === false ? [] : [finishedCollection('coleta-1')]),
     artifactEvent({
       eventId: 'movements-artifact', runId: 'import-1',
       path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
+      role: 'SIGEF_MOVEMENTS_CSV',
     }),
     artifactEvent({
       eventId: 'release-artifact', runId: 'import-1',
       path: 'runs/import-1/release.xls', source: 'SIGEF_LIBERACOES', kind: 'RAW_FILE',
+      role: 'SIGEF_RELEASE_XLS',
     }),
   ]);
 }
@@ -198,11 +200,13 @@ describe('ExecutionCommandService', () => {
       artifactEvent({
         eventId: 'pdde-colon', runId: 'coleta:1',
         path: 'runs/coleta:1/pddeinfo-2026.json', source: 'PDDEINFO', kind: 'NORMALIZED_JSON',
+        role: 'PDDEINFO_JSON',
       }),
       finishedCollection('coleta:1'),
       artifactEvent({
         eventId: 'movement-colon', runId: 'entrada:1',
         path: 'runs/entrada:1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
+        role: 'SIGEF_MOVEMENTS_CSV',
       }),
     ]);
     const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
@@ -267,6 +271,13 @@ describe('ExecutionCommandService', () => {
         eventId: 'movements-artifact', runId: 'import-1',
         path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
         role: 'PDDEINFO_JSON',
+      }),
+    },
+    {
+      divergence: 'papel ausente',
+      replacement: artifactEvent({
+        eventId: 'movements-artifact', runId: 'import-1',
+        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
       }),
     },
     {

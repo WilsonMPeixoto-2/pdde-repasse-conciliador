@@ -274,7 +274,7 @@ export class ExecutionCommandService {
       || event.payload.kind !== requirement.kind
     ) return false;
     const preservedRole = event.payload.metadata?.role;
-    return preservedRole === undefined || preservedRole === requirement.role;
+    return preservedRole === requirement.role;
   }
 
   private async enqueue(

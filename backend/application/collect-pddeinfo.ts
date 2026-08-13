@@ -505,7 +505,11 @@ export async function collectPddeInfo(
       kind: 'NORMALIZED_JSON',
       bytes: envelopeArtifact.content,
       mediaType: 'application/json',
-      metadata: { localPath: `pddeinfo-${parsed.fiscalYear}.json`, completedAt },
+      metadata: {
+        role: 'PDDEINFO_JSON',
+        localPath: `pddeinfo-${parsed.fiscalYear}.json`,
+        completedAt,
+      },
     })
     : undefined;
 

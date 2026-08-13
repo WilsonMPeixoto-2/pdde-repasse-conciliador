@@ -161,6 +161,7 @@ describe('collectPddeInfo + EvidenceStore', () => {
       'attempts/2/manifest.json',
       'attempts/2/pddeinfo-2026.json',
     ]);
+    expect(preserved.at(-1)?.metadata).toMatchObject({ role: 'PDDEINFO_JSON' });
     const artifacts = (await evidenceStore.listByRun('run-storage-test'))
       .filter((event) => event.type === 'ARTIFACT_PRESERVED');
     expect(artifacts).toHaveLength(4);
@@ -172,6 +173,13 @@ describe('collectPddeInfo + EvidenceStore', () => {
           provider: 'SUPABASE_STORAGE',
           bucket: 'pdde-evidence',
           path: 'runs/run-storage-test/attempts/2/schools/33069247/raw.html',
+        }),
+      }),
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          kind: 'NORMALIZED_JSON',
+          path: 'runs/run-storage-test/attempts/2/pddeinfo-2026.json',
+          metadata: expect.objectContaining({ role: 'PDDEINFO_JSON' }),
         }),
       }),
     ]));
