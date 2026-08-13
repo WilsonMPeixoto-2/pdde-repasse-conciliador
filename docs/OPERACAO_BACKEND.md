@@ -50,7 +50,7 @@ Consultas públicas:
 - `GET /api/executions/:runId/report`;
 - `GET /api/findings`.
 
-Listagens aceitam no máximo 100 itens por página. Cursores são sequências decimais canônicas dentro da faixa segura de inteiros; `runId` em detalhe, filtro ou artefatos segue o contrato de identificadores append-only (1–160 caracteres alfanuméricos, `.`, `_`, `-`, `:`). Entradas fora desses contratos retornam `400` antes da consulta ao Postgres.
+Listagens aceitam no máximo 100 itens por página. `GET /api/schools/:inep/history` usa 50 por padrão, retorna eventos mais recentes primeiro, `total` e `nextCursor`; as projeções de execução correspondem aos `runId` presentes naquela página. Cursores são sequências decimais canônicas dentro da faixa segura de inteiros; `runId` em detalhe, filtro ou artefatos segue o contrato de identificadores append-only (1–160 caracteres alfanuméricos, `.`, `_`, `-`, `:`). Entradas fora desses contratos retornam `400` antes da consulta ao Postgres.
 
 Comandos administrativos:
 

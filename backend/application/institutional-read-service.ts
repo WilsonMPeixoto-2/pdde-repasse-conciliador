@@ -108,29 +108,68 @@ export class InstitutionalReadService {
     return this.schoolByInep.get(inep) ?? null;
   }
 
-  async getSchoolHistory(inep: string): Promise<{
+  async getSchoolHistory(
+    inep: string,
+    rawQuery: { limit?: number; cursor?: string } = {},
+  ): Promise<{
     school: InstitutionalSchool;
     events: PersistedEvidenceEvent[];
     executions: EvidenceRunProjection[];
+    total: number;
+    nextCursor?: string;
   } | null> {
     const school = this.getSchool(inep);
     if (!school) return null;
-    const events = (await this.store.listBySchool(inep)).sort(
-      (left, right) => left.sequence - right.sequence,
+    const query = pageQuerySchema.parse(rawQuery);
+    if (this.repository) {
+      const page = await this.repository.listSchoolEvents({ schoolInep: inep, ...query });
+      if (page.items.length === 0) {
+        return {
+          school,
+          events: [],
+          executions: [],
+          total: page.total,
+        };
+      }
+      const runIds = [...new Set(page.items.map((event) => event.runId))];
+      return {
+        school,
+        events: page.items,
+        executions: await this.repository.listExecutionsByRuns(runIds),
+        total: page.total,
+        ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}),
+      };
+    }
+
+    const allSchoolEvents = (await this.store.listBySchool(inep)).sort(
+      (left, right) => right.sequence - left.sequence,
     );
-    if (events.length === 0) return { school, events: [], executions: [] };
+    const cursor = query.cursor ? Number(query.cursor) : Number.POSITIVE_INFINITY;
+    const eligible = allSchoolEvents.filter((event) => event.sequence < cursor);
+    const events = eligible.slice(0, query.limit);
+    if (events.length === 0) {
+      return { school, events: [], executions: [], total: allSchoolEvents.length };
+    }
     const runIds = new Set(events.map((event) => event.runId));
-    const allGroups = groupByRun(this.repository && runIds.size > 0
-      ? await this.repository.listEventsByRuns([...runIds])
-      : await this.store.listAll());
+    const allGroups = groupByRun((await this.store.listAll()).filter(
+      (event) => runIds.has(event.runId),
+    ));
     const executions = [...runIds]
       .map((runId) => projectEvidenceRun(runId, allGroups.get(runId) ?? []))
       .filter((run): run is EvidenceRunProjection => run !== null)
       .sort((left, right) => (
-        Date.parse(left.startedAt ?? left.requestedAt ?? '')
-        - Date.parse(right.startedAt ?? right.requestedAt ?? '')
+        Date.parse(right.startedAt ?? right.requestedAt ?? '')
+        - Date.parse(left.startedAt ?? left.requestedAt ?? '')
       ));
-    return { school, events, executions };
+    return {
+      school,
+      events,
+      executions,
+      total: allSchoolEvents.length,
+      ...(eligible.length > query.limit
+        ? { nextCursor: String(events.at(-1)!.sequence) }
+        : {}),
+    };
   }
 
   async listExecutions(rawQuery: { limit?: number; cursor?: string } = {}): Promise<ExecutionPage> {

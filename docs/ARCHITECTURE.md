@@ -123,6 +123,8 @@ Ao receber `POST /api/reconciliations`, `ExecutionCommandService` não trata as 
 
 O pedido HTTP permanece estrito e não aceita `sourceCollectionRunId`. Esse campo só existe no payload interno da fila quando o artefato PDDEInfo pertence a um ciclo conhecido do mesmo exercício cujo evento mais recente é `EXECUTION_FINISHED` com status `COMPLETE`. Uploads confirmados sem ciclo continuam utilizáveis como entradas avulsas, mas não são apresentados como coleta de origem. A função Postgres de claim apenas copia esse valor validado; ela não o deduz do path. O runner também passa esse valor (inclusive `null`) explicitamente ao conciliador, impedindo que um `runId` autodeclarado dentro do JSON recupere o vínculo descartado pela validação institucional.
 
+O histórico escolar é paginado por `sequence`, com 50 eventos por padrão e teto de 100. O Postgres filtra `school_inep`, calcula a página e consulta em lotes apenas as projeções materializadas dos `runId` presentes nela; não carrega todos os eventos de cada execução para reconstruir a resposta. Como as projeções derivam exclusivamente do log append-only, continuam descartáveis e reconstruíveis.
+
 No staging de Liberações, o runner deriva `CNPJ__PROGRAMA.xls` do conteúdo validado, não do basename do objeto. Assim, paths opacos do Storage continuam compatíveis com o carregador canônico e nomes fornecidos pelo cliente não governam identidade financeira.
 
 ## Coleta PDDEInfo

@@ -16,7 +16,10 @@ import {
 interface ReadServiceApi {
   listSchools(): { items: Array<{ inep: string; sme: string; nome: string }>; total: number };
   getSchool(inep: string): unknown | null;
-  getSchoolHistory(inep: string): Promise<unknown | null>;
+  getSchoolHistory(
+    inep: string,
+    query?: { limit?: number; cursor?: string },
+  ): Promise<unknown | null>;
   listExecutions(query?: { limit?: number; cursor?: string }): Promise<unknown>;
   getExecution(runId: string): Promise<unknown | null>;
   listFindings(query?: {
@@ -241,7 +244,10 @@ export function createInstitutionalApi(
           return school ? json(school) : errorResponse(404, 'Escola não encontrada.');
         }
         if (segments.length === 4 && segments[3] === 'history') {
-          const history = await dependencies.readService.getSchoolHistory(inep);
+          const history = await dependencies.readService.getSchoolHistory(inep, {
+            limit: numericQuery(url, 'limit'),
+            cursor: queryString(url, 'cursor'),
+          });
           return history ? json(history) : errorResponse(404, 'Escola não encontrada.');
         }
         if (segments.length === 4 && segments[3] === 'findings') {

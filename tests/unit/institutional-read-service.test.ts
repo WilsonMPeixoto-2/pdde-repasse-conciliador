@@ -81,6 +81,27 @@ describe('InstitutionalReadService', () => {
         expect.objectContaining({ runId: 'run-a', status: 'COMPLETE' }),
         expect.objectContaining({ runId: 'run-b', status: 'RUNNING' }),
       ]),
+      total: 3,
+    });
+  });
+
+  test('pagina o histórico escolar por sequência sem perder projeções relacionadas', async () => {
+    const first = await service.getSchoolHistory('33069247', { limit: 1 });
+    expect(first).toMatchObject({
+      events: [expect.objectContaining({ eventId: 'finding-b', sequence: 8 })],
+      executions: [expect.objectContaining({ runId: 'run-b' })],
+      total: 3,
+      nextCursor: '8',
+    });
+
+    await expect(service.getSchoolHistory('33069247', {
+      limit: 1,
+      cursor: first!.nextCursor,
+    })).resolves.toMatchObject({
+      events: [expect.objectContaining({ eventId: 'artifact-a', sequence: 4 })],
+      executions: [expect.objectContaining({ runId: 'run-a' })],
+      total: 3,
+      nextCursor: '4',
     });
   });
 
@@ -91,6 +112,7 @@ describe('InstitutionalReadService', () => {
       school: schools[1],
       events: [],
       executions: [],
+      total: 0,
     });
     expect(listAll).not.toHaveBeenCalled();
   });

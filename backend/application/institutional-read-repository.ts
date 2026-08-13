@@ -29,6 +29,16 @@ export interface FindingReadQuery extends ExecutionReadQuery {
   requiresHumanReview?: boolean;
 }
 
+export interface SchoolEventReadQuery extends ExecutionReadQuery {
+  schoolInep: string;
+}
+
+export interface SchoolEventPage {
+  items: PersistedEvidenceEvent[];
+  total: number;
+  nextCursor?: string;
+}
+
 export interface InstitutionalReadRepository {
   listExecutions(query: ExecutionReadQuery): Promise<ExecutionPage>;
   listFindings(query: FindingReadQuery): Promise<{
@@ -36,7 +46,8 @@ export interface InstitutionalReadRepository {
     total: number;
     nextCursor?: string;
   }>;
-  listEventsByRuns(runIds: string[]): Promise<PersistedEvidenceEvent[]>;
+  listSchoolEvents(query: SchoolEventReadQuery): Promise<SchoolEventPage>;
+  listExecutionsByRuns(runIds: string[]): Promise<EvidenceRunProjection[]>;
 }
 
 export function toFindingReadModel(event: PersistedEvidenceEvent): FindingReadModel {

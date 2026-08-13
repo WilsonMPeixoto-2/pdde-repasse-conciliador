@@ -55,10 +55,6 @@ class FakeQuery implements PromiseLike<{ data: Row[]; error: null; count: number
     this.filters.push((row) => Number(row[column]) < value);
     return this;
   }
-  gt(column: string, value: number) {
-    this.filters.push((row) => Number(row[column]) > value);
-    return this;
-  }
   in(column: string, values: unknown[]) {
     if (values.length > 40) throw new Error('lote de IN excede 40 valores');
     this.filters.push((row) => values.includes(row[column]));
@@ -123,25 +119,30 @@ describe('SupabaseInstitutionalReadRepository', () => {
     });
   });
 
-  test('carrega somente os runIds necessários ao histórico escolar', async () => {
+  test('pagina eventos escolares e consulta suas projeções sem varrer os runs', async () => {
     const repository = new SupabaseInstitutionalReadRepository(new FakeClient());
-    await expect(repository.listEventsByRuns(['run-b'])).resolves.toEqual([
-      expect.objectContaining({ eventId: 'start-b', runId: 'run-b' }),
-      expect.objectContaining({ eventId: 'finding-b', runId: 'run-b' }),
+
+    await expect(repository.listSchoolEvents({
+      schoolInep: '33069247', limit: 1,
+    })).resolves.toEqual({
+      items: [expect.objectContaining({ eventId: 'finding-b', sequence: 7 })],
+      total: 1,
+    });
+    await expect(repository.listExecutionsByRuns(['run-b'])).resolves.toEqual([
+      expect.objectContaining({ runId: 'run-b', status: 'RUNNING' }),
     ]);
   });
 
-  test('divide históricos com mais de 500 execuções sem duplicar ou perder ordem', async () => {
+  test('divide em lotes as projeções dos runs presentes na página do histórico', async () => {
     const repository = new SupabaseInstitutionalReadRepository(new FakeClient());
     const runIds = [
       'run-b',
-      ...Array.from({ length: 500 }, (_, index) => `history-${index}`),
+      ...Array.from({ length: 99 }, (_, index) => `history-${index}`),
       'run-b',
     ];
 
-    await expect(repository.listEventsByRuns(runIds)).resolves.toEqual([
-      expect.objectContaining({ sequence: 6, eventId: 'start-b' }),
-      expect.objectContaining({ sequence: 7, eventId: 'finding-b' }),
+    await expect(repository.listExecutionsByRuns(runIds)).resolves.toEqual([
+      expect.objectContaining({ runId: 'run-b', status: 'RUNNING' }),
     ]);
   });
 });

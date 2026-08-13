@@ -9,11 +9,11 @@ import {
   type ExecutionReadQuery,
   type FindingReadQuery,
   type InstitutionalReadRepository,
+  type SchoolEventReadQuery,
 } from '../application/institutional-read-repository';
 import {
   evidenceIdentifierSchema,
   evidenceSourceSchema,
-  type PersistedEvidenceEvent,
 } from '../core/evidence';
 import { mapSupabaseEvidenceEvent } from './supabase-evidence-store';
 
@@ -27,7 +27,6 @@ const EXECUTION_COLUMNS = [
   'failed_attempts_count', 'artifacts_count', 'findings_count', 'human_review_count',
   'anchor_sequence',
 ].join(',');
-const PAGE_SIZE = 1_000;
 // Mantém a query `in(...)` abaixo de limites usuais de URL mesmo quando cada
 // identificador ocupa os 160 caracteres permitidos pelo contrato.
 const RUN_ID_BATCH_SIZE = 40;
@@ -43,7 +42,6 @@ interface SupabaseQuery extends PromiseLike<SupabaseResult> {
   select(columns?: string, options?: { count?: 'exact'; head?: boolean }): SupabaseQuery;
   eq(column: string, value: unknown): SupabaseQuery;
   lt(column: string, value: number): SupabaseQuery;
-  gt(column: string, value: number): SupabaseQuery;
   in(column: string, values: unknown[]): SupabaseQuery;
   order(column: string, options?: { ascending?: boolean }): SupabaseQuery;
   limit(value: number): SupabaseQuery;
@@ -167,30 +165,54 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
     };
   }
 
-  async listEventsByRuns(runIds: string[]): Promise<PersistedEvidenceEvent[]> {
-    const validated = z.array(evidenceIdentifierSchema).min(1).max(10_000)
+  async listSchoolEvents(query: SchoolEventReadQuery) {
+    const applyFilter = (request: SupabaseQuery): SupabaseQuery => request
+      .eq('school_inep', query.schoolInep);
+    let pageRequest = applyFilter(
+      this.client.from('evidence_events').select(EVENT_COLUMNS),
+    ).order('sequence', { ascending: false }).limit(query.limit + 1);
+    if (query.cursor) pageRequest = pageRequest.lt('sequence', Number(query.cursor));
+    const countRequest = applyFilter(
+      this.client.from('evidence_events').select('sequence', { count: 'exact', head: true }),
+    );
+    const [pageResult, countResult] = await Promise.all([pageRequest, countRequest]);
+    if (pageResult.error) {
+      throw new Error(`Read models do histórico escolar: ${message(pageResult.error)}.`);
+    }
+    if (countResult.error) {
+      throw new Error(`Contagem do histórico escolar: ${message(countResult.error)}.`);
+    }
+    if (!Array.isArray(pageResult.data)) {
+      throw new Error('Histórico escolar retornou formato inválido.');
+    }
+    const mapped = pageResult.data.map(mapSupabaseEvidenceEvent);
+    const page = mapped.slice(0, query.limit);
+    return {
+      items: page,
+      total: Number.isSafeInteger(countResult.count) ? Number(countResult.count) : mapped.length,
+      ...(mapped.length > query.limit && page.length > 0
+        ? { nextCursor: String(page.at(-1)!.sequence) }
+        : {}),
+    };
+  }
+
+  async listExecutionsByRuns(runIds: string[]): Promise<EvidenceRunProjection[]> {
+    const validated = z.array(evidenceIdentifierSchema).min(1).max(100)
       .parse([...new Set(runIds)]);
-    const events: PersistedEvidenceEvent[] = [];
+    const projections: Array<ReturnType<typeof executionProjection>> = [];
     for (let offset = 0; offset < validated.length; offset += RUN_ID_BATCH_SIZE) {
       const batch = validated.slice(offset, offset + RUN_ID_BATCH_SIZE);
-      let cursor = 0;
-      while (true) {
-        const { data, error } = await this.client.from('evidence_events')
-          .select(EVENT_COLUMNS)
-          .in('run_id', batch)
-          .gt('sequence', cursor)
-          .order('sequence', { ascending: true })
-          .limit(PAGE_SIZE);
-        if (error) throw new Error(`Read models do histórico escolar: ${message(error)}.`);
-        if (!Array.isArray(data)) throw new Error('Histórico escolar retornou formato inválido.');
-        const page = data.map(mapSupabaseEvidenceEvent);
-        events.push(...page);
-        if (page.length < PAGE_SIZE) break;
-        const next = page.at(-1)?.sequence;
-        if (!next || next <= cursor) throw new Error('Cursor do histórico escolar não avançou.');
-        cursor = next;
-      }
+      const { data, error } = await this.client.from('execution_read_models')
+        .select(EXECUTION_COLUMNS)
+        .in('run_id', batch)
+        .limit(batch.length);
+      if (error) throw new Error(`Read models do histórico escolar: ${message(error)}.`);
+      if (!Array.isArray(data)) throw new Error('Projeções do histórico escolar retornaram formato inválido.');
+      projections.push(...data.map(executionProjection));
     }
-    return events.sort((left, right) => left.sequence - right.sequence);
+    return projections
+      .sort((left, right) => right.anchor - left.anchor)
+      .map((item) => item.projection);
   }
+
 }

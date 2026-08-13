@@ -129,8 +129,14 @@ describe('API institucional', () => {
     });
     expect(await json(await api(new Request(`http://localhost/api/schools/${school.inep}`))))
       .toEqual(school);
-    expect(await json(await api(new Request(`http://localhost/api/schools/${school.inep}/history`))))
+    expect(await json(await api(new Request(
+      `http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`,
+    ))))
       .toMatchObject({ school, executions: [execution] });
+    expect(readService.getSchoolHistory).toHaveBeenCalledWith(school.inep, {
+      limit: 25,
+      cursor: '100',
+    });
     await api(new Request(`http://localhost/api/schools/${school.inep}/findings?review=true`));
     expect(readService.listFindings).toHaveBeenCalledWith(expect.objectContaining({
       schoolInep: school.inep, requiresHumanReview: true,
