@@ -16,6 +16,7 @@ const schools = [
   { inep: '33069247', sme: '0410001', nome: 'ESCOLA A' },
   { inep: '33069093', sme: '0410002', nome: 'ESCOLA B' },
 ];
+const evidenceStore = {} as EvidenceEventStore;
 
 function job(kind: 'PDDEINFO' | 'RECONCILIATION', payload: Record<string, unknown>): ExecutionJob {
   return {
@@ -27,18 +28,11 @@ function job(kind: 'PDDEINFO' | 'RECONCILIATION', payload: Record<string, unknow
     requestHash: 'a'.repeat(64),
     payload,
     requestedAt: '2026-08-13T12:00:00Z',
-    availableAt: '2026-08-13T12:00:00Z',
-    claimedAt: '2026-08-13T12:01:00Z',
-    leaseExpiresAt: '2026-08-13T12:06:00Z',
+    startedAt: '2026-08-13T12:01:00Z',
     completedAt: null,
-    workerId: 'worker-1',
-    attempts: 1,
-    maxAttempts: 3,
     lastError: null,
   };
 }
-
-const evidenceStore = {} as EvidenceEventStore;
 
 function releaseHtml(): Buffer {
   return Buffer.from(`<!doctype html><html><body>
@@ -56,8 +50,12 @@ function releaseHtml(): Buffer {
   </body></html>`, 'latin1');
 }
 
+function signal(): AbortSignal {
+  return new AbortController().signal;
+}
+
 describe('InstitutionalJobExecutor', () => {
-  test('executa coleta no workspace isolado da tentativa e respeita subconjunto da lista-mestre', async () => {
+  test('executa coleta em workspace único e respeita subconjunto da lista-mestre', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pdde-job-'));
     temporaryPaths.push(root);
     const collect = vi.fn(async () => ({ status: 'COMPLETE' as const }));
@@ -69,14 +67,13 @@ describe('InstitutionalJobExecutor', () => {
       collectPddeInfo: collect,
       reconcileFiles: vi.fn(),
     });
-    const cancellation = new AbortController();
 
     await expect(executor.execute(job('PDDEINFO', {
       fiscalYear: 2026,
       schoolIneps: ['33069093'],
       batchSize: 1,
       batchDelayMs: 0,
-    }), { signal: cancellation.signal })).resolves.toEqual({ status: 'COMPLETE' });
+    }), { signal: signal() })).resolves.toEqual({ status: 'COMPLETE' });
 
     expect(collect).toHaveBeenCalledWith(expect.objectContaining({
       schools: [schools[1]],
@@ -84,29 +81,31 @@ describe('InstitutionalJobExecutor', () => {
       runId: 'pddeinfo-run-1',
       batchSize: 1,
       batchDelayMs: 0,
-      workspacePath: resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'attempt-1'),
+      workspacePath: resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'run'),
       evidenceStore,
-      signal: cancellation.signal,
       manageExecutionLifecycle: false,
-      institutionalPathPrefix: 'attempts/1',
+      institutionalPathPrefix: 'run',
     }));
   });
 
   test('rejeita INEP fora da lista institucional antes de consultar a fonte', async () => {
     const collect = vi.fn();
     const executor = new InstitutionalJobExecutor({
-      workspacePath: '/tmp/pdde-jobs', schools, evidenceStore,
+      workspacePath: '/tmp/pdde-jobs',
+      schools,
+      evidenceStore,
       artifactStore: {} as ArtifactStore,
       collectPddeInfo: collect,
       reconcileFiles: vi.fn(),
     });
     await expect(executor.execute(job('PDDEINFO', {
-      fiscalYear: 2026, schoolIneps: ['99999999'],
-    }))).rejects.toThrow(/lista.*institucional|inep.*99999999/i);
+      fiscalYear: 2026,
+      schoolIneps: ['99999999'],
+    }), { signal: signal() })).rejects.toThrow(/lista.*institucional|inep.*99999999/i);
     expect(collect).not.toHaveBeenCalled();
   });
 
-  test('baixa e verifica entradas institucionais antes da conciliação', async () => {
+  test('baixa entradas institucionais e prepara a conciliação sem tentativas técnicas', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pdde-job-'));
     temporaryPaths.push(root);
     const releaseBytes = releaseHtml();
@@ -119,10 +118,13 @@ describe('InstitutionalJobExecutor', () => {
       download: vi.fn(async ({ path }: { path: string }) => artifactBytes.get(path)!),
     } as unknown as ArtifactStore;
     const reconcile = vi.fn(async () => ({}));
-    const cancellation = new AbortController();
     const executor = new InstitutionalJobExecutor({
-      workspacePath: root, schools, evidenceStore, artifactStore,
-      collectPddeInfo: vi.fn(), reconcileFiles: reconcile,
+      workspacePath: root,
+      schools,
+      evidenceStore,
+      artifactStore,
+      collectPddeInfo: vi.fn(),
+      reconcileFiles: reconcile,
     });
     const ref = (path: string) => ({
       bucket: 'pdde-evidence', path, sha256: 'a'.repeat(64),
@@ -135,34 +137,31 @@ describe('InstitutionalJobExecutor', () => {
       movementsArtifact: ref('runs/import/movements.csv'),
       releaseArtifacts: [ref('runs/inputs/sigef-liberacoes/upload-id.xls')],
       title: 'Relatório institucional',
-      sourceCollectionRunId: 'coleta-validada',
-    }), { signal: cancellation.signal })).resolves.toEqual({ status: 'COMPLETE' });
+    }), { signal: signal() })).resolves.toEqual({ status: 'COMPLETE' });
 
-    const attempt = resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'attempt-1');
+    const run = resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'run');
     expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({
-      pddeInfoPath: join(attempt, 'inputs', 'pddeinfo.json'),
-      movementsPath: join(attempt, 'inputs', 'movements.csv'),
-      releaseDirectoryPath: join(attempt, 'inputs', 'releases'),
-      outputPath: join(attempt, 'reports', 'reconciliation.xlsx'),
+      pddeInfoPath: join(run, 'inputs', 'pddeinfo.json'),
+      movementsPath: join(run, 'inputs', 'movements.csv'),
+      releaseDirectoryPath: join(run, 'inputs', 'releases'),
+      outputPath: join(run, 'reports', 'reconciliation.xlsx'),
       reconciliationRunId: 'reconciliation-run-1',
-      sourceCollectionRunId: 'coleta-validada',
+      sourceCollectionRunId: null,
       fiscalYear: 2026,
       requestedThrough: '2026-08-13',
       title: 'Relatório institucional',
       evidenceStore,
       artifactStore,
-      signal: cancellation.signal,
       manageExecutionLifecycle: false,
-      institutionalPathPrefix: 'attempts/1',
+      institutionalPathPrefix: 'run',
     }));
-    await expect(readFile(join(attempt, 'inputs', 'movements.csv'), 'utf8'))
-      .resolves.toBe('movimentos');
-    await expect(readFile(join(attempt, 'inputs', 'releases', '11111111000191__02.xls')))
+    await expect(readFile(join(run, 'inputs', 'movements.csv'), 'utf8')).resolves.toBe('movimentos');
+    await expect(readFile(join(run, 'inputs', 'releases', '11111111000191__02.xls')))
       .resolves.toEqual(releaseBytes);
     expect(artifactStore.download).toHaveBeenCalledTimes(3);
   });
 
-  test('detecta duas Liberações do mesmo CNPJ/programa mesmo com paths de upload distintos', async () => {
+  test('detecta duas Liberações do mesmo CNPJ/programa mesmo com uploads distintos', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pdde-job-'));
     temporaryPaths.push(root);
     const bytes = releaseHtml();
@@ -173,8 +172,12 @@ describe('InstitutionalJobExecutor', () => {
     } as unknown as ArtifactStore;
     const reconcile = vi.fn();
     const executor = new InstitutionalJobExecutor({
-      workspacePath: root, schools, evidenceStore, artifactStore,
-      collectPddeInfo: vi.fn(), reconcileFiles: reconcile,
+      workspacePath: root,
+      schools,
+      evidenceStore,
+      artifactStore,
+      collectPddeInfo: vi.fn(),
+      reconcileFiles: reconcile,
     });
     const ref = (path: string) => ({
       bucket: 'pdde-evidence', path, sha256: 'a'.repeat(64),
@@ -189,7 +192,7 @@ describe('InstitutionalJobExecutor', () => {
         ref('runs/inputs/sigef-liberacoes/upload-a.xls'),
         ref('runs/inputs/sigef-liberacoes/upload-b.xls'),
       ],
-    }))).rejects.toThrow(/duplicad/i);
+    }), { signal: signal() })).rejects.toThrow(/duplicad/i);
     expect(reconcile).not.toHaveBeenCalled();
   });
 });
