@@ -1,12 +1,8 @@
 import { z } from 'zod';
-import type {
-  PersistedEvidenceEvent,
-} from '../core/evidence';
+import type { PersistedEvidenceEvent } from '../core/evidence';
 import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
 import {
-  currentFindingEvents,
-  evidenceEventsAfterLatestStart,
   projectEvidenceRun,
   type EvidenceRunProjection,
 } from './evidence-history';
@@ -126,12 +122,7 @@ export class InstitutionalReadService {
     if (this.repository) {
       const page = await this.repository.listSchoolEvents({ schoolInep: inep, ...query });
       if (page.items.length === 0) {
-        return {
-          school,
-          events: [],
-          executions: [],
-          total: page.total,
-        };
+        return { school, events: [], executions: [], total: page.total };
       }
       const runIds = [...new Set(page.items.map((event) => event.runId))];
       return {
@@ -194,6 +185,16 @@ export class InstitutionalReadService {
     };
   }
 
+  private async executionProjection(
+    runId: string,
+    events?: PersistedEvidenceEvent[],
+  ): Promise<EvidenceRunProjection | null> {
+    if (this.repository) {
+      return (await this.repository.listExecutionsByRuns([runId]))[0] ?? null;
+    }
+    return projectEvidenceRun(runId, events ?? await this.store.listByRun(runId));
+  }
+
   async getExecution(runId: string): Promise<{
     execution: EvidenceRunProjection;
     events: PersistedEvidenceEvent[];
@@ -204,12 +205,14 @@ export class InstitutionalReadService {
     const events = (await this.store.listByRun(validatedRunId)).sort(
       (left, right) => left.sequence - right.sequence,
     );
-    const execution = projectEvidenceRun(validatedRunId, events);
+    const execution = await this.executionProjection(validatedRunId, events);
     if (!execution) return null;
     return {
       execution,
       events,
-      findings: currentFindingEvents(events),
+      findings: execution.status === 'COMPLETE'
+        ? events.filter((event) => event.type === 'FINDING_RECORDED')
+        : [],
       artifacts: events.filter((event) => event.type === 'ARTIFACT_PRESERVED'),
     };
   }
@@ -236,8 +239,17 @@ export class InstitutionalReadService {
           : { requiresHumanReview: rawQuery.requiresHumanReview }),
       });
     }
+
+    const allEvents = await this.store.listAll();
+    const groups = groupByRun(allEvents);
+    const completedRuns = new Set(
+      [...groups.entries()]
+        .filter(([groupRunId, events]) => projectEvidenceRun(groupRunId, events)?.status === 'COMPLETE')
+        .map(([groupRunId]) => groupRunId),
+    );
     const cursor = page.cursor ? Number(page.cursor) : Number.POSITIVE_INFINITY;
-    const filtered = currentFindingEvents(await this.store.listAll())
+    const filtered = allEvents
+      .filter((event) => event.type === 'FINDING_RECORDED' && completedRuns.has(event.runId))
       .filter((event) => !rawQuery.schoolInep || event.schoolInep === rawQuery.schoolInep)
       .filter((event) => !runId || event.runId === runId)
       .filter((event) => rawQuery.requiresHumanReview === undefined
@@ -264,9 +276,10 @@ export class InstitutionalReadService {
 
   async getCurrentReport(runId: string): Promise<ArtifactReadModel | null> {
     const validatedRunId = evidenceIdentifierSchema.parse(runId);
-    const report = evidenceEventsAfterLatestStart(
-      await this.store.listByRun(validatedRunId),
-    )
+    const events = await this.store.listByRun(validatedRunId);
+    const execution = await this.executionProjection(validatedRunId, events);
+    if (!execution || execution.status !== 'COMPLETE') return null;
+    const report = events
       .filter((event) => event.type === 'ARTIFACT_PRESERVED'
         && payload(event).kind === 'REPORT')
       .sort((left, right) => right.sequence - left.sequence)
