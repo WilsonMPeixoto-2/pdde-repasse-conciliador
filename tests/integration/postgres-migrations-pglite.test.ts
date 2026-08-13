@@ -104,8 +104,8 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
       );
       await database.query('select * from public.claim_execution_job()');
       await database.query(`select public.append_evidence_event(
-        'finding-ok', 'recon-ok', 'FINDING_RECORDED', '2026-08-13T12:10:00Z',
-        'CONCILIADOR', 2026, '33069247',
+        'finding-ok', 'recon-ok', 'FINDING_RECORDED', '2026-08-13T12:10:00Z'::timestamptz,
+        'CONCILIADOR', 2026::smallint, '33069247',
         '{"status":"REPASSE_CONFIRMADO","requiresHumanReview":false}'::jsonb
       )`);
 
