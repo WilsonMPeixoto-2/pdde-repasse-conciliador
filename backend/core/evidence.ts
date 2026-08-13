@@ -61,7 +61,7 @@ const sourceAttemptSchema = z.object({
   type: z.literal('SOURCE_ATTEMPT_RECORDED'),
   payload: z.object({
     status: z.enum(['SUCCESS', 'FAILED']),
-    attempts: z.number().int().positive(),
+    attempts: z.number().int().positive().optional(),
     httpStatus: z.number().int().min(100).max(599).optional(),
     responseBytes: z.number().int().nonnegative().optional(),
     error: z.string().min(1).optional(),
