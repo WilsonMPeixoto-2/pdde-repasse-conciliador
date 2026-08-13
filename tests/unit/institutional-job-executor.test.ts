@@ -105,12 +105,12 @@ describe('InstitutionalJobExecutor', () => {
     expect(collect).not.toHaveBeenCalled();
   });
 
-  test('baixa entradas institucionais e prepara a conciliação sem tentativas técnicas', async () => {
+  test('baixa entradas institucionais e prepara a conciliação sem genealogia técnica', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pdde-job-'));
     temporaryPaths.push(root);
     const releaseBytes = releaseHtml();
     const artifactBytes = new Map([
-      ['runs/coleta/pddeinfo-2026.json', Buffer.from('{"schools":[]}')],
+      ['runs/coleta/pddeinfo-2026.json', Buffer.from('{"runId":"nao-confiar-no-json","schools":[]}')],
       ['runs/import/movements.csv', Buffer.from('movimentos')],
       ['runs/inputs/sigef-liberacoes/upload-id.xls', releaseBytes],
     ]);
@@ -146,6 +146,7 @@ describe('InstitutionalJobExecutor', () => {
       releaseDirectoryPath: join(run, 'inputs', 'releases'),
       outputPath: join(run, 'reports', 'reconciliation.xlsx'),
       reconciliationRunId: 'reconciliation-run-1',
+      sourceCollectionRunId: null,
       fiscalYear: 2026,
       requestedThrough: '2026-08-13',
       title: 'Relatório institucional',
