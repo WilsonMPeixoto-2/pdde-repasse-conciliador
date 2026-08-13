@@ -215,6 +215,9 @@ describe('InstitutionalReadService', () => {
       items: [expect.objectContaining({ eventId: 'finding-b-attempt-2' })],
     });
     await expect(service.getExecution('run-b')).resolves.toMatchObject({
+      execution: expect.objectContaining({
+        counts: expect.objectContaining({ findings: 1, humanReview: 0 }),
+      }),
       findings: [expect.objectContaining({ eventId: 'finding-b-attempt-2' })],
       events: expect.arrayContaining([
         expect.objectContaining({ eventId: 'finding-b' }),

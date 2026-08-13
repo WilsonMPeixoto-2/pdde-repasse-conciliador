@@ -5,6 +5,7 @@ import type {
 import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
 import {
+  currentFindingEvents,
   projectEvidenceRun,
   type EvidenceRunProjection,
 } from './evidence-history';
@@ -60,17 +61,6 @@ function groupByRun(events: PersistedEvidenceEvent[]): Map<string, PersistedEvid
     groups.set(event.runId, existing);
   }
   return groups;
-}
-
-function currentFindings(events: PersistedEvidenceEvent[]): PersistedEvidenceEvent[] {
-  const latestStartByRun = new Map<string, number>();
-  for (const event of events) {
-    if (event.type !== 'EXECUTION_STARTED') continue;
-    const current = latestStartByRun.get(event.runId) ?? 0;
-    if (event.sequence > current) latestStartByRun.set(event.runId, event.sequence);
-  }
-  return events.filter((event) => event.type === 'FINDING_RECORDED'
-    && event.sequence > (latestStartByRun.get(event.runId) ?? 0));
 }
 
 function artifactModel(event: PersistedEvidenceEvent): ArtifactReadModel {
@@ -218,7 +208,7 @@ export class InstitutionalReadService {
     return {
       execution,
       events,
-      findings: currentFindings(events),
+      findings: currentFindingEvents(events),
       artifacts: events.filter((event) => event.type === 'ARTIFACT_PRESERVED'),
     };
   }
@@ -246,7 +236,7 @@ export class InstitutionalReadService {
       });
     }
     const cursor = page.cursor ? Number(page.cursor) : Number.POSITIVE_INFINITY;
-    const filtered = currentFindings(await this.store.listAll())
+    const filtered = currentFindingEvents(await this.store.listAll())
       .filter((event) => !rawQuery.schoolInep || event.schoolInep === rawQuery.schoolInep)
       .filter((event) => !runId || event.runId === runId)
       .filter((event) => rawQuery.requiresHumanReview === undefined
