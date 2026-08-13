@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type {
   PersistedEvidenceEvent,
 } from '../core/evidence';
+import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
 import {
   projectEvidenceRun,
@@ -21,9 +22,12 @@ const schoolSchema = z.object({
   sme: z.string().regex(/^\d{7}$/),
   nome: z.string().min(1),
 }).strict();
+const cursorSchema = z.string().max(16, 'cursor excede 16 caracteres')
+  .regex(/^(?:0|[1-9]\d*)$/, 'cursor inválido')
+  .refine((value) => Number.isSafeInteger(Number(value)), 'cursor fora da faixa segura');
 const pageQuerySchema = z.object({
   limit: z.number().int().min(1).max(100).default(50),
-  cursor: z.string().regex(/^\d+$/).optional(),
+  cursor: cursorSchema.optional(),
 }).strict();
 
 export type InstitutionalSchool = z.infer<typeof schoolSchema>;
@@ -155,10 +159,11 @@ export class InstitutionalReadService {
     findings: PersistedEvidenceEvent[];
     artifacts: PersistedEvidenceEvent[];
   } | null> {
-    const events = (await this.store.listByRun(runId)).sort(
+    const validatedRunId = evidenceIdentifierSchema.parse(runId);
+    const events = (await this.store.listByRun(validatedRunId)).sort(
       (left, right) => left.sequence - right.sequence,
     );
-    const execution = projectEvidenceRun(runId, events);
+    const execution = projectEvidenceRun(validatedRunId, events);
     if (!execution) return null;
     return {
       execution,
@@ -177,11 +182,14 @@ export class InstitutionalReadService {
   } = {}): Promise<{ items: FindingReadModel[]; total: number; nextCursor?: string }> {
     const page = pageQuerySchema.parse({ limit: rawQuery.limit, cursor: rawQuery.cursor });
     if (rawQuery.schoolInep) z.string().regex(/^\d{8}$/, 'INEP inválido').parse(rawQuery.schoolInep);
+    const runId = rawQuery.runId === undefined
+      ? undefined
+      : evidenceIdentifierSchema.parse(rawQuery.runId);
     if (this.repository) {
       return this.repository.listFindings({
         ...page,
         ...(rawQuery.schoolInep ? { schoolInep: rawQuery.schoolInep } : {}),
-        ...(rawQuery.runId ? { runId: rawQuery.runId } : {}),
+        ...(runId ? { runId } : {}),
         ...(rawQuery.requiresHumanReview === undefined
           ? {}
           : { requiresHumanReview: rawQuery.requiresHumanReview }),
@@ -191,7 +199,7 @@ export class InstitutionalReadService {
     const filtered = (await this.store.listAll())
       .filter((event) => event.type === 'FINDING_RECORDED')
       .filter((event) => !rawQuery.schoolInep || event.schoolInep === rawQuery.schoolInep)
-      .filter((event) => !rawQuery.runId || event.runId === rawQuery.runId)
+      .filter((event) => !runId || event.runId === runId)
       .filter((event) => rawQuery.requiresHumanReview === undefined
         || payload(event).requiresHumanReview === rawQuery.requiresHumanReview)
       .sort((left, right) => right.sequence - left.sequence);
@@ -207,7 +215,8 @@ export class InstitutionalReadService {
   }
 
   async listArtifacts(runId: string): Promise<ArtifactReadModel[]> {
-    return (await this.store.listByRun(runId))
+    const validatedRunId = evidenceIdentifierSchema.parse(runId);
+    return (await this.store.listByRun(validatedRunId))
       .filter((event) => event.type === 'ARTIFACT_PRESERVED')
       .sort((left, right) => right.sequence - left.sequence)
       .map(artifactModel);

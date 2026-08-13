@@ -5,10 +5,13 @@ const timestampSchema = z.string().refine(
   'data e hora inválidas',
 );
 
-const identifierSchema = z.string().min(1).max(160).regex(
-  /^[A-Za-z0-9._:-]+$/,
-  'identificador contém caracteres inválidos',
-);
+export const evidenceIdentifierSchema = z.string()
+  .min(1, 'identificador obrigatório')
+  .max(160, 'identificador excede 160 caracteres')
+  .regex(
+    /^[A-Za-z0-9._:-]+$/,
+    'identificador contém caracteres inválidos',
+  );
 
 export const evidenceSourceSchema = z.enum([
   'PDDEINFO',
@@ -31,8 +34,8 @@ export const evidenceEventTypeSchema = z.enum([
 ]);
 
 const commonFields = {
-  eventId: identifierSchema,
-  runId: identifierSchema,
+  eventId: evidenceIdentifierSchema,
+  runId: evidenceIdentifierSchema,
   occurredAt: timestampSchema,
   source: evidenceSourceSchema,
   fiscalYear: z.number().int().min(2000).max(2100),

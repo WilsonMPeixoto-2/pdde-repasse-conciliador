@@ -109,6 +109,23 @@ describe('InstitutionalReadService', () => {
     });
   });
 
+  test('rejeita cursor não seguro e runId inválido antes de consultar o log', async () => {
+    const listAll = vi.spyOn(store, 'listAll');
+    const listByRun = vi.spyOn(store, 'listByRun');
+
+    await expect(service.listExecutions({ cursor: '9'.repeat(100) }))
+      .rejects.toThrow(/cursor|seguro|inválid/i);
+    await expect(service.listFindings({ runId: '../outro-run' }))
+      .rejects.toThrow(/runid|identificador|inválid/i);
+    await expect(service.getExecution('x'.repeat(161)))
+      .rejects.toThrow(/runid|identificador|inválid/i);
+    await expect(service.listArtifacts('run/com/barra'))
+      .rejects.toThrow(/runid|identificador|inválid/i);
+
+    expect(listAll).not.toHaveBeenCalled();
+    expect(listByRun).not.toHaveBeenCalled();
+  });
+
   test('mantém artefatos de lote consultáveis sem criar uma execução sintética', async () => {
     await store.append({
       eventId: 'upload-requested', runId: 'input-batch', type: 'OBSERVATION_RECORDED',
