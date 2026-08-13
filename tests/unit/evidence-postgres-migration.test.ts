@@ -7,7 +7,7 @@ const migrationUrl = new URL(
 );
 
 describe('migration Postgres de evidências', () => {
-  test('mantém log append-only, RLS fechado e índices para execução/escola', async () => {
+  test('mantém log append-only, RLS fechado, hash canônico e verificação da cadeia', async () => {
     const sql = (await readFile(migrationUrl, 'utf8')).toLowerCase();
 
     expect(sql).toMatch(/create extension if not exists pgcrypto/);
@@ -18,7 +18,11 @@ describe('migration Postgres de evidências', () => {
     expect(sql).toMatch(/prevent_evidence_event_mutation/);
     expect(sql).toMatch(/before update or delete/);
     expect(sql).toMatch(/pg_advisory_xact_lock/);
+    expect(sql).toMatch(/order by sequence desc\s+limit 1/);
+    expect(sql).toMatch(/at time zone 'utc'/);
     expect(sql).toMatch(/digest\(/);
+    expect(sql).toMatch(/create or replace function public\.verify_evidence_chain/);
+    expect(sql).toMatch(/eventhash divergente|event_hash divergente/);
     expect(sql).toMatch(/grant execute.*service_role/s);
     expect(sql).toMatch(/revoke all.*anon/s);
     expect(sql).toMatch(/revoke all.*authenticated/s);
