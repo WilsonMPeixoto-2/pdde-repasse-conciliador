@@ -109,6 +109,35 @@ describe('InstitutionalReadService', () => {
     });
   });
 
+  test('mantém artefatos de lote consultáveis sem criar uma execução sintética', async () => {
+    await store.append({
+      eventId: 'upload-requested', runId: 'input-batch', type: 'OBSERVATION_RECORDED',
+      occurredAt: '2026-08-13T12:00:00Z', source: 'SIGEF_MOVIMENTACOES', fiscalYear: 2026,
+      payload: {
+        observationKind: 'ARTIFACT_UPLOAD_REQUESTED',
+        data: { uploadId: '00000000-0000-5000-8000-000000000001' },
+      },
+    });
+    await store.append({
+      eventId: 'upload-preserved', runId: 'input-batch', type: 'ARTIFACT_PRESERVED',
+      occurredAt: '2026-08-13T12:01:00Z', source: 'SIGEF_MOVIMENTACOES', fiscalYear: 2026,
+      payload: {
+        kind: 'RAW_FILE', provider: 'SUPABASE_STORAGE', bucket: 'pdde-evidence',
+        path: 'runs/input-batch/input.csv', sha256: 'd'.repeat(64), bytes: 42,
+        mediaType: 'text/csv', metadata: { role: 'SIGEF_MOVEMENTS_CSV' },
+      },
+    });
+
+    const executions = await service.listExecutions({ limit: 10 });
+    expect(executions.items.map((execution) => execution.runId)).not.toContain('input-batch');
+    await expect(service.getExecution('input-batch')).resolves.toBeNull();
+    await expect(service.listArtifacts('input-batch')).resolves.toEqual([
+      expect.objectContaining({
+        eventId: 'upload-preserved', runId: 'input-batch', path: 'runs/input-batch/input.csv',
+      }),
+    ]);
+  });
+
   test('filtra achados/exceções e projeta referências de artefato', async () => {
     await expect(service.listFindings({ schoolInep: '33069247', requiresHumanReview: true }))
       .resolves.toMatchObject({

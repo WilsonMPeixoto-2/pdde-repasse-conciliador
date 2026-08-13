@@ -464,7 +464,14 @@ select
   ) as human_review_count,
   max(events.sequence) as anchor_sequence
 from public.evidence_events as events
-group by events.run_id;
+group by events.run_id
+having count(*) filter (
+  where events.event_type in (
+    'EXECUTION_REQUESTED',
+    'EXECUTION_STARTED',
+    'EXECUTION_FINISHED'
+  )
+) > 0;
 
 revoke all on table public.execution_read_models from public;
 revoke all on table public.execution_read_models from anon;

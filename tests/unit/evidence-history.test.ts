@@ -11,6 +11,40 @@ async function append(store: JsonlEvidenceStore, event: EvidenceEventInput) {
 }
 
 describe('EvidenceHistoryReader', () => {
+  test('não transforma um lote de artefatos sem ciclo de vida em execução UNKNOWN', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pdde-evidence-input-batch-'));
+    const store = new JsonlEvidenceStore(join(directory, 'events.jsonl'));
+    await append(store, {
+      eventId: 'upload-requested',
+      runId: 'input-batch-2026-08-13',
+      type: 'OBSERVATION_RECORDED',
+      occurredAt: '2026-08-13T00:58:00-03:00',
+      source: 'SIGEF_MOVIMENTACOES',
+      fiscalYear: 2026,
+      payload: {
+        observationKind: 'ARTIFACT_UPLOAD_REQUESTED',
+        data: { uploadId: '00000000-0000-5000-8000-000000000001' },
+      },
+    });
+    await append(store, {
+      eventId: 'upload-preserved',
+      runId: 'input-batch-2026-08-13',
+      type: 'ARTIFACT_PRESERVED',
+      occurredAt: '2026-08-13T00:59:00-03:00',
+      source: 'SIGEF_MOVIMENTACOES',
+      fiscalYear: 2026,
+      payload: {
+        kind: 'RAW_FILE',
+        path: 'runs/input-batch-2026-08-13/input.csv',
+        sha256: 'a'.repeat(64),
+        bytes: 10,
+      },
+    });
+
+    await expect(new EvidenceHistoryReader(store).getRun('input-batch-2026-08-13'))
+      .resolves.toBeNull();
+  });
+
   test('projeta uma solicitação durável ainda não reclamada como QUEUED', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pdde-evidence-queued-'));
     const store = new JsonlEvidenceStore(join(directory, 'events.jsonl'));

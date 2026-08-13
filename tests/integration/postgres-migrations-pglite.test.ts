@@ -195,6 +195,57 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     }
   });
 
+  test('mantém lotes de upload no log sem projetá-los como execuções UNKNOWN', async () => {
+    await database.exec('set role service_role');
+    try {
+      await database.query(`
+        select public.append_evidence_event(
+          'artifact-upload:00000000-0000-5000-8000-000000000001:requested',
+          'input-batch-2026-08-13',
+          'OBSERVATION_RECORDED',
+          '2026-08-13T12:00:00Z'::timestamptz,
+          'SIGEF_MOVIMENTACOES',
+          2026::smallint,
+          null,
+          '{"observationKind":"ARTIFACT_UPLOAD_REQUESTED"}'::jsonb
+        )
+      `);
+      await database.query(`
+        select public.append_evidence_event(
+          'artifact-upload:00000000-0000-5000-8000-000000000001:preserved',
+          'input-batch-2026-08-13',
+          'ARTIFACT_PRESERVED',
+          '2026-08-13T12:01:00Z'::timestamptz,
+          'SIGEF_MOVIMENTACOES',
+          2026::smallint,
+          null,
+          '{"provider":"SUPABASE_STORAGE","path":"runs/input-batch-2026-08-13/input.csv"}'::jsonb
+        )
+      `);
+
+      const events = await database.query<{ events: string | number }>(`
+        select count(*) as events
+        from public.evidence_events
+        where run_id = 'input-batch-2026-08-13'
+      `);
+      expect(Number(events.rows[0].events)).toBe(2);
+
+      const projection = await database.query<{ run_id: string; status: string }>(`
+        select run_id, status
+        from public.execution_read_models
+        where run_id = 'input-batch-2026-08-13'
+      `);
+      expect(projection.rows).toEqual([]);
+
+      const integrity = await database.query<{ valid: boolean }>(
+        'select valid from public.verify_evidence_chain()',
+      );
+      expect(integrity.rows[0].valid).toBe(true);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
   test('nega leitura anônima e bloqueia UPDATE/DELETE até para o owner', async () => {
     await database.exec('set role anon');
     try {

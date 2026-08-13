@@ -160,6 +160,8 @@ As projeções já disponíveis incluem:
 - referências de artefatos e download curto assinado do relatório.
 - emissão e confirmação idempotentes de uploads institucionais, com auditoria da solicitação e do conteúdo efetivamente preservado.
 
+Lotes usados somente para ingestão continuam integralmente no log e na consulta de artefatos, mas não entram em `execution_read_models` sem ao menos um evento de ciclo de vida (`EXECUTION_REQUESTED`, `EXECUTION_STARTED` ou `EXECUTION_FINISHED`). Isso evita apresentar uma entrada operacional como execução `UNKNOWN`.
+
 `scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 
 ## Invariantes

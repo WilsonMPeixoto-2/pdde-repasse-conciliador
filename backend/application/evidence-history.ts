@@ -75,6 +75,7 @@ export function projectEvidenceRun(
   const request = events.find((event) => event.type === 'EXECUTION_REQUESTED');
   const start = events.find((event) => event.type === 'EXECUTION_STARTED');
   const finish = [...events].reverse().find((event) => event.type === 'EXECUTION_FINISHED');
+  if (!request && !start && !finish) return null;
   const sourceEvent = start ?? request ?? events[0];
   const startPayload = payloadRecord(start);
   const sourceCollectionRunId = typeof startPayload.sourceCollectionRunId === 'string'

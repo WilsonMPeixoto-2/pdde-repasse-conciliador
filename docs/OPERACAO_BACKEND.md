@@ -115,6 +115,8 @@ curl -X POST \
 
 A confirmação baixa o objeto pelo backend, recalcula tamanho e SHA-256 e só então anexa `ARTIFACT_PRESERVED`. Divergência ou conflito de idempotência retorna `409`; solicitação desconhecida retorna `404`. Repetir a mesma solicitação ou confirmação não duplica eventos. O ticket autoriza somente o path derivado de `runId`, papel e chave de idempotência; `upsert` fica desativado.
 
+Um `runId` usado apenas para agrupar uploads permanece consultável no log e nos artefatos, mas não aparece como falsa execução `UNKNOWN`. A projeção de execuções exige ao menos um evento de solicitação, início ou término da execução.
+
 Ao executar uma conciliação, o runner não confia no nome original de uma Liberação. Ele inspeciona CNPJ, programa e exercício dentro de cada XLS e materializa a pasta transitória no padrão canônico `CNPJ__PROGRAMA.xls`; dois uploads do mesmo par são rejeitados antes do cálculo financeiro.
 
 ## Persistência e recuperação
