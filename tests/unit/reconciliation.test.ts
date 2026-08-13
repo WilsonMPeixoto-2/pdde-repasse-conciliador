@@ -228,6 +228,30 @@ describe('reconcileRepasse', () => {
     });
   });
 
+  test('não chama de pagamento ausente quando o próprio PDDEInfo está indisponível', async () => {
+    const unavailablePddeInfo = {
+      ...sources,
+      pddeInfo: {
+        ...sources.pddeInfo,
+        status: 'unavailable',
+        detail: 'consulta PDDEInfo não utilizável',
+      },
+    };
+
+    const result = await reconcile({
+      payment: null,
+      releases: [release],
+      movements: [movement],
+      sources: unavailablePddeInfo,
+    });
+
+    expect(result).toMatchObject({
+      status: 'CONSULTA_INCONCLUSIVA',
+      reasonCode: 'PDDEINFO_SOURCE_UNAVAILABLE',
+      requiresHumanReview: true,
+    });
+  });
+
   test('confirma um repasse quando vários créditos vinculados somam exatamente a liberação', async () => {
     const splitMovements = [
       { ...movement, id: 'movement-a', amountCents: 300_000 },

@@ -28,6 +28,7 @@ const REASONS: Record<ReconciliationReasonCode, string> = {
   MOVEMENT_SOURCE_UNAVAILABLE: 'A fonte de movimentações não respondeu de forma utilizável.',
   MOVEMENT_SOURCE_OUT_OF_COVERAGE: 'A fonte de movimentações ainda não cobre a data da liberação.',
   MOVEMENT_AMOUNT_MISMATCH: 'Os movimentos vinculados não totalizam o valor da liberação.',
+  PDDEINFO_SOURCE_UNAVAILABLE: 'O PDDEInfo não respondeu de forma utilizável; ausência de pagamento não pode ser concluída.',
   RELEASE_NOT_FOUND: 'O pagamento consta no PDDEInfo, mas nenhuma liberação correspondente foi localizada em uma consulta com cobertura suficiente.',
   RELEASE_SOURCE_UNAVAILABLE: 'A fonte de liberações não respondeu de forma utilizável.',
   RELEASE_SOURCE_OUT_OF_COVERAGE: 'A fonte de liberações ainda não cobre a data informada pelo PDDEInfo.',
@@ -129,6 +130,9 @@ export function reconcileRepasse(rawInput: ReconciliationInput): ReconciliationR
   const { payment, releases, movements, sources } = input;
 
   if (!payment || payment.amountPaidCents === 0) {
+    if (!sourceIsUsable(sources.pddeInfo)) {
+      return result('CONSULTA_INCONCLUSIVA', 'PDDEINFO_SOURCE_UNAVAILABLE');
+    }
     if (releases.length > 0 || movements.some((movement) => movement.amountCents > 0)) {
       return result('DIVERGENCIA_REVISAO_NECESSARIA', 'PAYMENT_ABSENT_BUT_SIGEF_RECORD_FOUND', {
         differences: [{
@@ -139,8 +143,7 @@ export function reconcileRepasse(rawInput: ReconciliationInput): ReconciliationR
         }],
       });
     }
-    if (!sourceIsUsable(sources.pddeInfo)
-      || !sourceIsUsable(sources.sigefReleases)
+    if (!sourceIsUsable(sources.sigefReleases)
       || !sourceIsUsable(sources.sigefMovements)) {
       const reasonCode = !sourceIsUsable(sources.sigefReleases)
         ? 'RELEASE_SOURCE_UNAVAILABLE'

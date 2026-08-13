@@ -82,6 +82,7 @@ Crédito inicialmente identificado não deve permanecer apresentado como situaç
 ### Consulta inconclusiva
 
 Usada quando falta cobertura, fonte, chave suficiente ou informação necessária para concluir com segurança.
+Se o próprio PDDEInfo estiver indisponível, nenhum registro SIGEF pode ser rotulado como divergência por “pagamento ausente”; o motivo técnico permanece `PDDEINFO_SOURCE_UNAVAILABLE` até a fonte primária responder de forma utilizável.
 
 ## Estados atuais do conciliador
 
