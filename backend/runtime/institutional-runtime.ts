@@ -88,5 +88,9 @@ export async function createInstitutionalWorkerRuntime(
     artifactStore: services.artifactStore,
   });
   const worker = new ExecutionWorker(services.queue, executor);
+  // O escopo institucional usa uma única instância do runner. Se o processo
+  // anterior foi interrompido, qualquer RUNNING remanescente é encerrado como
+  // FAILED antes de esta instância começar a reclamar novas tarefas.
+  await worker.recoverInterrupted();
   return { ...services, executor, worker };
 }
