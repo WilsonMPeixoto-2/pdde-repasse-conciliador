@@ -173,7 +173,7 @@ As projeções já disponíveis incluem:
 
 Lotes usados somente para ingestão continuam integralmente no log e na consulta de artefatos, mas não entram em `execution_read_models` sem ao menos um evento de ciclo de vida (`EXECUTION_REQUESTED`, `EXECUTION_STARTED` ou `EXECUTION_FINISHED`). Isso evita apresentar uma entrada operacional como execução `UNKNOWN`.
 
-Achados de tentativas anteriores também permanecem no histórico auditável. A projeção corrente considera somente os `FINDING_RECORDED` posteriores ao último `EXECUTION_STARTED` de cada `runId`; assim, uma retomada não duplica achados nem revisões humanas nos endpoints e contadores atuais, sem apagar evidência da tentativa anterior.
+Achados e relatórios de tentativas anteriores também permanecem no histórico auditável. A projeção corrente considera somente os `FINDING_RECORDED` posteriores ao último `EXECUTION_STARTED` de cada `runId`; assim, uma retomada não duplica achados nem revisões humanas nos endpoints e contadores atuais, sem apagar evidência da tentativa anterior. O endpoint de relatório aplica a mesma fronteira: a listagem de artefatos preserva todo o histórico, mas somente um `REPORT` da tentativa corrente pode receber URL de download assinada.
 
 O histórico escolar primeiro obtém os eventos diretamente associados ao INEP e depois busca somente as execuções relacionadas. Os `runId` são deduplicados e consultados em lotes conservadores de 40, com paginação interna e ordenação global por sequência; assim, o endpoint não volta a varrer o log inteiro e também não falha quando uma escola ultrapassa 500 execuções históricas.
 

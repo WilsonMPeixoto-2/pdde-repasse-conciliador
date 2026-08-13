@@ -36,6 +36,7 @@ function fixture() {
       : null),
     listFindings: vi.fn(async () => ({ items: [{ eventId: 'finding-1' }], total: 1 })),
     listArtifacts: vi.fn(async (runId: string) => runId === 'run-1' ? [report] : []),
+    getCurrentReport: vi.fn(async (runId: string) => runId === 'run-1' ? report : null),
   };
   const commandService = {
     requestPddeInfo: vi.fn(async () => ({
@@ -234,6 +235,16 @@ describe('API institucional', () => {
     expect(commandService.requestReconciliation).toHaveBeenCalledWith(
       'reconcile-agosto', { fiscalYear: 2026 },
     );
+  });
+
+  test('não assina relatório de tentativa anterior quando a corrente ainda não o produziu', async () => {
+    const { api, readService, artifactStore } = fixture();
+    readService.getCurrentReport.mockResolvedValueOnce(null);
+
+    const response = await api(new Request('http://localhost/api/executions/run-1/report'));
+
+    expect(response.status).toBe(404);
+    expect(artifactStore.createSignedDownload).not.toHaveBeenCalled();
   });
 
   test('limita os bytes reais do corpo mesmo sem Content-Length confiável', async () => {

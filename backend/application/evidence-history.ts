@@ -33,7 +33,7 @@ function payloadRecord(event: PersistedEvidenceEvent | undefined): Record<string
   return event.payload as Record<string, unknown>;
 }
 
-export function currentFindingEvents(
+export function evidenceEventsAfterLatestStart(
   events: PersistedEvidenceEvent[],
 ): PersistedEvidenceEvent[] {
   const latestStartByRun = new Map<string, number>();
@@ -42,8 +42,16 @@ export function currentFindingEvents(
     const current = latestStartByRun.get(event.runId) ?? 0;
     if (event.sequence > current) latestStartByRun.set(event.runId, event.sequence);
   }
-  return events.filter((event) => event.type === 'FINDING_RECORDED'
-    && event.sequence > (latestStartByRun.get(event.runId) ?? 0));
+  return events.filter((event) => (
+    event.sequence > (latestStartByRun.get(event.runId) ?? 0)
+  ));
+}
+
+export function currentFindingEvents(
+  events: PersistedEvidenceEvent[],
+): PersistedEvidenceEvent[] {
+  return evidenceEventsAfterLatestStart(events)
+    .filter((event) => event.type === 'FINDING_RECORDED');
 }
 
 function projectedStatus(

@@ -37,6 +37,13 @@ interface ReadServiceApi {
     sha256: string;
     metadata?: Record<string, unknown>;
   }>>;
+  getCurrentReport(runId: string): Promise<{
+    kind: string;
+    provider: string;
+    bucket: string | null;
+    path: string;
+    sha256: string;
+  } | null>;
 }
 
 interface CommandServiceApi {
@@ -293,8 +300,7 @@ export function createInstitutionalApi(
           return json({ items: artifacts, total: artifacts.length });
         }
         if (segments.length === 4 && segments[3] === 'report') {
-          const artifacts = await dependencies.readService.listArtifacts(runId);
-          const report = artifacts.find((artifact) => artifact.kind === 'REPORT');
+          const report = await dependencies.readService.getCurrentReport(runId);
           if (!report) return errorResponse(404, 'Relatório não encontrado.');
           if (report.provider !== 'SUPABASE_STORAGE' || !report.bucket) {
             return errorResponse(409, 'Relatório ainda não está no armazenamento institucional.');

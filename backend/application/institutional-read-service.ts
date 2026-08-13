@@ -6,6 +6,7 @@ import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
 import {
   currentFindingEvents,
+  evidenceEventsAfterLatestStart,
   projectEvidenceRun,
   type EvidenceRunProjection,
 } from './evidence-history';
@@ -259,5 +260,17 @@ export class InstitutionalReadService {
       .filter((event) => event.type === 'ARTIFACT_PRESERVED')
       .sort((left, right) => right.sequence - left.sequence)
       .map(artifactModel);
+  }
+
+  async getCurrentReport(runId: string): Promise<ArtifactReadModel | null> {
+    const validatedRunId = evidenceIdentifierSchema.parse(runId);
+    const report = evidenceEventsAfterLatestStart(
+      await this.store.listByRun(validatedRunId),
+    )
+      .filter((event) => event.type === 'ARTIFACT_PRESERVED'
+        && payload(event).kind === 'REPORT')
+      .sort((left, right) => right.sequence - left.sequence)
+      .at(0);
+    return report ? artifactModel(report) : null;
   }
 }

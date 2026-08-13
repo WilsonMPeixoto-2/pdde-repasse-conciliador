@@ -50,6 +50,8 @@ Consultas públicas:
 - `GET /api/executions/:runId/report`;
 - `GET /api/findings`.
 
+O histórico de artefatos conserva relatórios produzidos por tentativas abandonadas. O endpoint singular de relatório não assina esses objetos antigos: depois de um novo `EXECUTION_STARTED`, ele retorna `404` até a tentativa corrente preservar seu próprio `REPORT`.
+
 Listagens aceitam no máximo 100 itens por página. `GET /api/schools/:inep/history` usa 50 por padrão, retorna eventos mais recentes primeiro, `total` e `nextCursor`; as projeções de execução correspondem aos `runId` presentes naquela página. Cursores são sequências decimais canônicas dentro da faixa segura de inteiros; `runId` em detalhe, filtro ou artefatos segue o contrato de identificadores append-only (1–160 caracteres alfanuméricos, `.`, `_`, `-`, `:`). Entradas fora desses contratos retornam `400` antes da consulta ao Postgres.
 
 Comandos administrativos:

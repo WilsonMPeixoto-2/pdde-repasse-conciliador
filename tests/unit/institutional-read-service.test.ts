@@ -225,4 +225,40 @@ describe('InstitutionalReadService', () => {
       ]),
     });
   });
+
+  test('não apresenta relatório de tentativa abandonada como relatório corrente', async () => {
+    await store.append({
+      eventId: 'report-b-attempt-1', runId: 'run-b', type: 'ARTIFACT_PRESERVED',
+      occurredAt: '2026-08-13T11:02:30Z', source: 'CONCILIADOR', fiscalYear: 2026,
+      payload: {
+        kind: 'REPORT', provider: 'SUPABASE_STORAGE', bucket: 'pdde-evidence',
+        path: 'runs/run-b/attempts/1/reports/reconciliation.xlsx',
+        sha256: 'd'.repeat(64), bytes: 1_000,
+        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    });
+    await store.append({
+      eventId: 'start-b-attempt-2', runId: 'run-b', type: 'EXECUTION_STARTED',
+      occurredAt: '2026-08-13T11:03:00Z', source: 'CONCILIADOR', fiscalYear: 2026,
+      payload: { attempt: 2, sourceCollectionRunId: 'run-a' },
+    });
+
+    await expect(service.getCurrentReport('run-b')).resolves.toBeNull();
+    await store.append({
+      eventId: 'report-b-attempt-2', runId: 'run-b', type: 'ARTIFACT_PRESERVED',
+      occurredAt: '2026-08-13T11:04:00Z', source: 'CONCILIADOR', fiscalYear: 2026,
+      payload: {
+        kind: 'REPORT', provider: 'SUPABASE_STORAGE', bucket: 'pdde-evidence',
+        path: 'runs/run-b/attempts/2/reports/reconciliation.xlsx',
+        sha256: 'e'.repeat(64), bytes: 1_001,
+        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    });
+
+    await expect(service.getCurrentReport('run-b')).resolves.toMatchObject({
+      eventId: 'report-b-attempt-2',
+      path: 'runs/run-b/attempts/2/reports/reconciliation.xlsx',
+    });
+    await expect(service.listArtifacts('run-b')).resolves.toHaveLength(2);
+  });
 });
