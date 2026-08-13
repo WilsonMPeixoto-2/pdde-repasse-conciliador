@@ -17,10 +17,6 @@ import type { ExecutionJobQueue } from './execution-queue';
 
 const idempotencyKeySchema = z.string().trim().min(1, 'chave de idempotência obrigatória').max(200)
   .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'chave de idempotência inválida');
-const identifierSchema = z.string().min(1).max(160).regex(
-  /^[A-Za-z0-9._:-]+$/,
-  'identificador contém caracteres inválidos',
-);
 const storagePathSchema = z.string().refine(
   isInstitutionalArtifactPath,
   'caminho/path institucional inválido',
@@ -62,9 +58,7 @@ export const reconciliationJobRequestSchema = z.object({
   title: z.string().min(1).max(200).optional(),
 }).strict();
 
-export const reconciliationJobPayloadSchema = reconciliationJobRequestSchema.extend({
-  sourceCollectionRunId: identifierSchema.optional(),
-}).strict();
+export const reconciliationJobPayloadSchema = reconciliationJobRequestSchema;
 
 export type PddeInfoJobRequest = z.input<typeof pddeInfoJobRequestSchema>;
 export type ReconciliationJobRequest = z.input<typeof reconciliationJobRequestSchema>;
@@ -91,12 +85,6 @@ interface ReconciliationArtifactRequirement {
   kind: ArtifactKind;
   role: 'PDDEINFO_JSON' | 'SIGEF_MOVEMENTS_CSV' | 'SIGEF_RELEASE_XLS';
 }
-
-const EXECUTION_LIFECYCLE_TYPES = new Set([
-  'EXECUTION_REQUESTED',
-  'EXECUTION_STARTED',
-  'EXECUTION_FINISHED',
-]);
 
 export class ReconciliationArtifactEvidenceError extends Error {}
 
@@ -126,12 +114,6 @@ function deterministicRunId(kind: ExecutionJobKind, idempotencyKey: string): str
   return `${kind === 'PDDEINFO' ? 'pddeinfo' : 'reconciliation'}-${digest}`;
 }
 
-function artifactProducer(event: PersistedEvidenceEvent | undefined): string | null {
-  if (!event || event.type !== 'ARTIFACT_PRESERVED') return null;
-  const producer = event.payload.metadata?.producer;
-  return typeof producer === 'string' ? producer : null;
-}
-
 export class ExecutionCommandService {
   private readonly now: () => string;
   private readonly randomUuid: () => string;
@@ -159,17 +141,13 @@ export class ExecutionCommandService {
   ): Promise<ExecutionCommandReceipt> {
     const request = reconciliationJobRequestSchema.parse(rawRequest);
     idempotencyKeySchema.parse(rawIdempotencyKey);
-    const sourceCollectionRunId = await this.validateReconciliationArtifacts(request);
-    const payload = reconciliationJobPayloadSchema.parse({
-      ...request,
-      ...(sourceCollectionRunId ? { sourceCollectionRunId } : {}),
-    });
-    return this.enqueue('RECONCILIATION', rawIdempotencyKey, payload);
+    await this.validateReconciliationArtifacts(request);
+    return this.enqueue('RECONCILIATION', rawIdempotencyKey, request);
   }
 
   private async validateReconciliationArtifacts(
     request: z.output<typeof reconciliationJobRequestSchema>,
-  ): Promise<string | undefined> {
+  ): Promise<void> {
     const artifactEvidence = this.artifactEvidence;
     if (!artifactEvidence) {
       throw new Error(
@@ -202,69 +180,21 @@ export class ExecutionCommandService {
       return pending;
     };
 
-    let pddeInfoRunId: string | undefined;
-    let pddeInfoEvents: PersistedEvidenceEvent[] = [];
-    let pddeInfoArtifactEvent: PersistedEvidenceEvent | undefined;
     for (const requirement of requirements) {
       const ownerRunId = requirement.reference.path.split('/')[1];
       const events = await loadEvents(ownerRunId);
-      const preserved = events
-        .filter((event) => this.matchesArtifactEvidence(
-          event,
-          ownerRunId,
-          request.fiscalYear,
-          requirement,
-        ))
-        .sort((left, right) => right.sequence - left.sequence)[0];
+      const preserved = events.some((event) => this.matchesArtifactEvidence(
+        event,
+        ownerRunId,
+        request.fiscalYear,
+        requirement,
+      ));
       if (!preserved) {
         throw new ReconciliationArtifactEvidenceError(
           `${requirement.label}: não há evidência ARTIFACT_PRESERVED exata com origem, papel, SHA-256 e exercício correspondentes.`,
         );
       }
-      if (requirement.source === 'PDDEINFO') {
-        pddeInfoRunId = ownerRunId;
-        pddeInfoEvents = events;
-        pddeInfoArtifactEvent = preserved;
-      }
     }
-
-    if (!pddeInfoRunId || artifactProducer(pddeInfoArtifactEvent) !== 'COLLECTOR') {
-      return undefined;
-    }
-
-    const knownLifecycle = pddeInfoEvents.filter((event) => event.source === 'PDDEINFO'
-      && EXECUTION_LIFECYCLE_TYPES.has(event.type));
-    const lifecycle = knownLifecycle
-      .filter((event) => event.fiscalYear === request.fiscalYear)
-      .sort((left, right) => left.sequence - right.sequence);
-    if (knownLifecycle.some((event) => event.fiscalYear !== request.fiscalYear)) {
-      throw new ReconciliationArtifactEvidenceError(
-        `PDDEInfo: o ciclo conhecido da coleta ${pddeInfoRunId} pertence a outro exercício.`,
-      );
-    }
-    if (lifecycle.length === 0) {
-      throw new ReconciliationArtifactEvidenceError(
-        `PDDEInfo: o arquivo marcado como produzido pelo coletor não possui ciclo de execução correspondente.`,
-      );
-    }
-    const latest = lifecycle.at(-1)!;
-    if (latest.type !== 'EXECUTION_FINISHED' || latest.payload.status !== 'COMPLETE') {
-      const status = latest.type === 'EXECUTION_FINISHED'
-        ? latest.payload.status
-        : latest.type.replace('EXECUTION_', '');
-      throw new ReconciliationArtifactEvidenceError(
-        `PDDEInfo: o ciclo conhecido da coleta ${pddeInfoRunId} não terminou COMPLETE (estado ${status}).`,
-      );
-    }
-    const start = lifecycle.find((event) => event.type === 'EXECUTION_STARTED');
-    if (start && (!pddeInfoArtifactEvent
-      || pddeInfoArtifactEvent.sequence <= start.sequence
-      || pddeInfoArtifactEvent.sequence >= latest.sequence)) {
-      throw new ReconciliationArtifactEvidenceError(
-        `PDDEInfo: o artefato informado não pertence ao ciclo concluído da coleta ${pddeInfoRunId}.`,
-      );
-    }
-    return pddeInfoRunId;
   }
 
   private matchesArtifactEvidence(
