@@ -126,6 +126,8 @@ A conta original apresentada pelo PDDEInfo deve ser preservada como informação
 
 Uma conta ausente pode receber informação complementar de outra fonte somente quando a origem ficar explícita e a correspondência documental for confiável. Complementar não significa reescrever a observação original.
 
+Um estorno/devolução vinculado impede a conclusão positiva do repasse, mas não apaga a procedência da conta destinatária já corroborada pela Liberação correspondente; a conta continua identificada como `SIGEF_LIBERACOES`.
+
 ## Tempo e cobertura
 
 Toda conclusão é limitada à cobertura temporal efetivamente consultada.

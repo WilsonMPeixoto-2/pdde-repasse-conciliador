@@ -95,6 +95,7 @@ const TRUSTED_RELEASE_REASONS = new Set<ReconciliationResult['reasonCode']>([
   'MOVEMENT_SOURCE_UNAVAILABLE',
   'MOVEMENT_SOURCE_OUT_OF_COVERAGE',
   'MOVEMENT_AMOUNT_MISMATCH',
+  'MOVEMENT_REVERSAL_FOUND',
 ]);
 
 function resolveAccount(
