@@ -179,7 +179,7 @@ Lotes usados somente para ingestão continuam integralmente no log e na consulta
 
 ## Validação de escala
 
-Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
+No baseline v0.4 de 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
 
 - 163/163 escolas concluídas;
 - 520 registros financeiros;
@@ -188,6 +188,8 @@ Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência l
 - 0 warnings de normalização;
 - 493 eventos append-only;
 - cadeia de integridade validada integralmente.
+
+Na revalidação posterior da v0.5, a fonte retornou 468 linhas financeiras brutas e o normalizador produziu exatamente 468 registros; 169 pagamentos, 47 ausências de conta, 0 warnings, 163/163 escolas e 493/493 hashes permaneceram estáveis. A distribuição das 468 linhas recebidas explica a diferença sem alterar regras: 111 + 111 parcelas regulares, 52 Primeira Infância P1, 145 Educação Conectada, 43 Escola e Comunidade e 6 Escola das Adolescências.
 
 ## Limites entre código atual e legado
 

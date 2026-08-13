@@ -75,7 +75,7 @@ O núcleo v0.4 passou a ter uma camada institucional sem alterar as invariantes 
 
 O provisionamento cloud permanece pendente porque a organização Supabase atingiu o limite gratuito de projetos ativos. A regra de banco exclusivo foi preservada; nenhum sistema existente foi usado como atalho.
 
-Na validação v0.5 de 13/08/2026, a integração pública de uma escola foi tentada duas vezes, sempre com quatro tentativas conservadoras do cliente, e o PDDEInfo encerrou ambas em HTTP 502. A indisponibilidade externa não foi convertida em ausência/zero e a execução de escala não foi iniciada; o baseline v0.4 continua sendo a última execução completa comprovada.
+Na validação v0.5 de 13/08/2026, duas tentativas iniciais de uma escola terminaram em HTTP 502 e foram preservadas como indisponibilidade, sem virar ausência/zero. Quando a fonte se estabilizou, passaram uma escola, três escolas e a carteira completa: 163/163, 0 falhas, 468 linhas financeiras brutas e normalizadas, 169 pagamentos informados, 47 contas de programa ausentes, 0 warnings e 493/493 eventos íntegros. O snapshot v0.4 de 520 linhas continua válido como fato histórico; os HTMLs atuais continham 52 linhas a menos e a contagem bruta confirmou que o parser não as descartou.
 
 ## Experimentos paralelos e aprendizado
 

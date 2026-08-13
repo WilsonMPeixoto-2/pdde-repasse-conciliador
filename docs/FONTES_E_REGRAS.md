@@ -2,7 +2,7 @@
 
 Este documento registra o estado operacional das fontes e as regras que afetam conclusões financeiras. Ele deve mudar quando a fonte ou a regra mudar de forma material, não a cada ajuste de implementação.
 
-## Estado das fontes — 12/08/2026
+## Estado das fontes — 13/08/2026
 
 | Fonte | Finalidade | Estado para o repositório canônico | Observação |
 |---|---|---|---|
@@ -28,6 +28,21 @@ A validação real controlada da implementação canônica em 12/08/2026 produzi
 A execução usa lotes pequenos, retry para falhas transitórias, validação da identidade da escola e estado global `COMPLETE`/`PARTIAL`. Os artefatos recebidos são preservados antes do parsing; uma resposta que não possa ser validada não é convertida em uma escola aparentemente vazia.
 
 Os testes contra o portal real são opt-in. O CI padrão testa o comportamento de forma determinística e não depende da disponibilidade momentânea do FNDE.
+
+### Revalidação posterior na v0.5
+
+Depois de duas respostas HTTP 502 e sem converter a indisponibilidade em ausência, a fonte voltou a responder em 13/08/2026. Passaram uma escola, uma amostra de três e então a carteira completa. A execução `20260813T134355259Z-3c75744f` produziu:
+
+- 163/163 escolas, sem falha ou retry;
+- 468 linhas financeiras presentes nos HTMLs brutos;
+- 468 registros normalizados e 0 linhas zeradas desconhecidas ignoradas;
+- 169 registros com pagamento informado;
+- 47 pares escola/programa sem conta correspondente;
+- 0 warnings;
+- 493/493 eventos íntegros;
+- duração de 398,6 segundos no ambiente de validação.
+
+A contagem independente dos HTMLs encontrou 111 linhas de 1ª parcela regular, 111 de 2ª parcela regular, 52 de Primeira Infância P1, 145 de Educação Conectada, 43 de Escola e Comunidade e 6 de Escola das Adolescências. A soma é 468 e coincide exatamente com o normalizador. Portanto, a diferença de 52 em relação ao snapshot histórico de 520 é uma mudança observada no conteúdo atual do portal, não perda silenciosa do parser. O snapshot v0.4 permanece como baseline histórico, não como cardinalidade obrigatória de uma fonte mutável.
 
 ## Regra de autonomia
 

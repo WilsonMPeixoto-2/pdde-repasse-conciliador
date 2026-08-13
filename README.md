@@ -49,6 +49,12 @@ Em 13/08/2026, a implementação deste repositório repetiu a coleta real das 16
 
 A mesma rodada concluiu testes, typecheck e build com sucesso. Os testes que acessam o portal real permanecem opt-in para que indisponibilidade externa do FNDE não seja tratada como regressão do código.
 
+### Revalidação pública durante a v0.5
+
+Em uma coleta posterior de 13/08/2026, o portal voltou a responder e o canônico concluiu novamente 163/163 escolas. O snapshot atual continha **468 linhas financeiras nos HTMLs brutos e as mesmas 468 após normalização**, 169 com pagamento informado, 47 casos sem conta correspondente, 0 warnings e 493/493 eventos íntegros.
+
+A redução de 52 linhas frente ao baseline v0.4 está na própria resposta pública: 111 primeiras parcelas regulares, 111 segundas parcelas regulares, 52 Primeira Infância P1, 145 Educação Conectada, 43 Escola e Comunidade e 6 Escola das Adolescências. O baseline de 520 continua registrado como fato histórico; o teste externo compara a normalização às linhas realmente recebidas em vez de transformar 520 em constante eterna.
+
 ## Regra central de evidência
 
 O projeto separa fatos que não são equivalentes:
@@ -178,6 +184,7 @@ Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 - [`docs/PROJETO.md`](docs/PROJETO.md)
 - [`docs/DECISOES.md`](docs/DECISOES.md)
 - [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
+- [`docs/VALIDACAO_REAL_V05_2026-08-13.md`](docs/VALIDACAO_REAL_V05_2026-08-13.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md)
 - [`docs/OPERACAO_BACKEND.md`](docs/OPERACAO_BACKEND.md)

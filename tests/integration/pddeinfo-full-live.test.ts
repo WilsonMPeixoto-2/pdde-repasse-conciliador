@@ -75,5 +75,5 @@ describe('PDDEInfo público — coleta completa opt-in', () => {
       warnings: normalized.warnings.length,
       evidence: integrity,
     }));
-  }, 300_000);
+  }, 600_000);
 });
