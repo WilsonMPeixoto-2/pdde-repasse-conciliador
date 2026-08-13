@@ -79,7 +79,6 @@ export interface ExecutionCommandReceipt {
 interface CommandServiceOptions {
   now?: () => string;
   randomUuid?: () => string;
-  maxAttempts?: number;
   artifactEvidence?: Pick<EvidenceEventStore, 'listByRun'>;
 }
 
@@ -127,10 +126,15 @@ function deterministicRunId(kind: ExecutionJobKind, idempotencyKey: string): str
   return `${kind === 'PDDEINFO' ? 'pddeinfo' : 'reconciliation'}-${digest}`;
 }
 
+function artifactProducer(event: PersistedEvidenceEvent | undefined): string | null {
+  if (!event || event.type !== 'ARTIFACT_PRESERVED') return null;
+  const producer = event.payload.metadata?.producer;
+  return typeof producer === 'string' ? producer : null;
+}
+
 export class ExecutionCommandService {
   private readonly now: () => string;
   private readonly randomUuid: () => string;
-  private readonly maxAttempts: number;
   private readonly artifactEvidence?: Pick<EvidenceEventStore, 'listByRun'>;
 
   constructor(
@@ -139,7 +143,6 @@ export class ExecutionCommandService {
   ) {
     this.now = options.now ?? (() => new Date().toISOString());
     this.randomUuid = options.randomUuid ?? randomUUID;
-    this.maxAttempts = z.number().int().min(1).max(20).parse(options.maxAttempts ?? 3);
     this.artifactEvidence = options.artifactEvidence;
   }
 
@@ -161,11 +164,7 @@ export class ExecutionCommandService {
       ...request,
       ...(sourceCollectionRunId ? { sourceCollectionRunId } : {}),
     });
-    return this.enqueue(
-      'RECONCILIATION',
-      rawIdempotencyKey,
-      payload,
-    );
+    return this.enqueue('RECONCILIATION', rawIdempotencyKey, payload);
   }
 
   private async validateReconciliationArtifacts(
@@ -229,7 +228,10 @@ export class ExecutionCommandService {
       }
     }
 
-    if (!pddeInfoRunId) return undefined;
+    if (!pddeInfoRunId || artifactProducer(pddeInfoArtifactEvent) !== 'COLLECTOR') {
+      return undefined;
+    }
+
     const knownLifecycle = pddeInfoEvents.filter((event) => event.source === 'PDDEINFO'
       && EXECUTION_LIFECYCLE_TYPES.has(event.type));
     const lifecycle = knownLifecycle
@@ -240,7 +242,11 @@ export class ExecutionCommandService {
         `PDDEInfo: o ciclo conhecido da coleta ${pddeInfoRunId} pertence a outro exercício.`,
       );
     }
-    if (lifecycle.length === 0) return undefined;
+    if (lifecycle.length === 0) {
+      throw new ReconciliationArtifactEvidenceError(
+        `PDDEInfo: o arquivo marcado como produzido pelo coletor não possui ciclo de execução correspondente.`,
+      );
+    }
     const latest = lifecycle.at(-1)!;
     if (latest.type !== 'EXECUTION_FINISHED' || latest.payload.status !== 'COMPLETE') {
       const status = latest.type === 'EXECUTION_FINISHED'
@@ -250,16 +256,12 @@ export class ExecutionCommandService {
         `PDDEInfo: o ciclo conhecido da coleta ${pddeInfoRunId} não terminou COMPLETE (estado ${status}).`,
       );
     }
-    const currentStart = [...lifecycle]
-      .reverse()
-      .find((event) => event.type === 'EXECUTION_STARTED');
-    if (currentStart && (
-      !pddeInfoArtifactEvent
-      || pddeInfoArtifactEvent.sequence <= currentStart.sequence
-      || pddeInfoArtifactEvent.sequence >= latest.sequence
-    )) {
+    const start = lifecycle.find((event) => event.type === 'EXECUTION_STARTED');
+    if (start && (!pddeInfoArtifactEvent
+      || pddeInfoArtifactEvent.sequence <= start.sequence
+      || pddeInfoArtifactEvent.sequence >= latest.sequence)) {
       throw new ReconciliationArtifactEvidenceError(
-        `PDDEInfo: o artefato informado não pertence à tentativa corrente concluída da coleta ${pddeInfoRunId}.`,
+        `PDDEInfo: o artefato informado não pertence ao ciclo concluído da coleta ${pddeInfoRunId}.`,
       );
     }
     return pddeInfoRunId;
@@ -283,8 +285,7 @@ export class ExecutionCommandService {
       || event.payload.sha256.toLowerCase() !== requirement.reference.sha256.toLowerCase()
       || event.payload.kind !== requirement.kind
     ) return false;
-    const preservedRole = event.payload.metadata?.role;
-    return preservedRole === requirement.role;
+    return event.payload.metadata?.role === requirement.role;
   }
 
   private async enqueue(
@@ -303,7 +304,6 @@ export class ExecutionCommandService {
       requestHash: sha256(payload),
       payload,
       requestedAt,
-      maxAttempts: this.maxAttempts,
     });
     return {
       jobId: job.jobId,

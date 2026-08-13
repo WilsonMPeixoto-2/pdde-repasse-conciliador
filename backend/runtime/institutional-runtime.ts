@@ -1,4 +1,3 @@
-import { hostname } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import {
@@ -27,17 +26,6 @@ async function packageVersion(): Promise<string> {
   const parsed = z.object({ version: z.string().min(1) }).passthrough()
     .parse(JSON.parse(raw) as unknown);
   return parsed.version;
-}
-
-function positiveInteger(raw: string | undefined, fallback: number, name: string): number {
-  const value = raw === undefined ? fallback : Number(raw);
-  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} deve ser um inteiro positivo.`);
-  return value;
-}
-
-function defaultWorkerId(): string {
-  const safeHost = hostname().replace(/[^A-Za-z0-9._:-]+/g, '-').slice(0, 100) || 'node';
-  return `${safeHost}:${process.pid}`;
 }
 
 async function dataServices(environment: Environment, clientOverride?: unknown) {
@@ -93,23 +81,12 @@ export async function createInstitutionalWorkerRuntime(
   const services = await dataServices(environment, clientOverride);
   const workspacePath = z.string().min(1, 'PDDE_WORKSPACE_PATH é obrigatório no runner.')
     .parse(environment.PDDE_WORKSPACE_PATH);
-  const workerId = environment.PDDE_WORKER_ID?.trim() || defaultWorkerId();
-  const leaseSeconds = positiveInteger(environment.PDDE_WORKER_LEASE_SECONDS, 300, 'PDDE_WORKER_LEASE_SECONDS');
-  const heartbeatIntervalMs = positiveInteger(
-    environment.PDDE_WORKER_HEARTBEAT_MS,
-    Math.floor(leaseSeconds * 1_000 / 3),
-    'PDDE_WORKER_HEARTBEAT_MS',
-  );
   const executor = new InstitutionalJobExecutor({
     workspacePath,
     schools: services.schools,
     evidenceStore: services.evidenceStore,
     artifactStore: services.artifactStore,
   });
-  const worker = new ExecutionWorker(services.queue, executor, {
-    workerId,
-    leaseSeconds,
-    heartbeatIntervalMs,
-  });
-  return { ...services, executor, worker, workerId };
+  const worker = new ExecutionWorker(services.queue, executor);
+  return { ...services, executor, worker };
 }

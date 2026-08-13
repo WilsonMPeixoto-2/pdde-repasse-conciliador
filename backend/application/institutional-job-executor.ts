@@ -68,14 +68,14 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
     this.reconcile = dependencies.reconcileFiles ?? reconcileFiles;
   }
 
-  execute(job: ExecutionJob, context?: { signal: AbortSignal }): Promise<ExecutionJobResult> {
-    context?.signal.throwIfAborted();
-    if (job.kind === 'PDDEINFO') return this.executePddeInfo(job, context?.signal);
-    return this.executeReconciliation(job, context?.signal);
+  execute(job: ExecutionJob, context: { signal: AbortSignal }): Promise<ExecutionJobResult> {
+    context.signal.throwIfAborted();
+    if (job.kind === 'PDDEINFO') return this.executePddeInfo(job, context.signal);
+    return this.executeReconciliation(job, context.signal);
   }
 
-  private attemptPath(job: ExecutionJob): string {
-    return resolve(this.workspacePath, 'jobs', job.jobId, `attempt-${job.attempts}`);
+  private runPath(job: ExecutionJob): string {
+    return resolve(this.workspacePath, 'jobs', job.jobId, 'run');
   }
 
   private async executePddeInfo(
@@ -94,7 +94,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
     const schools = this.schools.filter((school) => selected.has(school.inep));
     const result = await this.collect({
       schools,
-      workspacePath: this.attemptPath(job),
+      workspacePath: this.runPath(job),
       fiscalYear: request.fiscalYear,
       runId: job.runId,
       batchSize: request.batchSize,
@@ -103,7 +103,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       artifactStore: this.dependencies.artifactStore,
       ...(signal ? { signal } : {}),
       manageExecutionLifecycle: false,
-      institutionalPathPrefix: `attempts/${job.attempts}`,
+      institutionalPathPrefix: 'run',
     });
     return { status: result.status };
   }
@@ -114,27 +114,17 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
   ): Promise<ExecutionJobResult> {
     signal?.throwIfAborted();
     const request = reconciliationJobPayloadSchema.parse(job.payload);
-    const attemptPath = this.attemptPath(job);
-    const inputPath = join(attemptPath, 'inputs');
+    const runPath = this.runPath(job);
+    const inputPath = join(runPath, 'inputs');
     const releasePath = join(inputPath, 'releases');
-    const reportPath = join(attemptPath, 'reports', 'reconciliation.xlsx');
+    const reportPath = join(runPath, 'reports', 'reconciliation.xlsx');
     await mkdir(inputPath, { recursive: true });
     signal?.throwIfAborted();
 
     const pddeInfoPath = join(inputPath, 'pddeinfo.json');
     const movementsPath = join(inputPath, 'movements.csv');
-    await stageArtifact(
-      this.dependencies.artifactStore,
-      request.pddeInfoArtifact,
-      pddeInfoPath,
-      signal,
-    );
-    await stageArtifact(
-      this.dependencies.artifactStore,
-      request.movementsArtifact,
-      movementsPath,
-      signal,
-    );
+    await stageArtifact(this.dependencies.artifactStore, request.pddeInfoArtifact, pddeInfoPath, signal);
+    await stageArtifact(this.dependencies.artifactStore, request.movementsArtifact, movementsPath, signal);
 
     if (request.releaseArtifacts.length > 0) {
       await mkdir(releasePath);
@@ -169,7 +159,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       reconciliationRunId: job.runId,
       sourceCollectionRunId: request.sourceCollectionRunId ?? null,
       manageExecutionLifecycle: false,
-      institutionalPathPrefix: `attempts/${job.attempts}`,
+      institutionalPathPrefix: 'run',
       ...(signal ? { signal } : {}),
     });
     return { status: 'COMPLETE' };

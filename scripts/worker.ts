@@ -49,9 +49,11 @@ export async function runWorkerLoop(
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
-  const unknown = args.filter((argument) => argument !== '--once');
+  const allowed = new Set(['--once', '--recover-interrupted']);
+  const unknown = args.filter((argument) => !allowed.has(argument));
   if (unknown.length > 0) throw new Error(`Argumento desconhecido: ${unknown[0]}.`);
   const once = args.includes('--once');
+  const recoverInterrupted = args.includes('--recover-interrupted');
   const pollMs = pollMilliseconds(process.env.PDDE_WORKER_POLL_MS);
   const shutdown = new AbortController();
   const requestShutdown = (): void => shutdown.abort();
@@ -59,12 +61,16 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   process.once('SIGINT', requestShutdown);
 
   try {
-    const { worker, workerId } = await createInstitutionalWorkerRuntime();
+    const { worker } = await createInstitutionalWorkerRuntime();
+    if (recoverInterrupted) {
+      const recovered = await worker.recoverInterrupted();
+      process.stdout.write(`${JSON.stringify({ recoveredInterrupted: recovered })}\n`);
+    }
     await runWorkerLoop(worker, {
       pollMs,
       once,
       signal: shutdown.signal,
-      onResult: (result) => process.stdout.write(`${JSON.stringify({ workerId, ...result })}\n`),
+      onResult: (result) => process.stdout.write(`${JSON.stringify(result)}\n`),
     });
   } finally {
     process.off('SIGTERM', requestShutdown);

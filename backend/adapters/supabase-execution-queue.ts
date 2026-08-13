@@ -7,7 +7,6 @@ import type {
   EnqueueExecutionJobInput,
   ExecutionJobQueue,
 } from '../application/execution-queue';
-import { ExecutionLeaseLostError } from '../application/execution-queue';
 
 interface SupabaseResult {
   data: unknown;
@@ -21,12 +20,6 @@ interface SupabaseRpcClient {
 function message(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return String(error);
-}
-
-function code(error: unknown): string | null {
-  return error && typeof error === 'object' && 'code' in error
-    ? String(error.code)
-    : null;
 }
 
 function rowRecord(value: unknown): Record<string, unknown> | null {
@@ -48,13 +41,8 @@ function toJob(raw: unknown): ExecutionJob {
     requestHash: row.request_hash,
     payload: row.request_payload,
     requestedAt: row.requested_at,
-    availableAt: row.available_at,
-    claimedAt: row.claimed_at ?? null,
-    leaseExpiresAt: row.lease_expires_at ?? null,
+    startedAt: row.started_at ?? null,
     completedAt: row.completed_at ?? null,
-    workerId: row.worker_id ?? null,
-    attempts: Number(row.attempts),
-    maxAttempts: Number(row.max_attempts),
     lastError: row.last_error ?? null,
   });
 }
@@ -62,20 +50,11 @@ function toJob(raw: unknown): ExecutionJob {
 async function rpcJob(
   client: SupabaseRpcClient,
   name: string,
-  parameters: Record<string, unknown>,
+  parameters: Record<string, unknown> = {},
   allowEmpty = false,
 ): Promise<ExecutionJob | null> {
   const { data, error } = await client.rpc(name, parameters);
-  if (error) {
-    const detail = message(error);
-    const contextual = `Fila de execuções (${name}): ${detail}.`;
-    const leaseRpc = name === 'renew_execution_job_lease' || name === 'complete_execution_job';
-    const leaseLost = code(error) === 'PDE01' || /^PDDE_LEASE_LOST:/i.test(detail);
-    if (leaseRpc && leaseLost) {
-      throw new ExecutionLeaseLostError(contextual);
-    }
-    throw new Error(contextual);
-  }
+  if (error) throw new Error(`Fila de execuções (${name}): ${message(error)}.`);
   const row = rowRecord(data);
   if (allowEmpty && (!row || row.job_id === null || row.job_id === undefined)) return null;
   return toJob(data);
@@ -99,46 +78,33 @@ export class SupabaseExecutionQueue implements ExecutionJobQueue {
       p_request_hash: input.requestHash,
       p_request_payload: input.payload,
       p_requested_at: input.requestedAt,
-      p_max_attempts: input.maxAttempts,
     });
     if (!result) throw new Error('Fila de execuções: enqueue não retornou o job.');
     return result;
   }
 
-  claim(input: { workerId: string; leaseSeconds: number }): Promise<ExecutionJob | null> {
-    return rpcJob(this.client, 'claim_execution_job', {
-      p_worker_id: input.workerId,
-      p_lease_seconds: input.leaseSeconds,
-    }, true);
+  recoverInterrupted(): Promise<number> {
+    return this.client.rpc('recover_interrupted_execution_jobs').then(({ data, error }) => {
+      if (error) throw new Error(`Fila de execuções (recover_interrupted_execution_jobs): ${message(error)}.`);
+      const value = Number(Array.isArray(data) ? data[0] : data);
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error('Fila de execuções: recuperação retornou contagem inválida.');
+      }
+      return value;
+    });
   }
 
-  async renewLease(input: {
-    jobId: string;
-    workerId: string;
-    attempt: number;
-    leaseSeconds: number;
-  }): Promise<ExecutionJob> {
-    const result = await rpcJob(this.client, 'renew_execution_job_lease', {
-      p_job_id: input.jobId,
-      p_worker_id: input.workerId,
-      p_attempt: input.attempt,
-      p_lease_seconds: input.leaseSeconds,
-    });
-    if (!result) throw new Error('Fila de execuções: renovação não retornou o job.');
-    return result;
+  claim(): Promise<ExecutionJob | null> {
+    return rpcJob(this.client, 'claim_execution_job', {}, true);
   }
 
   async complete(input: {
     jobId: string;
-    workerId: string;
-    attempt: number;
     status: 'COMPLETE' | 'PARTIAL' | 'FAILED';
     error?: string;
   }): Promise<ExecutionJob> {
     const result = await rpcJob(this.client, 'complete_execution_job', {
       p_job_id: input.jobId,
-      p_worker_id: input.workerId,
-      p_attempt: input.attempt,
       p_status: input.status,
       p_error: input.error ?? null,
     });
