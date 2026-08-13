@@ -10,13 +10,8 @@ const row = {
   request_hash: 'a'.repeat(64),
   request_payload: { fiscalYear: 2026 },
   requested_at: '2026-08-13T12:00:00Z',
-  available_at: '2026-08-13T12:00:00Z',
-  claimed_at: null,
-  lease_expires_at: null,
+  started_at: null,
   completed_at: null,
-  worker_id: null,
-  attempts: 0,
-  max_attempts: 3,
   last_error: null,
 };
 
@@ -24,9 +19,9 @@ class FakeClient {
   readonly calls: Array<{ name: string; parameters?: Record<string, unknown> }> = [];
   responses = new Map<string, { data: unknown; error: unknown }>([
     ['enqueue_execution_job', { data: row, error: null }],
-    ['claim_execution_job', { data: { ...row, status: 'RUNNING', worker_id: 'worker-1', attempts: 1 }, error: null }],
-    ['renew_execution_job_lease', { data: { ...row, status: 'RUNNING', worker_id: 'worker-1', attempts: 1 }, error: null }],
-    ['complete_execution_job', { data: { ...row, status: 'COMPLETE', worker_id: 'worker-1' }, error: null }],
+    ['claim_execution_job', { data: { ...row, status: 'RUNNING', started_at: '2026-08-13T12:01:00Z' }, error: null }],
+    ['recover_interrupted_execution_jobs', { data: 1, error: null }],
+    ['complete_execution_job', { data: { ...row, status: 'COMPLETE', started_at: '2026-08-13T12:01:00Z', completed_at: '2026-08-13T12:02:00Z' }, error: null }],
   ]);
 
   async rpc(name: string, parameters?: Record<string, unknown>) {
@@ -36,136 +31,54 @@ class FakeClient {
 }
 
 describe('SupabaseExecutionQueue', () => {
-  test('enfileira de forma idempotente e mapeia o job persistido', async () => {
+  test('enfileira sem conceitos de lease ou tentativa', async () => {
     const client = new FakeClient();
     const queue = new SupabaseExecutionQueue(client);
     const job = await queue.enqueue({
-      jobId: '11111111-1111-4111-8111-111111111111',
-      runId: 'pddeinfo-abc123',
+      jobId: row.job_id,
+      runId: row.run_id,
       kind: 'PDDEINFO',
-      idempotencyKey: 'coleta-agosto',
+      idempotencyKey: row.idempotency_key,
       fiscalYear: 2026,
-      requestHash: 'a'.repeat(64),
+      requestHash: row.request_hash,
       payload: { fiscalYear: 2026 },
-      requestedAt: '2026-08-13T12:00:00Z',
-      maxAttempts: 3,
+      requestedAt: row.requested_at,
     });
-
-    expect(job).toMatchObject({
-      jobId: '11111111-1111-4111-8111-111111111111',
-      runId: 'pddeinfo-abc123',
-      kind: 'PDDEINFO',
-      status: 'QUEUED',
-      payload: { fiscalYear: 2026 },
-      attempts: 0,
-    });
-    expect(client.calls[0]).toEqual({
-      name: 'enqueue_execution_job',
-      parameters: expect.objectContaining({
-        p_run_id: 'pddeinfo-abc123',
-        p_job_kind: 'PDDEINFO',
-        p_idempotency_key: 'coleta-agosto',
-        p_fiscal_year: 2026,
-        p_request_hash: 'a'.repeat(64),
-      }),
-    });
+    expect(job).toMatchObject({ status: 'QUEUED', startedAt: null, completedAt: null });
+    expect(client.calls[0].parameters).not.toHaveProperty('p_max_attempts');
   });
 
-  test('reclama com lease, renova e conclui somente pelo worker proprietário', async () => {
+  test('reclama, conclui e recupera interrupção por operações simples', async () => {
     const client = new FakeClient();
     const queue = new SupabaseExecutionQueue(client);
-
-    await expect(queue.claim({ workerId: 'worker-1', leaseSeconds: 120 })).resolves.toMatchObject({
-      status: 'RUNNING', workerId: 'worker-1', attempts: 1,
-    });
-    await expect(queue.renewLease({
-      jobId: row.job_id,
-      workerId: 'worker-1',
-      attempt: 1,
-      leaseSeconds: 120,
-    })).resolves.toMatchObject({ status: 'RUNNING' });
-    await expect(queue.complete({
-      jobId: row.job_id,
-      workerId: 'worker-1',
-      attempt: 1,
-      status: 'COMPLETE',
-    })).resolves.toMatchObject({ status: 'COMPLETE' });
-
+    await expect(queue.claim()).resolves.toMatchObject({ status: 'RUNNING' });
+    await expect(queue.complete({ jobId: row.job_id, status: 'COMPLETE' }))
+      .resolves.toMatchObject({ status: 'COMPLETE' });
+    await expect(queue.recoverInterrupted()).resolves.toBe(1);
     expect(client.calls.map((call) => call.name)).toEqual([
-      'claim_execution_job',
-      'renew_execution_job_lease',
-      'complete_execution_job',
+      'claim_execution_job', 'complete_execution_job', 'recover_interrupted_execution_jobs',
     ]);
-    expect(client.calls[1].parameters).toMatchObject({ p_attempt: 1 });
-    expect(client.calls[2].parameters).toMatchObject({ p_attempt: 1 });
   });
 
-  test('retorna null quando a fila está vazia e propaga erro de banco com clareza', async () => {
+  test('retorna null quando não há trabalho e propaga erro de banco', async () => {
     const client = new FakeClient();
     client.responses.set('claim_execution_job', { data: null, error: null });
     const queue = new SupabaseExecutionQueue(client);
-    await expect(queue.claim({ workerId: 'worker-1', leaseSeconds: 120 })).resolves.toBeNull();
+    await expect(queue.claim()).resolves.toBeNull();
 
-    client.responses.set('claim_execution_job', {
-      data: { job_id: null, run_id: null, job_kind: null }, error: null,
+    client.responses.set('enqueue_execution_job', {
+      data: null,
+      error: { message: 'idempotency conflict' },
     });
-    await expect(queue.claim({ workerId: 'worker-1', leaseSeconds: 120 })).resolves.toBeNull();
-
-    client.responses.set('enqueue_execution_job', { data: null, error: { message: 'idempotency conflict' } });
     await expect(queue.enqueue({
-      jobId: '11111111-1111-4111-8111-111111111111',
-      runId: 'pddeinfo-abc123',
+      jobId: row.job_id,
+      runId: row.run_id,
       kind: 'PDDEINFO',
-      idempotencyKey: 'coleta-agosto',
+      idempotencyKey: row.idempotency_key,
       fiscalYear: 2026,
-      requestHash: 'a'.repeat(64),
+      requestHash: row.request_hash,
       payload: { fiscalYear: 2026 },
-      requestedAt: '2026-08-13T12:00:00Z',
-      maxAttempts: 3,
+      requestedAt: row.requested_at,
     })).rejects.toThrow(/fila.*idempotency conflict/i);
-  });
-
-  test('classifica separadamente a perda definitiva do lease', async () => {
-    const client = new FakeClient();
-    client.responses.set('renew_execution_job_lease', {
-      data: null,
-      error: { code: 'PDE01', message: 'PDDE_LEASE_LOST: lease expirou: job/1' },
-    });
-    const queue = new SupabaseExecutionQueue(client);
-
-    await expect(queue.renewLease({
-      jobId: row.job_id,
-      workerId: 'worker-1',
-      attempt: 1,
-      leaseSeconds: 120,
-    })).rejects.toMatchObject({
-      name: 'ExecutionLeaseLostError',
-      message: expect.stringMatching(/lease expirou/i),
-    });
-
-    client.responses.set('complete_execution_job', {
-      data: null,
-      error: {
-        code: 'PDE01',
-        message: 'PDDE_LEASE_LOST: tentativa não está RUNNING para o worker: job/1',
-      },
-    });
-    await expect(queue.complete({
-      jobId: row.job_id,
-      workerId: 'worker-1',
-      attempt: 1,
-      status: 'COMPLETE',
-    })).rejects.toMatchObject({ name: 'ExecutionLeaseLostError' });
-
-    client.responses.set('renew_execution_job_lease', {
-      data: null,
-      error: { message: 'proxy indisponível ao verificar se o lease expirou' },
-    });
-    await expect(queue.renewLease({
-      jobId: row.job_id,
-      workerId: 'worker-1',
-      attempt: 1,
-      leaseSeconds: 120,
-    })).rejects.toMatchObject({ name: 'Error' });
   });
 });
