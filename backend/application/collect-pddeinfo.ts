@@ -164,8 +164,8 @@ export async function collectPddeInfo(
 
   const fetchSchoolHtml = rawOptions.fetchSchoolHtml ?? fetchPddeInfoSchoolHtml;
   const sleep = rawOptions.sleep ?? defaultSleep;
-  const successfulSchools: PddeInfoRawSchool[] = [];
-  const entries: SchoolManifestEntry[] = [];
+  const successfulByInep = new Map<string, PddeInfoRawSchool>();
+  const entriesByInep = new Map<string, SchoolManifestEntry>();
 
   const processSchool = async (school: PddeInfoExpectedSchool): Promise<void> => {
     let httpResult: PddeInfoHttpResult | null = null;
@@ -202,8 +202,8 @@ export async function collectPddeInfo(
 
       const normalizedPath = `normalized/${school.inep}.json`;
       const normalizedSha256 = await writeJson(join(runDirectory, normalizedPath), parsedSchool);
-      successfulSchools.push(parsedSchool);
-      entries.push({
+      successfulByInep.set(school.inep, parsedSchool);
+      entriesByInep.set(school.inep, {
         inep: school.inep,
         sme: school.sme,
         nome: school.nome,
@@ -220,7 +220,7 @@ export async function collectPddeInfo(
         warnings: validation.warnings,
       });
     } catch (cause) {
-      entries.push({
+      entriesByInep.set(school.inep, {
         inep: school.inep,
         sme: school.sme,
         nome: school.nome,
@@ -245,10 +245,20 @@ export async function collectPddeInfo(
     }
   }
 
+  const entries = parsed.schools.map((school) => entriesByInep.get(school.inep));
+  if (entries.some((entry) => !entry)) {
+    throw new Error('Falha interna: nem todas as escolas receberam resultado de coleta.');
+  }
+  const orderedEntries = entries as SchoolManifestEntry[];
+  const successfulSchools = parsed.schools.flatMap((school) => {
+    const parsedSchool = successfulByInep.get(school.inep);
+    return parsedSchool ? [parsedSchool] : [];
+  });
+
   const completedAt = rawOptions.completedAt?.() ?? new Date().toISOString();
   timestampSchema.parse(completedAt);
-  const succeeded = entries.filter((entry) => entry.status === 'SUCCESS').length;
-  const failed = entries.length - succeeded;
+  const succeeded = orderedEntries.filter((entry) => entry.status === 'SUCCESS').length;
+  const failed = orderedEntries.length - succeeded;
   const status: CollectionStatus = failed === 0 ? 'COMPLETE' : 'PARTIAL';
   const statistics = { total: parsed.schools.length, succeeded, failed };
 
@@ -261,7 +271,7 @@ export async function collectPddeInfo(
     startedAt,
     completedAt,
     statistics,
-    schools: entries,
+    schools: orderedEntries,
   };
   await writeJson(manifestPath, manifest);
 
