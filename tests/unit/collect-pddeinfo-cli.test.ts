@@ -35,6 +35,15 @@ describe('CLI collect-pddeinfo', () => {
     });
   });
 
+  test('define arquivo append-only de evidências dentro do workspace', async () => {
+    const subject = await loadSubject();
+    expect(subject).not.toBeNull();
+    if (!subject) return;
+    expect(subject.evidenceStorePath).toBeTypeOf('function');
+    const evidenceStorePath = subject.evidenceStorePath as (workspacePath: string) => string;
+    expect(evidenceStorePath('/tmp/pddeinfo')).toMatch(/[/\\]tmp[/\\]pddeinfo[/\\]evidence[/\\]events\.jsonl$/);
+  });
+
   test('carrega a lista-mestre embutida com exatamente 163 INEPs únicos', async () => {
     const subject = await loadSubject();
     expect(subject, 'a CLI de coleta PDDEInfo ainda não foi implementada').not.toBeNull();

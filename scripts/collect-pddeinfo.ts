@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
+import { JsonlEvidenceStore } from '../backend/adapters/jsonl-evidence-store';
 import { collectPddeInfo } from '../backend/application/collect-pddeinfo';
 
 const HELP = `
@@ -16,6 +17,9 @@ Uso:
 A coleta usa a lista-mestre embutida das 163 escolas da 4ª CRE, consulta o PDDEInfo
 por INEP, preserva HTML e JSON por unidade, registra hashes e gera um envelope
 pddeinfo-<ano>.json compatível com o conciliador.
+
+A trilha append-only de evidências é criada automaticamente em:
+  <workspace>/evidence/events.jsonl
 
 Uma execução com qualquer escola não concluída é marcada como PARTIAL e não deve
 ser usada como fonte aprovada para conciliação.
@@ -100,6 +104,10 @@ export function optionsFromArguments(parsed: ParsedArguments): {
   };
 }
 
+export function evidenceStorePath(workspacePath: string): string {
+  return resolve(workspacePath, 'evidence', 'events.jsonl');
+}
+
 export async function loadMasterSchools(): Promise<Array<{ inep: string; sme: string; nome: string }>> {
   const source = await readFile(new URL('../backend/schools4cre.json', import.meta.url), 'utf8');
   const parsed = masterSchema.parse(JSON.parse(source) as unknown);
@@ -120,10 +128,18 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
 
   const cliOptions = optionsFromArguments(parsed);
   const schools = await loadMasterSchools();
+  const eventsPath = evidenceStorePath(cliOptions.workspacePath);
+  const evidenceStore = new JsonlEvidenceStore(eventsPath);
   const result = await collectPddeInfo({
     schools,
     ...cliOptions,
+    evidenceStore,
   });
+
+  const integrity = await evidenceStore.verifyIntegrity();
+  if (!integrity.valid) {
+    throw new Error(`A trilha de evidências falhou na verificação de integridade: ${integrity.reason ?? 'motivo não informado'}.`);
+  }
 
   process.stdout.write(`${JSON.stringify({
     status: result.status,
@@ -132,6 +148,8 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     pddeInfoPath: result.pddeInfoPath,
     manifestPath: result.manifestPath,
     runDirectory: result.runDirectory,
+    evidenceStorePath: eventsPath,
+    evidenceEvents: integrity.events,
   }, null, 2)}\n`);
 
   if (result.status === 'PARTIAL') {

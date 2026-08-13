@@ -1,105 +1,208 @@
 # Arquitetura atual e direção de evolução
 
-## Estado atual — v0.2.0
+## Estado atual — v0.4.0
 
-O núcleo atual materializa, por UEx, programa, ação e parcela, a correspondência entre três evidências oficiais:
+O repositório já cobre quatro responsabilidades separadas:
 
-1. pagamento informado no PDDEInfo;
-2. ordem bancária e conta destinatária do SIGEF Liberações;
-3. crédito correspondente no SIGEF Movimentações.
+1. coleta autônoma e validação do PDDEInfo;
+2. preservação append-only de evidências e artefatos;
+3. conciliação determinística entre fontes;
+4. projeções de leitura por execução e por escola.
 
-A arquitetura é deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
+A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
 
 ## Fluxo atual
 
 ```text
-PDDEInfo JSON ───────────────┐
-                            │
-SIGEF Liberações XLS ───────┼─> normalização/validação ─> conciliação ─> Excel auditável
-                            │
-SIGEF Movimentações CSV ────┘
+Lista-mestre 163 escolas
+        │
+        ▼
+PDDEInfo HTTP + parser
+        │
+        ├── HTML/JSON/manifest ───────────────┐
+        │                                      │
+        ▼                                      ▼
+normalização                         trilha append-only
+        │                           evidence/events.jsonl
+        │                                      │
+        ├─────────────┐                        │
+        │             │                        │
+        ▼             ▼                        │
+SIGEF Liberações   SIGEF Movimentações         │
+        │             │                        │
+        └──────┬──────┘                        │
+               ▼                               │
+       conciliação determinística              │
+               │                               │
+               ├── FINDING_RECORDED ──────────┤
+               ├── Excel + SHA-256 ───────────┤
+               ▼                               ▼
+          resultado                     projeções de leitura
+                                   execução / histórico escolar
 ```
+
+Observação de fonte e conclusão derivada permanecem separadas. Eventos gerados pelo motor usam origem `CONCILIADOR`; eles não são apresentados como se tivessem sido observados diretamente no PDDEInfo ou SIGEF.
+
+## Modelo de evidência
+
+`backend/core/evidence.ts` define eventos canônicos:
+
+- `EXECUTION_STARTED`;
+- `EXECUTION_FINISHED`;
+- `SOURCE_ATTEMPT_RECORDED`;
+- `ARTIFACT_PRESERVED`;
+- `OBSERVATION_RECORDED`;
+- `FINDING_RECORDED`.
+
+Cada evento persistido possui:
+
+- `eventId` único;
+- `runId`;
+- sequência monotônica;
+- origem;
+- exercício;
+- INEP opcional;
+- data/hora;
+- payload tipado;
+- `previousHash`;
+- `eventHash` SHA-256.
+
+### Adaptador JSONL
+
+`backend/adapters/jsonl-evidence-store.ts` implementa o contrato imediatamente utilizável:
+
+- append serializado mesmo com escolas processadas em paralelo;
+- rejeição de `eventId` duplicado;
+- verificação da cadeia antes de novos appends;
+- detecção de adulteração, quebra de sequência e divergência de hash;
+- leitura por execução, por escola ou integral.
+
+O arquivo padrão é:
+
+```text
+<workspace>/evidence/events.jsonl
+```
+
+### Postgres / Supabase
+
+`supabase/migrations/20260813050000_evidence_events.sql` materializa o mesmo princípio em Postgres:
+
+- `pgcrypto` para SHA-256;
+- índices por execução, escola e fonte/exercício;
+- RLS habilitado e forçado;
+- sem leitura/escrita para `anon` ou `authenticated` nesta etapa;
+- `UPDATE` e `DELETE` bloqueados por trigger;
+- append por função `SECURITY DEFINER` concedida apenas a `service_role`;
+- `pg_advisory_xact_lock` serializa sequência e cadeia de hashes.
+
+A migration está versionada, mas ainda **não foi aplicada a um projeto Supabase dedicado**. Os projetos já conectados pertencem a outras aplicações e não serão reutilizados por conveniência.
+
+## Coleta PDDEInfo
 
 Principais módulos:
 
-1. `pddeinfo-normalizer.ts` converte o retorno do PDDEInfo em pagamentos esperados.
-2. `sigef-release-inspector.ts` identifica CNPJ, exercício, programa e data da consulta nas exportações do SIGEF.
-3. `load-sigef-release-exports.ts` incorpora a pasta canônica ou manifesto de Liberações.
-4. `sigef-releases-html.ts` interpreta o `.xls`, fisicamente HTML em Windows-1252.
-5. `sigef-movements-csv.ts` lê o CSV nacional em fluxo e filtra a carteira relevante.
-6. `reconciliation-pipeline.ts` valida procedência e cobertura das fontes.
-7. `portfolio-reconciliation.ts` isola cada ação/parcela e resolve candidatos sem inferência silenciosa.
-8. `reconciliation.ts` aplica estados gerenciais e códigos de razão.
-9. `reconciliation-workbook.ts` gera, relê e audita o Excel antes da gravação.
-10. o Assistente de Liberações prepara as exportações de forma incremental e idempotente antes da conciliação.
+1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry;
+2. `pddeinfo-html.ts` interpreta e valida a identidade retornada;
+3. `pddeinfo-normalizer.ts` converte a resposta em pagamentos esperados;
+4. `collect-pddeinfo.ts` orquestra lotes, preserva artefatos e registra a execução;
+5. `scripts/collect-pddeinfo.ts` cria automaticamente a trilha de evidências e verifica sua integridade.
+
+Uma falha de fonte é registrada como tentativa falha da escola. Uma falha do próprio armazenamento de auditoria não é mascarada como falha da escola: a execução é interrompida.
+
+## Conciliação
+
+Principais módulos:
+
+1. `sigef-release-inspector.ts` identifica metadados das exportações;
+2. `load-sigef-release-exports.ts` importa manifesto ou pasta canônica;
+3. `sigef-releases-html.ts` interpreta os `.xls` HTML/Windows-1252;
+4. `sigef-movements-csv.ts` lê o CSV em streaming;
+5. `reconciliation-pipeline.ts` valida procedência/cobertura;
+6. `portfolio-reconciliation.ts` resolve candidatos sem inferência silenciosa;
+7. `reconciliation.ts` produz estado e código de razão;
+8. `reconcile-files.ts` gera o Excel e registra execução, achados e relatório na trilha;
+9. `reconciliation-workbook.ts` gera, relê e audita o workbook.
+
+Quando o PDDEInfo veio do layout padrão do coletor, `scripts/reconcile.ts` encontra automaticamente a mesma trilha de evidências. Uma execução do conciliador registra qual `runId` de coleta lhe serviu como origem.
+
+## Leitura e projeções
+
+`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”.
+
+As projeções já disponíveis incluem:
+
+- status, início e fim de uma execução;
+- origem e exercício;
+- vínculo da conciliação com a coleta anterior;
+- contagem de tentativas, falhas, artefatos, achados e revisões humanas;
+- linha do tempo por INEP.
+
+`scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 
 ## Invariantes
 
 - dinheiro é comparado em centavos inteiros;
 - CNPJ, banco, agência, conta, INEP, código SME e OB permanecem texto;
 - fonte ausente ou cobertura insuficiente nunca vira confirmação nem ausência definitiva;
-- uma liberação só participa da linha compatível em CNPJ, exercício, programa, ação e parcela;
-- um movimento bancário só participa quando existe contexto documental suficiente;
+- observação externa e conclusão derivada permanecem semanticamente separadas;
+- eventos já persistidos não são reescritos para simular estado atual;
 - conta divergente entre fontes nunca é escolhida automaticamente;
-- conta ausente no PDDEInfo não é inferida a partir de histórico ou programa diferente;
+- conta ausente no PDDEInfo não é inferida de histórico ou programa diferente;
 - cabeçalho, destinação ou estrutura desconhecida geram erro explícito;
 - conteúdo externo capaz de virar fórmula no Excel é neutralizado;
-- relatórios financeiros não dependem de fórmulas ocultas para provar seus resultados;
 - o workbook final é relido e validado antes de ser considerado concluído.
 
-## Direção da plataforma
+## Validação de escala
 
-O produto final deve evoluir sem substituir o núcleo determinístico por lógica de interface:
+Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
+
+- 163/163 escolas concluídas;
+- 520 registros financeiros;
+- 169 com pagamento informado;
+- 47 sem conta correspondente de programa na visão consultada;
+- 0 warnings de normalização;
+- 493 eventos append-only;
+- cadeia de integridade validada integralmente.
+
+## Direção da plataforma
 
 ```text
 Aplicação web operacional
         │
         ▼
-Orquestrador de coletas e execuções
+API / casos de uso
         │
-        ├── PDDEInfo
-        ├── SIGEF Liberações
-        ├── SIGEF Movimentações/Extratos
-        └── fontes complementares
-        │
-        ▼
-Modelo canônico de dados + evidências
+        ├── execução de coletas
+        ├── conciliação
+        ├── projeções de histórico
+        └── gestão de exceções
         │
         ▼
-Motor determinístico de conciliação
+Modelo canônico + trilha de evidências
         │
-        ├── resultado operacional
-        ├── exceções/revisão
-        ├── rastreabilidade
-        └── Excel profissional
+        ├── JSONL operacional/local
+        └── Postgres/Supabase institucional
+        │
+        ▼
+Fontes + motor determinístico
 ```
 
-Persistência, histórico de execuções, evidências brutas, autenticação e interface web ainda não são considerados parte consolidada do repositório apenas porque existam em protótipos paralelos. Eles entram na plataforma somente quando forem incorporados e validados aqui.
+O passo seguinte é materializar o backend institucional sobre o contrato já validado, aplicar a migration em um projeto dedicado e expor as projeções por API para a futura interface web.
 
 ## Direção de UX
 
-As implementações paralelas demonstraram uma direção de interface que vale preservar como referência, sem herdar seus runtimes:
+A aplicação deve mostrar primeiro execução, escola, resumo financeiro, exceções e ações úteis. Hashes, URLs, parser e demais metadados permanecem acessíveis numa camada secundária de rastreabilidade.
 
-- aparência institucional sóbria e alta densidade útil de informação;
-- execução e situação da carteira visíveis antes dos detalhes técnicos;
-- lista de escolas e resumo financeiro como foco da auditoria;
-- rastreabilidade, hashes, URLs e artefatos em camada secundária sob demanda;
-- estados financeiros em linguagem clara e com cores semânticas;
-- tooltips para explicar estados de evidência;
-- foco por teclado e modo de alto contraste;
-- comportamento responsivo para desktop e celular;
-- evitar painéis e notificações que ocupem espaço sem apoiar decisão operacional.
-
-O repositório `EXTRATOR-PDDE-MANUS` é uma referência de leitura para essa direção visual, não uma dependência de código ou runtime.
+As implementações paralelas continuam sendo referência de UX, especialmente para hierarquia visual, estados semânticos, alto contraste, teclado e responsividade, sem herança automática de seus runtimes.
 
 ## Limites atuais
 
 - obtenção autônoma do SIGEF continua limitada por CAPTCHA em rotas relevantes;
-- o fluxo principal ainda é executado por CLI;
-- a interface web definitiva ainda não está integrada ao motor de conciliação;
-- persistência institucional, autenticação e armazenamento de evidências serão incorporados em etapas posteriores;
+- o fluxo principal ainda é CLI;
+- a migration Postgres está pronta, mas não há banco Supabase canônico criado/aplicado;
+- autenticação e interface web ainda não estão integradas;
 - arquivos operacionais grandes permanecem fora do Git quando não agregam valor ao histórico do código.
 
 ## Dependência transitiva
 
-O ExcelJS 4.4.0 ainda declara `uuid ^8.3.0`. O projeto força `uuid 11.1.1`, versão corrigida para a vulnerabilidade transitiva monitorada. A chamada utilizada pelo ExcelJS é `v4()`, preservada nessa versão. Geração, serialização e releitura do workbook permanecem cobertas por testes. O override deve ser removido quando uma futura versão do ExcelJS atualizar sua dependência nativa.
+O ExcelJS 4.4.0 ainda declara `uuid ^8.3.0`. O projeto força `uuid 11.1.1`, versão corrigida para a vulnerabilidade transitiva monitorada. Geração, serialização e releitura do workbook permanecem cobertas por testes. O override deve ser removido quando uma futura versão do ExcelJS atualizar sua dependência nativa.

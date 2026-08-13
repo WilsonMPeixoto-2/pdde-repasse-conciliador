@@ -2,6 +2,16 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
+## 2026-08-13 — Evidência operacional é append-only
+
+**Decisão:** coletas, artefatos, observações e achados relevantes entram em uma trilha de eventos append-only. Eventos já persistidos não são atualizados nem apagados para representar “estado atual”; projeções de leitura reconstroem execução e histórico escolar a partir da sequência registrada.
+
+Cada evento possui sequência, `previousHash` e SHA-256 próprio. A implementação local usa JSONL com verificação de integridade e o schema Postgres/Supabase adota o mesmo princípio, com escrita serializada e bloqueio de `UPDATE`/`DELETE`.
+
+Observações de fontes externas mantêm a origem da própria fonte. Conclusões derivadas pelo motor são registradas separadamente com origem `CONCILIADOR` e podem apontar para a coleta que as fundamentou.
+
+**Motivo:** preservar a história, evitar sobrescrita silenciosa de evidência e permitir auditoria/reconstrução de resultados sem confundir fato observado com conclusão derivada.
+
 ## 2026-08-12 — Um único repositório de implementação
 
 **Decisão:** `WilsonMPeixoto-2/pdde-repasse-conciliador` é o repositório canônico do fluxo ChatGPT/OpenAI.
