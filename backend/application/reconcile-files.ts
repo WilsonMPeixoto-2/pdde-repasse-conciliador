@@ -23,6 +23,7 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
 );
 const pddeInfoEnvelopeSchema = z.object({
   fetchedAt: timestampSchema,
+  collectionStatus: z.enum(['COMPLETE', 'PARTIAL']).optional(),
   schools: z.array(z.unknown()),
 }).passthrough();
 const optionsSchema = z.object({
@@ -119,6 +120,9 @@ export async function reconcileFiles(
   const options = optionsSchema.parse(rawOptions);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const envelope = pddeInfoEnvelopeSchema.parse(await parseJsonFile(options.pddeInfoPath));
+  if (envelope.collectionStatus === 'PARTIAL') {
+    throw new Error('A coleta PDDEInfo está marcada como PARTIAL; conclua as escolas pendentes antes de iniciar a conciliação.');
+  }
   const pddeInfo = normalizePddeInfoSchools(envelope.schools, {
     fiscalYear: options.fiscalYear,
     queriedAt: envelope.fetchedAt,

@@ -2,26 +2,42 @@
 
 Este repositório é a **fonte canônica de implementação** do projeto de coleta, validação, conciliação e rastreabilidade financeira do PDDE para as 163 unidades da 4ª CRE/SME-Rio.
 
-O produto nasceu como um extrator de dados do PDDEInfo e evoluiu para uma ferramenta que precisa distinguir evidências de fontes diferentes sem transformar ausência, atraso ou indisponibilidade em conclusões financeiras indevidas.
+O produto nasceu como um extrator de dados do PDDEInfo e evoluiu para uma ferramenta que distingue evidências de fontes diferentes sem transformar ausência, atraso ou indisponibilidade em conclusões financeiras indevidas.
 
 ## Estado atual
 
-Marco atual: **v0.2.0**.
+Marco atual: **v0.3.0**.
 
 Já estão implementados e testados:
 
+- **coleta autônoma do PDDEInfo das 163 escolas por INEP**, via HTTP direto e parser determinístico;
+- preservação por unidade dos bytes HTML recebidos, JSON normalizado, URL, data/hora, SHA-256 e versão do parser;
+- retries, timeout, lotes conservadores e isolamento de falhas por escola;
+- validação da identidade retornada pelo portal contra a lista-mestre de INEP/SME/nome;
+- classificação explícita da execução como `COMPLETE` ou `PARTIAL`;
+- bloqueio do conciliador quando a coleta declara estado `PARTIAL`;
 - normalização dos dados financeiros das 163 escolas;
 - motor determinístico de conciliação;
 - leitura de exportações do **SIGEF Liberações** (`.xls` que contém HTML em Windows-1252);
 - leitura em fluxo do CSV de **SIGEF Movimentações**;
 - Assistente de Liberações incremental e idempotente;
-- preservação de arquivos originais por SHA-256 no workspace operacional;
 - validação por CNPJ, exercício, programa, ação, parcela, valor, data, conta e ordem bancária;
 - valores monetários tratados em centavos inteiros;
 - relatório Excel auditável, sem fórmulas ocultas e com proteção contra formula injection;
 - estados explícitos para confirmação, divergência, ausência limitada à fonte e consulta inconclusiva.
 
-A primeira execução real parcial do conciliador processou 163 escolas, 520 registros financeiros e 478.855 movimentos SIGEF. Como a fonte de Liberações ainda não estava disponível naquela rodada, o resultado correto foi **0 repasses confirmados e 520 consultas inconclusivas**.
+### Validação real do v0.3
+
+Em 12/08/2026, a implementação deste repositório executou uma coleta real controlada no PDDEInfo e concluiu:
+
+- **163/163 escolas consultadas com sucesso**;
+- **0 falhas de coleta**;
+- **520 registros financeiros**;
+- **169 registros com pagamento informado**;
+- **47 casos sem conta correspondente de programa na visão consultada**;
+- **0 warnings de normalização**.
+
+Os números reproduziram a referência validada anteriormente e a execução completa foi seguida por typecheck e build aprovados. Os testes que acessam o portal real permanecem **opt-in**, para que indisponibilidade externa do FNDE não transforme o CI normal em um detector de humor de sistema legado.
 
 ## Regra central de evidência
 
@@ -34,14 +50,43 @@ O projeto separa fatos que não são equivalentes:
 
 Uma fonte não sobrescreve silenciosamente outra. Cobertura insuficiente produz estado inconclusivo, não uma resposta inventada.
 
-## Verificação local
+## Verificação
 
 ```bash
 npm ci
 npm run check
 ```
 
-`npm run check` executa testes, typecheck TypeScript e build.
+`npm run check` executa testes, typecheck TypeScript e build. Integrações contra serviços externos ficam desativadas por padrão.
+
+## Coleta autônoma do PDDEInfo
+
+A lista-mestre das 163 unidades está embutida no projeto. Para realizar a coleta:
+
+```bash
+npm run pddeinfo:collect -- \
+  --workspace /caminho/coleta-pddeinfo \
+  --year 2026
+```
+
+Por padrão, a rotina trabalha em lotes pequenos e preserva cada execução em:
+
+```text
+workspace/runs/<run-id>/
+├── raw/<INEP>.html
+├── normalized/<INEP>.json
+├── manifest.json
+└── pddeinfo-2026.json
+```
+
+O `manifest.json` registra sucessos, falhas, tentativas, hashes e procedência. Uma execução com qualquer escola não concluída é marcada como `PARTIAL`; seus artefatos são preservados para diagnóstico, mas o conciliador recusa esse envelope como fonte completa.
+
+Testes reais opcionais:
+
+```bash
+PDDEINFO_LIVE=1 npm test -- tests/integration/pddeinfo-live.test.ts
+PDDEINFO_FULL_LIVE=1 npm test -- tests/integration/pddeinfo-full-live.test.ts
+```
 
 ## Assistente de Liberações
 
@@ -60,7 +105,7 @@ Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 
 ```bash
 npm run reconcile -- \
-  --pdde-info /caminho/pddeinfo.json \
+  --pdde-info /caminho/coleta-pddeinfo/runs/<run-id>/pddeinfo-2026.json \
   --movements /caminho/extrato-bancario.csv \
   --releases-dir /caminho/coleta-liberacoes/liberacoes \
   --output /caminho/conciliacao.xlsx \
@@ -71,8 +116,8 @@ npm run reconcile -- \
 ## Estrutura principal
 
 - `backend/core/` — modelos, normalização e regras determinísticas;
-- `backend/adapters/` — leitura e inspeção das fontes;
-- `backend/application/` — composição da carteira e fluxos de aplicação;
+- `backend/adapters/` — acesso, leitura e inspeção das fontes;
+- `backend/application/` — coleta, composição da carteira e fluxos de aplicação;
 - `backend/report/` — geração e validação dos relatórios Excel;
 - `scripts/` — interfaces operacionais;
 - `tests/` — regras, regressões e integrações opcionais.
