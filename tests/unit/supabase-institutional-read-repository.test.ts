@@ -5,6 +5,21 @@ type Row = Record<string, unknown>;
 
 const eventRows: Row[] = [
   {
+    sequence: 9, event_id: 'finding-b-current', run_id: 'run-b', event_type: 'FINDING_RECORDED',
+    occurred_at: '2026-08-13T11:04:00Z', source: 'CONCILIADOR', fiscal_year: 2026,
+    school_inep: '33069247', previous_hash: 'd'.repeat(64), event_hash: 'e'.repeat(64),
+    payload: {
+      status: 'REPASSE_CONFIRMADO', reasonCode: 'EXACT_MATCH',
+      requiresHumanReview: false, data: { amountPaidCents: 600_000 },
+    },
+  },
+  {
+    sequence: 8, event_id: 'start-b-2', run_id: 'run-b', event_type: 'EXECUTION_STARTED',
+    occurred_at: '2026-08-13T11:03:00Z', source: 'CONCILIADOR', fiscal_year: 2026,
+    school_inep: null, previous_hash: 'b'.repeat(64), event_hash: 'd'.repeat(64),
+    payload: { attempt: 2 },
+  },
+  {
     sequence: 7, event_id: 'finding-b', run_id: 'run-b', event_type: 'FINDING_RECORDED',
     occurred_at: '2026-08-13T11:02:00Z', source: 'CONCILIADOR', fiscal_year: 2026,
     school_inep: '33069247', previous_hash: 'a'.repeat(64), event_hash: 'b'.repeat(64),
@@ -19,6 +34,7 @@ const eventRows: Row[] = [
     school_inep: null, previous_hash: null, event_hash: 'c'.repeat(64), payload: {},
   },
 ];
+const currentFindingRows = eventRows.filter((row) => row.event_id === 'finding-b-current');
 const executionRows: Row[] = [
   {
     run_id: 'run-b', source: 'CONCILIADOR', fiscal_year: 2026,
@@ -82,6 +98,7 @@ class FakeQuery implements PromiseLike<{ data: Row[]; error: null; count: number
 class FakeClient {
   from(table: string) {
     if (table === 'execution_read_models') return new FakeQuery(executionRows);
+    if (table === 'current_finding_events') return new FakeQuery(currentFindingRows);
     if (table === 'evidence_events') return new FakeQuery(eventRows);
     throw new Error(`Tabela inesperada: ${table}`);
   }
@@ -105,10 +122,10 @@ describe('SupabaseInstitutionalReadRepository', () => {
   test('filtra e pagina achados no servidor preservando centavos inteiros', async () => {
     const repository = new SupabaseInstitutionalReadRepository(new FakeClient());
     await expect(repository.listFindings({
-      limit: 10, schoolInep: '33069247', runId: 'run-b', requiresHumanReview: true,
+      limit: 10, schoolInep: '33069247', runId: 'run-b', requiresHumanReview: false,
     })).resolves.toEqual({
       items: [expect.objectContaining({
-        eventId: 'finding-b', reasonCode: 'ACCOUNT_MISMATCH', amountPaidCents: 506_500,
+        eventId: 'finding-b-current', reasonCode: 'EXACT_MATCH', amountPaidCents: 600_000,
       })],
       total: 1,
     });
@@ -125,8 +142,9 @@ describe('SupabaseInstitutionalReadRepository', () => {
     await expect(repository.listSchoolEvents({
       schoolInep: '33069247', limit: 1,
     })).resolves.toEqual({
-      items: [expect.objectContaining({ eventId: 'finding-b', sequence: 7 })],
-      total: 1,
+      items: [expect.objectContaining({ eventId: 'finding-b-current', sequence: 9 })],
+      total: 2,
+      nextCursor: '9',
     });
     await expect(repository.listExecutionsByRuns(['run-b'])).resolves.toEqual([
       expect.objectContaining({ runId: 'run-b', status: 'RUNNING' }),

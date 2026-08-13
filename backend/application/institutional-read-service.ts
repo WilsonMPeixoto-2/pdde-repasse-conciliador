@@ -62,6 +62,17 @@ function groupByRun(events: PersistedEvidenceEvent[]): Map<string, PersistedEvid
   return groups;
 }
 
+function currentFindings(events: PersistedEvidenceEvent[]): PersistedEvidenceEvent[] {
+  const latestStartByRun = new Map<string, number>();
+  for (const event of events) {
+    if (event.type !== 'EXECUTION_STARTED') continue;
+    const current = latestStartByRun.get(event.runId) ?? 0;
+    if (event.sequence > current) latestStartByRun.set(event.runId, event.sequence);
+  }
+  return events.filter((event) => event.type === 'FINDING_RECORDED'
+    && event.sequence > (latestStartByRun.get(event.runId) ?? 0));
+}
+
 function artifactModel(event: PersistedEvidenceEvent): ArtifactReadModel {
   const value = payload(event);
   return {
@@ -207,7 +218,7 @@ export class InstitutionalReadService {
     return {
       execution,
       events,
-      findings: events.filter((event) => event.type === 'FINDING_RECORDED'),
+      findings: currentFindings(events),
       artifacts: events.filter((event) => event.type === 'ARTIFACT_PRESERVED'),
     };
   }
@@ -235,8 +246,7 @@ export class InstitutionalReadService {
       });
     }
     const cursor = page.cursor ? Number(page.cursor) : Number.POSITIVE_INFINITY;
-    const filtered = (await this.store.listAll())
-      .filter((event) => event.type === 'FINDING_RECORDED')
+    const filtered = currentFindings(await this.store.listAll())
       .filter((event) => !rawQuery.schoolInep || event.schoolInep === rawQuery.schoolInep)
       .filter((event) => !runId || event.runId === runId)
       .filter((event) => rawQuery.requiresHumanReview === undefined

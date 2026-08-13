@@ -437,6 +437,49 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     }
   });
 
+  test('projeta somente achados posteriores ao início da tentativa mais recente', async () => {
+    await database.exec('set role service_role');
+    try {
+      const append = (eventId: string, eventType: string, occurredAt: string, payload: string) => (
+        database.query(`
+          select public.append_evidence_event(
+            $1::text,
+            'pglite-findings-run'::text,
+            $2::text,
+            $3::timestamptz,
+            'CONCILIADOR'::text,
+            2026::smallint,
+            '33069247'::text,
+            $4::jsonb
+          )
+        `, [eventId, eventType, occurredAt, payload])
+      );
+      await append('pglite-findings-start-1', 'EXECUTION_STARTED', '2026-08-13T13:00:00Z', '{"attempt":1}');
+      await append('pglite-finding-stale', 'FINDING_RECORDED', '2026-08-13T13:01:00Z', '{"status":"DIVERGENCIA_REVISAO_NECESSARIA","reasonCode":"STALE","requiresHumanReview":true}');
+      await append('pglite-findings-start-2', 'EXECUTION_STARTED', '2026-08-13T13:02:00Z', '{"attempt":2}');
+      await append('pglite-finding-current', 'FINDING_RECORDED', '2026-08-13T13:03:00Z', '{"status":"REPASSE_CONFIRMADO","reasonCode":"EXACT_MATCH","requiresHumanReview":false}');
+
+      const findings = await database.query<{ event_id: string }>(`
+        select event_id from public.current_finding_events
+        where run_id = 'pglite-findings-run'
+        order by sequence
+      `);
+      expect(findings.rows).toEqual([{ event_id: 'pglite-finding-current' }]);
+      const projection = await database.query<{
+        findings_count: string | number;
+        human_review_count: string | number;
+      }>(`
+        select findings_count, human_review_count
+        from public.execution_read_models
+        where run_id = 'pglite-findings-run'
+      `);
+      expect(Number(projection.rows[0].findings_count)).toBe(1);
+      expect(Number(projection.rows[0].human_review_count)).toBe(0);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
   test('nega leitura anônima e bloqueia UPDATE/DELETE/TRUNCATE até para o owner', async () => {
     await database.exec('set role anon');
     try {

@@ -194,4 +194,32 @@ describe('InstitutionalReadService', () => {
       }),
     ]);
   });
+
+  test('expõe somente achados da tentativa mais recente sem apagar o histórico anterior', async () => {
+    await store.append({
+      eventId: 'start-b-attempt-2', runId: 'run-b', type: 'EXECUTION_STARTED',
+      occurredAt: '2026-08-13T11:03:00Z', source: 'CONCILIADOR', fiscalYear: 2026,
+      payload: { attempt: 2, sourceCollectionRunId: 'run-a' },
+    });
+    await store.append({
+      eventId: 'finding-b-attempt-2', runId: 'run-b', type: 'FINDING_RECORDED',
+      occurredAt: '2026-08-13T11:04:00Z', source: 'CONCILIADOR', fiscalYear: 2026,
+      schoolInep: '33069247', payload: {
+        status: 'REPASSE_CONFIRMADO', reasonCode: 'EXACT_MATCH',
+        requiresHumanReview: false, data: { amountPaidCents: 506_500 },
+      },
+    });
+
+    await expect(service.listFindings({ runId: 'run-b' })).resolves.toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ eventId: 'finding-b-attempt-2' })],
+    });
+    await expect(service.getExecution('run-b')).resolves.toMatchObject({
+      findings: [expect.objectContaining({ eventId: 'finding-b-attempt-2' })],
+      events: expect.arrayContaining([
+        expect.objectContaining({ eventId: 'finding-b' }),
+        expect.objectContaining({ eventId: 'finding-b-attempt-2' }),
+      ]),
+    });
+  });
 });

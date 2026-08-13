@@ -143,11 +143,11 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
       return request;
     };
     let pageRequest = applyFilters(
-      this.client.from('evidence_events').select(EVENT_COLUMNS),
+      this.client.from('current_finding_events').select(EVENT_COLUMNS),
     ).order('sequence', { ascending: false }).limit(query.limit + 1);
     if (query.cursor) pageRequest = pageRequest.lt('sequence', Number(query.cursor));
     const countRequest = applyFilters(
-      this.client.from('evidence_events').select('sequence', { count: 'exact', head: true }),
+      this.client.from('current_finding_events').select('sequence', { count: 'exact', head: true }),
     );
     const [pageResult, countResult] = await Promise.all([pageRequest, countRequest]);
     const { data, error } = pageResult;

@@ -426,9 +426,38 @@ begin
 end;
 $$;
 
+create or replace view public.current_finding_events
+with (security_invoker = true)
+as
+with latest_starts as (
+  select run_id, max(sequence) as latest_start_sequence
+  from public.evidence_events
+  where event_type = 'EXECUTION_STARTED'
+  group by run_id
+)
+select findings.*
+from public.evidence_events as findings
+left join latest_starts on latest_starts.run_id = findings.run_id
+where findings.event_type = 'FINDING_RECORDED'
+  and (
+    latest_starts.latest_start_sequence is null
+    or findings.sequence > latest_starts.latest_start_sequence
+  );
+
+revoke all on table public.current_finding_events from public;
+revoke all on table public.current_finding_events from anon;
+revoke all on table public.current_finding_events from authenticated;
+grant select on public.current_finding_events to service_role;
+
 create or replace view public.execution_read_models
 with (security_invoker = true)
 as
+with latest_starts as (
+  select run_id, max(sequence) as latest_start_sequence
+  from public.evidence_events
+  where event_type = 'EXECUTION_STARTED'
+  group by run_id
+)
 select
   events.run_id,
   coalesce(
@@ -464,14 +493,25 @@ select
       and events.payload ->> 'status' = 'FAILED'
   ) as failed_attempts_count,
   count(*) filter (where events.event_type = 'ARTIFACT_PRESERVED') as artifacts_count,
-  count(*) filter (where events.event_type = 'FINDING_RECORDED') as findings_count,
   count(*) filter (
     where events.event_type = 'FINDING_RECORDED'
+      and (
+        latest_starts.latest_start_sequence is null
+        or events.sequence > latest_starts.latest_start_sequence
+      )
+  ) as findings_count,
+  count(*) filter (
+    where events.event_type = 'FINDING_RECORDED'
+      and (
+        latest_starts.latest_start_sequence is null
+        or events.sequence > latest_starts.latest_start_sequence
+      )
       and events.payload ->> 'requiresHumanReview' = 'true'
   ) as human_review_count,
   max(events.sequence) as anchor_sequence
 from public.evidence_events as events
-group by events.run_id
+left join latest_starts on latest_starts.run_id = events.run_id
+group by events.run_id, latest_starts.latest_start_sequence
 having count(*) filter (
   where events.event_type in (
     'EXECUTION_REQUESTED',

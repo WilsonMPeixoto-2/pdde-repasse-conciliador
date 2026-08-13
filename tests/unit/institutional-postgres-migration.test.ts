@@ -35,8 +35,11 @@ describe('migração Postgres do backend institucional', () => {
     expect(sql).toMatch(/'pdde-evidence'/);
     expect(sql).toMatch(/public\s*=\s*false/);
     expect(sql).toMatch(/create (?:or replace )?view public\.execution_read_models/);
+    expect(sql).toMatch(/create (?:or replace )?view public\.current_finding_events/);
+    expect(sql).toMatch(/latest_start_sequence/);
     expect(sql).toMatch(/security_invoker\s*=\s*true/);
     expect(sql).toMatch(/evidence_events_findings_sequence_idx/);
     expect(sql).toMatch(/grant select on public\.execution_read_models to service_role/);
+    expect(sql).toMatch(/grant select on public\.current_finding_events to service_role/);
   });
 });
