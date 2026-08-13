@@ -1,53 +1,49 @@
-# Conciliador de Repasses PDDE — 4ª CRE
+# Plataforma PDDE — 4ª CRE
 
-Marco `v0.2.0` da ferramenta que concilia, por escola, ação e parcela, três evidências oficiais:
+Este repositório é a **fonte canônica de implementação** do projeto de coleta, validação, conciliação e rastreabilidade financeira do PDDE para as 163 unidades da 4ª CRE/SME-Rio.
 
-1. pagamento informado no PDDEInfo;
-2. ordem bancária e conta destinatária exportadas de **SIGEF Liberações**;
-3. crédito correspondente no CSV de **SIGEF Movimentações**.
+O produto nasceu como um extrator de dados do PDDEInfo e evoluiu para uma ferramenta que precisa distinguir evidências de fontes diferentes sem transformar ausência, atraso ou indisponibilidade em conclusões financeiras indevidas.
 
-A versão publicada `v21` do extrator permanece intacta. Este projeto evolui seu núcleo de conciliação de modo independente e testável.
+## Estado atual
 
-## O que já funciona
+Marco atual: **v0.2.0**.
 
-- normalização estrita do retorno real das 163 escolas da 4ª CRE;
-- leitura em fluxo do CSV SIGEF com 478.855 linhas, sem carregar o arquivo integralmente em memória;
-- leitura do `.xls` de Liberações, que o SIGEF entrega como HTML em Windows-1252;
-- **Assistente de Liberações** que aceita `.xls` com qualquer nome, identifica CNPJ/programa/exercício e organiza os quatro programas suportados;
-- preservação de originais por hash, geração de `CNPJ__PROGRAMA.xls`, detecção de duplicidades, atualizações monotônicas, conflitos, pasta incorreta e arquivo fora da carteira;
-- planilha de controle das Liberações com `Resumo`, `Cobertura`, `Arquivos` e `Pendências`;
-- importação em lote da pasta canônica de Liberações com conferência de cobertura;
-- comparação por CNPJ, exercício, programa, ação, parcela, valor, data, conta e ordem bancária;
-- soma controlada de múltiplos créditos ligados à mesma ordem bancária;
-- complemento de conta ausente somente quando uma liberação correspondente e confiável a fornece;
-- relatório `.xlsx` com as abas `Conciliação`, `Exceções` e `Metadados`;
-- releitura e auditoria do Excel antes da gravação;
-- valores financeiros calculados em centavos inteiros e ausência deliberada de fórmulas nos relatórios;
-- neutralização de textos potencialmente interpretáveis como fórmulas pelo Excel.
+Já estão implementados e testados:
 
-## Status controlados da conciliação
+- normalização dos dados financeiros das 163 escolas;
+- motor determinístico de conciliação;
+- leitura de exportações do **SIGEF Liberações** (`.xls` que contém HTML em Windows-1252);
+- leitura em fluxo do CSV de **SIGEF Movimentações**;
+- Assistente de Liberações incremental e idempotente;
+- preservação de arquivos originais por SHA-256 no workspace operacional;
+- validação por CNPJ, exercício, programa, ação, parcela, valor, data, conta e ordem bancária;
+- valores monetários tratados em centavos inteiros;
+- relatório Excel auditável, sem fórmulas ocultas e com proteção contra formula injection;
+- estados explícitos para confirmação, divergência, ausência limitada à fonte e consulta inconclusiva.
 
-- `REPASSE_CONFIRMADO`
-- `ORDEM_BANCARIA_CONFIRMADA_CREDITO_NAO_LOCALIZADO`
-- `PAGAMENTO_INFORMADO_SOMENTE_NO_PDDEINFO`
-- `DIVERGENCIA_REVISAO_NECESSARIA`
-- `SEM_PAGAMENTO_REGISTRADO_ATE_A_CONSULTA`
-- `CONSULTA_INCONCLUSIVA`
+A primeira execução real parcial do conciliador processou 163 escolas, 520 registros financeiros e 478.855 movimentos SIGEF. Como a fonte de Liberações ainda não estava disponível naquela rodada, o resultado correto foi **0 repasses confirmados e 520 consultas inconclusivas**.
 
-Uma indisponibilidade ou cobertura insuficiente de fonte nunca é convertida em confirmação nem em ausência de pagamento.
+## Regra central de evidência
 
-## Instalação e verificações
+O projeto separa fatos que não são equivalentes:
+
+1. **pagamento informado no PDDEInfo**;
+2. **ordem bancária/liberação registrada no SIGEF**;
+3. **crédito localizado em movimentação bancária**;
+4. eventual confirmação por evidência bancária direta autorizada.
+
+Uma fonte não sobrescreve silenciosamente outra. Cobertura insuficiente produz estado inconclusivo, não uma resposta inventada.
+
+## Verificação local
 
 ```bash
 npm ci
 npm run check
 ```
 
-O comando `npm run check` executa testes, compilação TypeScript estrita e build do frontend preservado da v21.
+`npm run check` executa testes, typecheck TypeScript e build.
 
-## 1. Preparar as exportações de Liberações
-
-Não é mais necessário renomear manualmente cada download do SIGEF. Coloque os `.xls` em um workspace e execute:
+## Assistente de Liberações
 
 ```bash
 npm run releases:assist -- \
@@ -56,36 +52,11 @@ npm run releases:assist -- \
   --year 2026
 ```
 
-O assistente cria:
+O assistente organiza exportações dos programas `02`, `0A`, `0B` e `Z9`, preserva originais e produz a pasta canônica de Liberações e a planilha de controle.
 
-```text
-coleta-liberacoes/
-├── originais/
-│   ├── 02/
-│   ├── 0A/
-│   ├── 0B/
-│   ├── Z9/
-│   └── _pendentes/
-├── liberacoes/
-│   └── CNPJ__PROGRAMA.xls
-└── controle/
-    └── controle-liberacoes-2026.xlsx
-```
+Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 
-Programas suportados:
-
-- `02` — PDDE / PDDE Básico;
-- `0A` — PDDE Equidade;
-- `0B` — PDDE Qualidade;
-- `Z9` — PDDE Educação Integral.
-
-A execução é incremental e idempotente. Um arquivo canônico não é substituído por conteúdo conflitante; atualizações são aceitas apenas quando uma consulta posterior contém todos os registros anteriores e acrescenta novos registros.
-
-Detalhes operacionais: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
-
-## 2. Executar a conciliação
-
-Use diretamente a pasta `liberacoes` produzida pelo assistente:
+## Conciliação
 
 ```bash
 npm run reconcile -- \
@@ -97,67 +68,36 @@ npm run reconcile -- \
   --requested-through 2026-08-12
 ```
 
-A importação canônica usa nomes como:
-
-```text
-12345678000190__02.xls
-12345678000190__0B.xls
-```
-
-O conciliador confere o CNPJ do nome contra o conteúdo do arquivo, rejeita pares alheios à carteira e informa os pares esperados, importados e faltantes. Arquivos `.xls` mal nomeados não são ignorados silenciosamente.
-
-### Alternativa por manifesto
-
-O manifesto de Liberações é um array JSON. Caminhos relativos são resolvidos a partir do próprio manifesto:
-
-```json
-[
-  {
-    "path": "./exports/12345678000190__02.xls",
-    "programCode": "02",
-    "sourceUrl": "https://www.fnde.gov.br/sigefweb/index.php/liberacoes/visualizaexcel/..."
-  }
-]
-```
-
-Use `--release-manifest` quando precisar preservar a URL específica de cada exportação. `--release-manifest` e `--releases-dir` são alternativas mutuamente exclusivas.
-
-Sem manifesto nem pasta, a ferramenta registra a fonte Liberações como indisponível para cada CNPJ/programa e classifica as linhas afetadas como `CONSULTA_INCONCLUSIVA`.
-
-Use `--overwrite` somente quando quiser substituir conscientemente um arquivo de conciliação já existente.
-
-## Primeira execução real parcial
-
-Executada em 11/08/2026, ainda sem as exportações de Liberações 2026:
-
-- 163 escolas;
-- 520 registros financeiros;
-- 169 registros com pagamento no PDDEInfo;
-- 478.855 movimentos SIGEF lidos;
-- 167 movimentos das UEx/programas-alvo;
-- cobertura observada de Movimentações até 29/05/2026;
-- 520 consultas inconclusivas;
-- 0 repasses confirmados, como exigido pela ausência da evidência de Liberações.
-
-O resultado parcial é um artefato gerado e, por isso, não integra o histórico Git.
-
 ## Estrutura principal
 
-- `backend/core/`: esquemas, normalização e motor de conciliação;
-- `backend/adapters/`: leitores e inspetores de PDDEInfo, Liberações e Movimentações;
-- `backend/application/`: composição da carteira, Assistente de Liberações e execução por arquivos;
-- `backend/report/`: geração e validação dos relatórios Excel;
-- `scripts/assist-releases.ts`: preparação das exportações de Liberações;
-- `scripts/reconcile.ts`: interface de linha de comando da conciliação;
-- `tests/unit/`: regras e regressões sintéticas;
-- `tests/integration/`: verificações opcionais contra arquivos oficiais locais;
-- `docs/ARCHITECTURE.md`: fluxo, invariantes e limites do núcleo;
-- `docs/ASSISTENTE_LIBERACOES.md`: operação e estados do Assistente de Liberações.
+- `backend/core/` — modelos, normalização e regras determinísticas;
+- `backend/adapters/` — leitura e inspeção das fontes;
+- `backend/application/` — composição da carteira e fluxos de aplicação;
+- `backend/report/` — geração e validação dos relatórios Excel;
+- `scripts/` — interfaces operacionais;
+- `tests/` — regras, regressões e integrações opcionais.
 
-## Dados públicos e arquivos grandes
+## Documentação essencial
 
-Os dados utilizados são públicos. Bases nacionais, exportações operacionais e relatórios gerados ficam fora do Git apenas por tamanho, ruído de histórico e reprodutibilidade. Fixtures pequenas e deliberadas podem ser versionadas em `tests/fixtures/`.
+- [`docs/PROJETO.md`](docs/PROJETO.md) — visão, evolução, escopo e governança dos repositórios;
+- [`docs/DECISOES.md`](docs/DECISOES.md) — decisões consolidadas que não devem ser rediscutidas a cada sessão;
+- [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md) — estado das fontes e semântica financeira;
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — arquitetura atual e direção de evolução;
+- [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md) — operação da coleta de Liberações.
 
-## Próximo corte
+A documentação é memória do projeto, não gate burocrático. Alterações comuns de código não exigem atualização documental; os documentos acima são atualizados quando uma decisão, fonte, regra de negócio ou arquitetura muda de forma material.
 
-Completar a coleta real das exportações de Liberações 2026 para os pares CNPJ/programa da carteira, revisar as pendências produzidas pelo assistente, executar a conciliação completa e, somente depois de revisar as exceções, integrar a nova experiência à aplicação web candidata.
+## Governança dos repositórios
+
+Este é o **único repositório de implementação do fluxo ChatGPT/OpenAI**.
+
+Outros repositórios podem ser consultados como referências técnicas:
+
+- `WilsonMPeixoto-2/extrator-pdde-4cre` — snapshot histórico e operacional de implementações anteriores;
+- `WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS` — projeto paralelo exclusivo do Manus, **somente leitura para este fluxo**.
+
+Código, UX, testes e ideias úteis dessas referências podem ser estudados e incorporados aqui de forma seletiva. Nenhum desenvolvimento novo deste fluxo deve ser distribuído entre múltiplos repositórios.
+
+## Dados
+
+Os dados utilizados são públicos. Bases grandes, exportações operacionais e relatórios gerados podem permanecer fora do Git por tamanho, reprodutibilidade e ruído de histórico, não por sigilo.
