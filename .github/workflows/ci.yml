@@ -25,5 +25,11 @@ jobs:
       - name: Instalar dependências imutáveis
         run: npm ci
 
-      - name: Verificar o projeto
-        run: npm run check
+      - name: Executar testes
+        run: npm run test
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Gerar build
+        run: npm run build
