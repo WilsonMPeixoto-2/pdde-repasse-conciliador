@@ -6,6 +6,7 @@ import type {
   PreserveArtifactInput,
   PreservedArtifact,
   SignedArtifactDownload,
+  SignedArtifactUpload,
 } from '../application/artifact-store';
 import { INSTITUTIONAL_ARTIFACT_BUCKET } from '../application/artifact-store';
 
@@ -48,6 +49,10 @@ interface StorageBucketClient {
     path: string,
     expiresIn: number,
     options?: Record<string, unknown>,
+  ): PromiseLike<StorageResult>;
+  createSignedUploadUrl(
+    path: string,
+    options: { upsert: boolean },
   ): PromiseLike<StorageResult>;
 }
 
@@ -201,6 +206,31 @@ export class SupabaseArtifactStore implements ArtifactStore {
     return {
       url: signedUrl,
       expiresAt: new Date(this.now().getTime() + expiresInSeconds * 1_000).toISOString(),
+    };
+  }
+
+  async createSignedUpload(
+    input: Pick<ArtifactReference, 'bucket' | 'path'>,
+  ): Promise<SignedArtifactUpload> {
+    const bucket = this.requireInstitutionalBucket(input.bucket);
+    const path = validateStoragePath(input.path);
+    const { data, error } = await this.client.storage.from(bucket)
+      .createSignedUploadUrl(path, { upsert: false });
+    if (error) {
+      throw new Error(`SupabaseArtifactStore: falha ao assinar upload de ${path}: ${message(error)}.`);
+    }
+    const value = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+    const url = typeof value.signedUrl === 'string' ? value.signedUrl : '';
+    const token = typeof value.token === 'string' ? value.token : '';
+    const returnedPath = typeof value.path === 'string' ? value.path : '';
+    if (!url || !token || returnedPath !== path) {
+      throw new Error('SupabaseArtifactStore: ticket de upload inválido na resposta.');
+    }
+    return {
+      url,
+      token,
+      path,
+      expiresAt: new Date(this.now().getTime() + 2 * 60 * 60 * 1_000).toISOString(),
     };
   }
 

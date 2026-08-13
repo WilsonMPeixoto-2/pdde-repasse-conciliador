@@ -45,9 +45,11 @@ Consultas públicas:
 Comandos administrativos:
 
 - `POST /api/executions/pddeinfo`;
-- `POST /api/reconciliations`.
+- `POST /api/reconciliations`;
+- `POST /api/artifacts/uploads`;
+- `POST /api/artifacts/uploads/:uploadId/confirm`.
 
-Os comandos exigem `Authorization: Bearer <PDDE_API_COMMAND_TOKEN>`, `Idempotency-Key` e JSON. A resposta é `202 Accepted` com `jobId` e `runId`; o cliente acompanha a execução pelos endpoints de leitura.
+Todos os comandos exigem `Authorization: Bearer <PDDE_API_COMMAND_TOKEN>` e JSON. Coleta, conciliação e solicitação de upload também exigem `Idempotency-Key`. Coleta e conciliação respondem `202 Accepted` com `jobId` e `runId`; a solicitação de upload responde `201 Created`, e a confirmação idempotente responde `200 OK`.
 
 `GET /api/health` verifica a cadeia completa, mas o processo coalesce requests concorrentes e mantém o resultado por um TTL de 10 segundos. Rate limit no ingress continua recomendado como defesa adicional, sem substituir esse limite interno.
 
@@ -61,6 +63,60 @@ curl -X POST http://localhost:3000/api/executions/pddeinfo \
   --data '{"fiscalYear":2026,"schoolIneps":["33069247"],"batchSize":1,"batchDelayMs":0}'
 ```
 
+## Ingestão segura de arquivos operacionais
+
+CSV/XLS/JSON de entrada não atravessam o corpo da API. O backend emite um ticket temporário para um único path imutável; o operador envia os bytes diretamente ao bucket privado e então solicita a confirmação. A URL e o token temporários expiram em duas horas e não entram no log de evidências.
+
+Papéis aceitos:
+
+| `role` | Extensão | Uso |
+|---|---:|---|
+| `PDDEINFO_JSON` | `.json` | resultado normalizado do PDDEInfo |
+| `SIGEF_MOVEMENTS_CSV` | `.csv` | exportação de Movimentações |
+| `SIGEF_RELEASE_XLS` | `.xls` | exportação de Liberações |
+
+O arquivo pode ter no máximo 50 MiB. O cliente calcula SHA-256 e tamanho antes de pedir o ticket:
+
+```bash
+curl -X POST http://localhost:3000/api/artifacts/uploads \
+  -H "Authorization: Bearer $PDDE_API_COMMAND_TOKEN" \
+  -H "Idempotency-Key: movimentos-2026-08-13" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "runId":"inputs-2026-08-13",
+    "fiscalYear":2026,
+    "role":"SIGEF_MOVEMENTS_CSV",
+    "originalName":"movimentacoes.csv",
+    "sha256":"<64 caracteres hexadecimais>",
+    "bytes":12345
+  }'
+```
+
+A resposta `201 Created` contém `bucket`, `path`, `mediaType`, `upload.token` e `upload.expiresAt`. Com uma chave pública/publishable do Supabase — nunca `service_role` — o envio usa o método oficial `uploadToSignedUrl`:
+
+```ts
+const { error } = await supabase.storage
+  .from(ticket.bucket)
+  .uploadToSignedUrl(ticket.path, ticket.upload.token, file, {
+    contentType: ticket.mediaType,
+  });
+if (error) throw error;
+```
+
+Depois do envio:
+
+```bash
+curl -X POST \
+  http://localhost:3000/api/artifacts/uploads/<uploadId>/confirm \
+  -H "Authorization: Bearer $PDDE_API_COMMAND_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"runId":"inputs-2026-08-13"}'
+```
+
+A confirmação baixa o objeto pelo backend, recalcula tamanho e SHA-256 e só então anexa `ARTIFACT_PRESERVED`. Divergência ou conflito de idempotência retorna `409`; solicitação desconhecida retorna `404`. Repetir a mesma solicitação ou confirmação não duplica eventos. O ticket autoriza somente o path derivado de `runId`, papel e chave de idempotência; `upsert` fica desativado.
+
+Ao executar uma conciliação, o runner não confia no nome original de uma Liberação. Ele inspeciona CNPJ, programa e exercício dentro de cada XLS e materializa a pasta transitória no padrão canônico `CNPJ__PROGRAMA.xls`; dois uploads do mesmo par são rejeitados antes do cálculo financeiro.
+
 ## Persistência e recuperação
 
 - `evidence_events` é append-only e permanece a fonte de verdade;
@@ -70,7 +126,7 @@ curl -X POST http://localhost:3000/api/executions/pddeinfo \
 - ao esgotar tentativas, o próximo ciclo fecha o job como `FAILED` e registra o evento terminal;
 - cada tentativa usa diretório próprio, evitando colisão de arquivos após crash;
 - artefatos usam paths imutáveis `runs/<runId>/...` exclusivamente no bucket privado `pdde-evidence`; referências a outro bucket são recusadas já no comando e novamente no adaptador;
-- uploads repetidos só são aceitos quando o SHA-256 é idêntico.
+- uploads produzidos pelo runner e pela ingestão assinada usam `upsert: false`; confirmações só são aceitas quando tamanho e SHA-256 coincidem com a solicitação auditada.
 
 O cliente PDDEInfo lê a resposta em streaming e interrompe definitivamente a tentativa acima de 10 MB. Esse teto fica abaixo do limite de 50 MB do bucket e impede que uma resposta anômala seja materializada ou repetida sem controle.
 
@@ -88,7 +144,7 @@ SUPABASE_INSTITUTIONAL_LIVE=1 npm test -- \
   tests/integration/supabase-institutional-live.test.ts
 ```
 
-O teste opt-in valida Storage, download assinado, enqueue/claim/renew/complete e `verify_evidence_chain()` no Postgres real. Ele nunca roda no CI padrão.
+O teste opt-in valida Storage, download e upload assinados, confirmação íntegra, enqueue/claim/renew/complete e `verify_evidence_chain()` no Postgres real. Ele nunca roda no CI padrão.
 
 ## Estado do provisionamento em 13/08/2026
 

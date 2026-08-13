@@ -11,6 +11,7 @@ import { SupabaseExecutionQueue } from '../adapters/supabase-execution-queue';
 import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';
 import { createInstitutionalApi } from '../api/institutional-api';
 import { ExecutionCommandService } from '../application/execution-command-service';
+import { ArtifactIntakeService } from '../application/artifact-intake-service';
 import { ExecutionWorker } from '../application/execution-worker';
 import { InstitutionalJobExecutor } from '../application/institutional-job-executor';
 import { InstitutionalReadService } from '../application/institutional-read-service';
@@ -43,6 +44,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
   const schools = await loadMasterSchools();
   const evidenceStore = new SupabaseEvidenceStore(client);
   const artifactStore = new SupabaseArtifactStore(client);
+  const artifactIntakeService = new ArtifactIntakeService(artifactStore, evidenceStore);
   const queue = new SupabaseExecutionQueue(client);
   const commandService = new ExecutionCommandService(queue);
   const readRepository = new SupabaseInstitutionalReadRepository(client);
@@ -52,6 +54,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
     schools,
     evidenceStore,
     artifactStore,
+    artifactIntakeService,
     queue,
     commandService,
     readRepository,
@@ -71,6 +74,7 @@ export async function createInstitutionalApiRuntime(
     readService: services.readService,
     commandService: services.commandService,
     artifactStore: services.artifactStore,
+    artifactIntakeService: services.artifactIntakeService,
     commandToken,
     verifyEvidence: () => services.evidenceStore.verifyIntegrity(),
     version: services.version,

@@ -5,6 +5,12 @@ import type {
   PddeInfoJobRequest,
   ReconciliationJobRequest,
 } from '../application/execution-command-service';
+import {
+  ArtifactUploadIdempotencyConflictError,
+  ArtifactUploadIntegrityError,
+  ArtifactUploadNotFoundError,
+  type ArtifactUploadRequest,
+} from '../application/artifact-intake-service';
 
 interface ReadServiceApi {
   listSchools(): { items: Array<{ inep: string; sme: string; nome: string }>; total: number };
@@ -44,10 +50,16 @@ interface ArtifactSignerApi {
   }): Promise<{ url: string; expiresAt: string }>;
 }
 
+interface ArtifactIntakeApi {
+  requestUpload(idempotencyKey: string, body: ArtifactUploadRequest): Promise<unknown>;
+  confirmUpload(runId: string, uploadId: string): Promise<unknown>;
+}
+
 export interface InstitutionalApiDependencies {
   readService: ReadServiceApi;
   commandService: CommandServiceApi;
   artifactStore: ArtifactSignerApi;
+  artifactIntakeService: ArtifactIntakeApi;
   commandToken: string;
   verifyEvidence: () => Promise<EvidenceIntegrityResult>;
   evidenceCacheTtlMs?: number;
@@ -273,6 +285,30 @@ export function createInstitutionalApi(
         }));
       }
 
+      if (segments[1] === 'artifacts' && segments[2] === 'uploads') {
+        if (segments.length === 3) {
+          if (request.method !== 'POST') return methodNotAllowed('POST');
+          if (!authorized(request, commandToken)) return errorResponse(401, 'Comando não autorizado.');
+          const idempotencyKey = request.headers.get('idempotency-key')?.trim();
+          if (!idempotencyKey) return errorResponse(400, 'Idempotency-Key é obrigatório.');
+          const ticket = await dependencies.artifactIntakeService.requestUpload(
+            idempotencyKey,
+            await requestJson(request) as ArtifactUploadRequest,
+          );
+          return json(ticket, 201);
+        }
+        if (segments.length === 5 && segments[4] === 'confirm') {
+          if (request.method !== 'POST') return methodNotAllowed('POST');
+          if (!authorized(request, commandToken)) return errorResponse(401, 'Comando não autorizado.');
+          const body = z.object({ runId: z.string().min(1).max(160) }).strict()
+            .parse(await requestJson(request));
+          return json(await dependencies.artifactIntakeService.confirmUpload(
+            body.runId,
+            segments[3],
+          ));
+        }
+      }
+
       if (segments.length === 2 && segments[1] === 'reconciliations') {
         if (request.method !== 'POST') return methodNotAllowed('POST');
         if (!authorized(request, commandToken)) return errorResponse(401, 'Comando não autorizado.');
@@ -294,6 +330,13 @@ export function createInstitutionalApi(
         })));
       }
       if (cause instanceof URIError) return errorResponse(400, 'Caminho de URL inválido.');
+      if (cause instanceof ArtifactUploadNotFoundError) {
+        return errorResponse(404, cause.message);
+      }
+      if (
+        cause instanceof ArtifactUploadIdempotencyConflictError
+        || cause instanceof ArtifactUploadIntegrityError
+      ) return errorResponse(409, cause.message);
       if (cause instanceof Error && /idempotency conflict/i.test(cause.message)) {
         return errorResponse(
           409,

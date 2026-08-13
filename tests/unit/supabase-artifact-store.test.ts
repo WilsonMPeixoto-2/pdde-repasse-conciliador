@@ -4,8 +4,10 @@ import { SupabaseArtifactStore } from '../../backend/adapters/supabase-artifact-
 
 class FakeBucket {
   readonly uploads: Array<{ path: string; body: Uint8Array; options: Record<string, unknown> }> = [];
+  readonly signedUploads: Array<{ path: string; options: Record<string, unknown> }> = [];
   readonly objects = new Map<string, Uint8Array>();
   duplicate = false;
+  signedUploadPathOverride: string | null = null;
 
   async upload(path: string, body: Uint8Array, options: Record<string, unknown>) {
     this.uploads.push({ path, body, options });
@@ -25,6 +27,18 @@ class FakeBucket {
   async createSignedUrl(path: string, expiresIn: number, options?: Record<string, unknown>) {
     return {
       data: { signedUrl: `https://storage.example/${path}?expires=${expiresIn}&download=${String(options?.download ?? '')}` },
+      error: null,
+    };
+  }
+
+  async createSignedUploadUrl(path: string, options: Record<string, unknown>) {
+    this.signedUploads.push({ path, options });
+    return {
+      data: {
+        signedUrl: `https://storage.example/upload/${path}?token=upload-token`,
+        token: 'upload-token',
+        path: this.signedUploadPathOverride ?? path,
+      },
       error: null,
     };
   }
@@ -124,6 +138,37 @@ describe('SupabaseArtifactStore', () => {
       bytes,
       mediaType: 'text/plain',
     })).rejects.toThrow(/caminho.*inválido/i);
+  });
+
+  test('gera upload assinado imutável por duas horas sem expor credencial administrativa', async () => {
+    const client = new FakeStorageClient();
+    const now = new Date('2026-08-13T12:00:00Z');
+    const store = new SupabaseArtifactStore(client, 'pdde-evidence', () => now);
+
+    await expect(store.createSignedUpload({
+      bucket: 'pdde-evidence',
+      path: 'runs/input-2026/inputs/sigef-movimentacoes/upload-1.csv',
+    })).resolves.toEqual({
+      url: 'https://storage.example/upload/runs/input-2026/inputs/sigef-movimentacoes/upload-1.csv?token=upload-token',
+      token: 'upload-token',
+      path: 'runs/input-2026/inputs/sigef-movimentacoes/upload-1.csv',
+      expiresAt: '2026-08-13T14:00:00.000Z',
+    });
+    expect(client.bucket.signedUploads).toEqual([{
+      path: 'runs/input-2026/inputs/sigef-movimentacoes/upload-1.csv',
+      options: { upsert: false },
+    }]);
+  });
+
+  test('rejeita ticket assinado quando o Storage devolve outro path', async () => {
+    const client = new FakeStorageClient();
+    client.bucket.signedUploadPathOverride = 'runs/outro-run/objeto.csv';
+    const store = new SupabaseArtifactStore(client);
+
+    await expect(store.createSignedUpload({
+      bucket: 'pdde-evidence',
+      path: 'runs/input-2026/inputs/sigef-movimentacoes/upload-1.csv',
+    })).rejects.toThrow(/ticket de upload inválido/i);
   });
 
   test('recusa download e assinatura fora do bucket institucional configurado', async () => {

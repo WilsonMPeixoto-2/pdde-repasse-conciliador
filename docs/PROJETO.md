@@ -69,6 +69,7 @@ O núcleo v0.4 passou a ter uma camada institucional sem alterar as invariantes 
 - fila idempotente com lease, tentativas e recuperação de crash;
 - API de escolas, históricos, execuções, achados, artefatos e relatórios;
 - comandos assíncronos protegidos;
+- ingestão administrativa de JSON/CSV/XLS por ticket assinado, sem expor `service_role`;
 - runner Node 22 separado da janela HTTP;
 - projeções reconstruíveis para a futura interface.
 

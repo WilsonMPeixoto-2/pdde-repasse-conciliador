@@ -1,5 +1,10 @@
 import { describe, expect, test, vi } from 'vitest';
 import { createInstitutionalApi } from '../../backend/api/institutional-api';
+import {
+  ArtifactUploadIdempotencyConflictError,
+  ArtifactUploadIntegrityError,
+  ArtifactUploadNotFoundError,
+} from '../../backend/application/artifact-intake-service';
 
 const school = { inep: '33069247', sme: '0410001', nome: 'EM EMA NEGRAO DE LIMA' };
 const execution = {
@@ -46,15 +51,40 @@ function fixture() {
       expiresAt: '2026-08-13T12:10:00Z',
     })),
   };
+  const artifactIntakeService = {
+    requestUpload: vi.fn(async () => ({
+      uploadId: '2544c29b-d789-5c70-aee2-adc90cba79b7',
+      runId: 'inputs-2026-08-13',
+      role: 'SIGEF_MOVEMENTS_CSV',
+      kind: 'RAW_FILE',
+      originalName: 'movimentacoes.csv',
+      mediaType: 'text/csv',
+      bucket: 'pdde-evidence',
+      path: 'runs/inputs-2026-08-13/inputs/sigef-movimentacoes/2544c29b-d789-5c70-aee2-adc90cba79b7.csv',
+      sha256: 'a'.repeat(64),
+      bytes: 50,
+      upload: {
+        method: 'PUT', url: 'https://storage.example/signed-upload', token: 'temporary-token',
+        expiresAt: '2026-08-13T14:00:00Z',
+      },
+    })),
+    confirmUpload: vi.fn(async () => ({
+      provider: 'SUPABASE_STORAGE', bucket: 'pdde-evidence',
+      path: 'runs/inputs-2026-08-13/inputs/sigef-movimentacoes/2544c29b-d789-5c70-aee2-adc90cba79b7.csv',
+      kind: 'RAW_FILE', sha256: 'a'.repeat(64), bytes: 50, mediaType: 'text/csv',
+      metadata: { role: 'SIGEF_MOVEMENTS_CSV' },
+    })),
+  };
   const api = createInstitutionalApi({
     readService,
     commandService,
     artifactStore,
+    artifactIntakeService,
     commandToken: 'segredo-administrativo',
     verifyEvidence: async () => ({ valid: true, events: 8 }),
     version: '0.5.0',
   });
-  return { api, readService, commandService, artifactStore };
+  return { api, readService, commandService, artifactStore, artifactIntakeService };
 }
 
 async function json(response: Response): Promise<Record<string, any>> {
@@ -93,6 +123,7 @@ describe('API institucional', () => {
       readService: base.readService,
       commandService: base.commandService,
       artifactStore: base.artifactStore,
+      artifactIntakeService: base.artifactIntakeService,
       commandToken: 'segredo-administrativo',
       verifyEvidence,
       evidenceCacheTtlMs: 5_000,
@@ -176,6 +207,57 @@ describe('API institucional', () => {
     );
   });
 
+  test('emite e confirma upload institucional somente para comando autenticado', async () => {
+    const { api, artifactIntakeService } = fixture();
+    const requestBody = {
+      runId: 'inputs-2026-08-13', fiscalYear: 2026, role: 'SIGEF_MOVEMENTS_CSV',
+      originalName: 'movimentacoes.csv', sha256: 'a'.repeat(64), bytes: 50,
+    };
+    const requestUrl = 'http://localhost/api/artifacts/uploads';
+
+    const unauthorized = await api(new Request(requestUrl, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    }));
+    expect(unauthorized.status).toBe(401);
+    expect(artifactIntakeService.requestUpload).not.toHaveBeenCalled();
+
+    const requested = await api(new Request(requestUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'idempotency-key': 'movimentacoes-agosto',
+      },
+      body: JSON.stringify(requestBody),
+    }));
+    expect(requested.status).toBe(201);
+    expect(await json(requested)).toMatchObject({
+      uploadId: '2544c29b-d789-5c70-aee2-adc90cba79b7',
+      upload: { token: 'temporary-token' },
+    });
+    expect(artifactIntakeService.requestUpload).toHaveBeenCalledWith(
+      'movimentacoes-agosto', requestBody,
+    );
+
+    const confirmed = await api(new Request(
+      'http://localhost/api/artifacts/uploads/2544c29b-d789-5c70-aee2-adc90cba79b7/confirm',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        },
+        body: JSON.stringify({ runId: 'inputs-2026-08-13' }),
+      },
+    ));
+    expect(confirmed.status).toBe(200);
+    expect(await json(confirmed)).toMatchObject({
+      provider: 'SUPABASE_STORAGE', kind: 'RAW_FILE', sha256: 'a'.repeat(64),
+    });
+    expect(artifactIntakeService.confirmUpload).toHaveBeenCalledWith(
+      'inputs-2026-08-13', '2544c29b-d789-5c70-aee2-adc90cba79b7',
+    );
+  });
+
   test('traduz conflito de idempotência para HTTP 409', async () => {
     const { api, commandService } = fixture();
     commandService.requestPddeInfo.mockRejectedValueOnce(
@@ -193,6 +275,46 @@ describe('API institucional', () => {
     await expect(json(response)).resolves.toMatchObject({
       error: expect.stringMatching(/idempotência/i),
     });
+  });
+
+  test('traduz falhas esperadas da ingestão sem expor erro interno', async () => {
+    const { api, artifactIntakeService } = fixture();
+    const headers = {
+      'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+      'idempotency-key': 'upload-repetido',
+    };
+    artifactIntakeService.requestUpload.mockRejectedValueOnce(
+      new ArtifactUploadIdempotencyConflictError('Conflito de idempotência no upload.'),
+    );
+    const conflict = await api(new Request('http://localhost/api/artifacts/uploads', {
+      method: 'POST', headers,
+      body: JSON.stringify({ runId: 'run-1' }),
+    }));
+    expect(conflict.status).toBe(409);
+
+    artifactIntakeService.confirmUpload.mockRejectedValueOnce(
+      new ArtifactUploadIntegrityError('SHA-256 divergente no upload.'),
+    );
+    const integrity = await api(new Request(
+      'http://localhost/api/artifacts/uploads/2544c29b-d789-5c70-aee2-adc90cba79b7/confirm',
+      {
+        method: 'POST', headers,
+        body: JSON.stringify({ runId: 'run-1' }),
+      },
+    ));
+    expect(integrity.status).toBe(409);
+
+    artifactIntakeService.confirmUpload.mockRejectedValueOnce(
+      new ArtifactUploadNotFoundError('Solicitação de upload não encontrada.'),
+    );
+    const notFound = await api(new Request(
+      'http://localhost/api/artifacts/uploads/2544c29b-d789-5c70-aee2-adc90cba79b7/confirm',
+      {
+        method: 'POST', headers,
+        body: JSON.stringify({ runId: 'run-1' }),
+      },
+    ));
+    expect(notFound.status).toBe(404);
   });
 
   test('responde 404/405 em vez de cair no legado AppDeploy', async () => {

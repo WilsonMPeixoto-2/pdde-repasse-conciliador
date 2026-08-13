@@ -2,6 +2,12 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
+## 2026-08-13 — Arquivos operacionais entram por upload direto assinado
+
+**Decisão:** JSON/CSV/XLS administrativos não atravessam o corpo da API. O backend autentica a operação, deriva um path imutável, emite um ticket de upload temporário com `upsert` desativado e registra a solicitação sem guardar URL ou token. Depois do envio direto ao bucket privado, uma confirmação protegida recalcula tamanho e SHA-256 antes de anexar `ARTIFACT_PRESERVED`.
+
+**Motivo:** limitar memória e duração da API, permitir arquivos maiores e manter `service_role` exclusivamente no backend sem perder idempotência, proveniência ou verificação do conteúdo recebido.
+
 ## 2026-08-13 — Supabase dedicado, nunca compartilhado por conveniência
 
 **Decisão:** o backend institucional usará um projeto Supabase exclusivo chamado de forma inequívoca. RADAR PDDE, CTRH, PDDE Online e outros bancos existentes não serão reutilizados. Enquanto o limite da organização impedir a criação, a validação cloud permanece explicitamente bloqueada; não se pausa outro sistema sem autorização própria.

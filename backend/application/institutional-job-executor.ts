@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
+import { inspectSigefReleaseHtml } from '../adapters/sigef-release-inspector';
 import type { ExecutionJob } from '../core/execution-job';
 import type { ArtifactReference, ArtifactStore } from './artifact-store';
 import {
@@ -23,8 +24,6 @@ const schoolSchema = z.object({
   sme: z.string().regex(/^\d{7}$/),
   nome: z.string().min(1),
 }).strict();
-const filenameSchema = z.string().min(1).max(255).regex(/^[A-Za-z0-9._-]+$/);
-
 type CollectionRunner = (
   options: CollectPddeInfoOptions,
 ) => Promise<{ status: 'COMPLETE' | 'PARTIAL' }>;
@@ -117,12 +116,14 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       await mkdir(releasePath);
       const filenames = new Set<string>();
       for (const reference of request.releaseArtifacts) {
-        const filename = filenameSchema.parse(basename(reference.path));
+        const bytes = await this.dependencies.artifactStore.download(reference);
+        const inspection = inspectSigefReleaseHtml(bytes, { fiscalYear: request.fiscalYear });
+        const filename = `${inspection.cnpj}__${inspection.programCode}.xls`;
         if (filenames.has(filename)) {
           throw new Error(`Nome de exportação SIGEF duplicado: ${filename}.`);
         }
         filenames.add(filename);
-        await stageArtifact(this.dependencies.artifactStore, reference, join(releasePath, filename));
+        await writeFile(join(releasePath, filename), bytes, { flag: 'wx' });
       }
     }
 

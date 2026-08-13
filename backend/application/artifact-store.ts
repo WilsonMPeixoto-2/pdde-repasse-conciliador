@@ -40,6 +40,13 @@ export interface SignedArtifactDownload {
   expiresAt: string;
 }
 
+export interface SignedArtifactUpload {
+  url: string;
+  token: string;
+  path: string;
+  expiresAt: string;
+}
+
 export interface ArtifactStore {
   preserve(input: PreserveArtifactInput): Promise<PreservedArtifact>;
   download(reference: ArtifactReference): Promise<Uint8Array>;
@@ -47,4 +54,8 @@ export interface ArtifactStore {
     expiresInSeconds: number;
     downloadName?: string;
   }): Promise<SignedArtifactDownload>;
+}
+
+export interface SignedArtifactUploadStore {
+  createSignedUpload(input: Pick<ArtifactReference, 'bucket' | 'path'>): Promise<SignedArtifactUpload>;
 }

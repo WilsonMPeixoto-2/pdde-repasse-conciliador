@@ -18,6 +18,7 @@ A arquitetura continua deliberadamente determinística. IA, navegador automatiza
 ```mermaid
 flowchart TD
     API["API: consulta e comandos"] --> Queue["Fila Postgres + idempotência"]
+    API --> Intake["Ingestão: ticket + confirmação"]
     Queue --> Runner["Runner Node 22 + lease"]
     Runner --> Collect["PDDEInfo: HTTP + parser"]
     Runner --> Reconcile["Conciliação determinística"]
@@ -25,6 +26,8 @@ flowchart TD
     Reconcile --> Evidence
     Collect --> Storage["Storage: HTML, JSON e manifest"]
     Reconcile --> Storage
+    Intake --> Storage
+    Intake --> Evidence
     Evidence --> Read["Projeções: escola, execução e achados"]
     Read --> API
 ```
@@ -89,7 +92,7 @@ As migrations `20260813050000_evidence_events.sql` e `20260813064845_institution
 - projeção `execution_read_models` reconstruída integralmente do log;
 - índices parciais para achados e paginação por cursor.
 
-`SupabaseEvidenceStore`, `SupabaseArtifactStore`, `SupabaseExecutionQueue` e `SupabaseInstitutionalReadRepository` mantêm o SDK no limite de infraestrutura. Domínio e casos de uso conhecem apenas portas próprias.
+`SupabaseEvidenceStore`, `SupabaseArtifactStore`, `SupabaseExecutionQueue` e `SupabaseInstitutionalReadRepository` mantêm o SDK no limite de infraestrutura. Domínio e casos de uso conhecem apenas portas próprias. `ArtifactIntakeService` coordena tickets assinados para JSON/CSV/XLS, registra a solicitação sem guardar o token temporário e só preserva o artefato após baixar e validar tamanho e SHA-256.
 
 As migrations ainda **não foram aplicadas a um projeto Supabase dedicado**. A criação de `pdde-repasse-conciliador` em `sa-east-1`, a custo informado de US$ 0/mês, foi recusada pelo limite de projetos gratuitos ativos. Bancos de outras aplicações não foram reutilizados.
 
@@ -109,6 +112,10 @@ Os `POST` protegidos criam um job e retornam `202 + runId`. O runner:
 6. conclui `COMPLETE`, `PARTIAL` ou `FAILED` e registra o evento terminal atomicamente.
 
 Uma execução abandonada pode ser reclamada. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
+
+Arquivos operacionais entram por um fluxo administrativo separado: a API autoriza um path estável com `upsert: false`, o cliente envia os bytes diretamente ao Storage com ticket de duas horas e a confirmação protegida produz o evento append-only. A chave administrativa da API e a credencial `service_role` nunca são entregues ao cliente.
+
+No staging de Liberações, o runner deriva `CNPJ__PROGRAMA.xls` do conteúdo validado, não do basename do objeto. Assim, paths opacos do Storage continuam compatíveis com o carregador canônico e nomes fornecidos pelo cliente não governam identidade financeira.
 
 ## Coleta PDDEInfo
 
@@ -151,6 +158,7 @@ As projeções já disponíveis incluem:
 - linha do tempo por INEP.
 - listagem paginada de execuções e achados;
 - referências de artefatos e download curto assinado do relatório.
+- emissão e confirmação idempotentes de uploads institucionais, com auditoria da solicitação e do conteúdo efetivamente preservado.
 
 `scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 

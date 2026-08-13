@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import {
   createSupabaseBackendClient,
@@ -8,6 +8,20 @@ import { SupabaseArtifactStore } from '../../backend/adapters/supabase-artifact-
 import { SupabaseEvidenceStore } from '../../backend/adapters/supabase-evidence-store';
 import { SupabaseExecutionQueue } from '../../backend/adapters/supabase-execution-queue';
 import { ExecutionCommandService } from '../../backend/application/execution-command-service';
+import { ArtifactIntakeService } from '../../backend/application/artifact-intake-service';
+
+interface SignedUploadClient {
+  storage: {
+    from(bucket: string): {
+      uploadToSignedUrl(
+        path: string,
+        token: string,
+        bytes: Uint8Array,
+        options: { contentType: string },
+      ): PromiseLike<{ error: unknown }>;
+    };
+  };
+}
 
 const enabled = process.env.SUPABASE_INSTITUTIONAL_LIVE === '1';
 
@@ -35,6 +49,29 @@ describe.runIf(enabled)('backend institucional no Supabase real', () => {
       expiresInSeconds: 60,
       downloadName: 'sample.json',
     })).resolves.toMatchObject({ url: expect.stringMatching(/^https?:\/\//) });
+
+    const intakeBytes = Buffer.from('DATA;CNPJ;VALOR\n13/08/2026;04552825000170;5000,00\n', 'utf8');
+    const intake = new ArtifactIntakeService(artifacts, evidence);
+    const ticket = await intake.requestUpload(`live-upload-${suffix}`, {
+      runId: `live-intake-${suffix}`,
+      fiscalYear: 2026,
+      role: 'SIGEF_MOVEMENTS_CSV',
+      originalName: 'movimentacoes.csv',
+      sha256: createHash('sha256').update(intakeBytes).digest('hex'),
+      bytes: intakeBytes.byteLength,
+    });
+    const { error: signedUploadError } = await (client as SignedUploadClient).storage
+      .from(ticket.bucket)
+      .uploadToSignedUrl(ticket.path, ticket.upload.token, intakeBytes, {
+        contentType: ticket.mediaType,
+      });
+    expect(signedUploadError).toBeNull();
+    await expect(intake.confirmUpload(ticket.runId, ticket.uploadId)).resolves.toMatchObject({
+      provider: 'SUPABASE_STORAGE',
+      path: ticket.path,
+      sha256: ticket.sha256,
+      bytes: ticket.bytes,
+    });
 
     const command = new ExecutionCommandService(queue);
     const receipt = await command.requestPddeInfo(`live-contract-${suffix}`, {
