@@ -187,4 +187,43 @@ describe('collectPddeInfo', () => {
     const envelope = await json(join(workspacePath, 'runs', 'run-complete', 'pddeinfo-2026.json'));
     expect(envelope).toMatchObject({ collectionStatus: 'COMPLETE' });
   });
+
+  test('mantém manifest e envelope na ordem da lista-mestre mesmo com respostas fora de ordem', async () => {
+    const subject = await loadSubject();
+    expect(subject).not.toBeNull();
+    if (!subject) return;
+
+    const workspacePath = await mkdtemp(join(tmpdir(), 'pddeinfo-order-'));
+    const subset = schools.slice(0, 2);
+    const result = await (subject.collectPddeInfo as (
+      options: Record<string, unknown>,
+    ) => Promise<{ manifestPath: string; pddeInfoPath: string }>)({
+      schools: subset,
+      workspacePath,
+      fiscalYear: 2026,
+      runId: 'run-order',
+      startedAt: '2026-08-12T22:50:00-03:00',
+      completedAt: () => '2026-08-12T22:51:00-03:00',
+      batchSize: 2,
+      batchDelayMs: 0,
+      fetchSchoolHtml: async ({ inep }: { inep: string }) => {
+        const school = subset.find(item => item.inep === inep)!;
+        if (inep === subset[0].inep) await new Promise((resolve) => setTimeout(resolve, 25));
+        const html = schoolHtml(school, inep === schools[0].inep ? '04.552.825/0001-70' : '12.345.678/0001-90');
+        return {
+          html,
+          sourceUrl: `https://www.fnde.gov.br/pddeinfo/test/${inep}`,
+          queriedAt: '2026-08-12T22:50:30-03:00',
+          attempts: 1,
+          httpStatus: 200,
+          responseBytes: Buffer.byteLength(html, 'utf8'),
+        };
+      },
+    });
+
+    const manifest = await json(result.manifestPath) as { schools: Array<{ inep: string }> };
+    const envelope = await json(result.pddeInfoPath) as { schools: Array<{ inep: string }> };
+    expect(manifest.schools.map((school) => school.inep)).toEqual(subset.map((school) => school.inep));
+    expect(envelope.schools.map((school) => school.inep)).toEqual(subset.map((school) => school.inep));
+  });
 });
