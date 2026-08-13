@@ -53,7 +53,7 @@ Todos os comandos exigem `Authorization: Bearer <PDDE_API_COMMAND_TOKEN>` e JSON
 
 `GET /api/health` verifica a cadeia completa, mas o processo coalesce requests concorrentes e mantém o resultado por um TTL de 10 segundos. Rate limit no ingress continua recomendado como defesa adicional, sem substituir esse limite interno.
 
-O adaptador Node limita o corpo HTTP a 1.000.000 bytes por padrão. A contagem usa os bytes efetivamente recebidos, inclusive sem `Content-Length`; ao exceder o teto em transferência chunked, a API responde `413` imediatamente e drena o restante sem aguardar o cliente encerrar o envio. O handler Web repete a contagem durante a leitura do JSON, mantendo o mesmo limite caso o contrato seja hospedado por outro adaptador ou receba um header omitido/falsificado.
+O adaptador Node limita o corpo HTTP a 1.000.000 bytes por padrão. A contagem usa os bytes efetivamente recebidos, inclusive sem `Content-Length`; ao exceder o teto em transferência chunked, a API responde `413` imediatamente e drena o restante sem aguardar o cliente encerrar o envio. O handler Web repete a contagem durante a leitura do JSON, mantendo o mesmo limite caso o contrato seja hospedado por outro adaptador ou receba um header omitido/falsificado. O media type precisa ser exatamente `application/json` (parâmetros como `charset` são aceitos), e o servidor explicita 10 s para headers, 30 s para receber a requisição, 5 s de keep-alive e no máximo 100 headers.
 
 Exemplo de coleta pequena:
 

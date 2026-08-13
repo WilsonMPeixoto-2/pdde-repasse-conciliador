@@ -227,6 +227,38 @@ describe('API institucional', () => {
     expect(commandService.requestPddeInfo).not.toHaveBeenCalled();
   });
 
+  test('aceita apenas application/json real, com parâmetros opcionais', async () => {
+    const invalidFixture = fixture();
+    const invalid = await invalidFixture.api(new Request(
+      'http://localhost/api/executions/pddeinfo',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/jsonp', authorization: 'Bearer segredo-administrativo',
+          'idempotency-key': 'media-type-falso',
+        },
+        body: JSON.stringify({ fiscalYear: 2026 }),
+      },
+    ));
+    expect(invalid.status).toBe(400);
+    expect(invalidFixture.commandService.requestPddeInfo).not.toHaveBeenCalled();
+
+    const validFixture = fixture();
+    const valid = await validFixture.api(new Request(
+      'http://localhost/api/executions/pddeinfo',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          authorization: 'Bearer segredo-administrativo',
+          'idempotency-key': 'media-type-json',
+        },
+        body: JSON.stringify({ fiscalYear: 2026 }),
+      },
+    ));
+    expect(valid.status).toBe(202);
+  });
+
   test('emite e confirma upload institucional somente para comando autenticado', async () => {
     const { api, artifactIntakeService } = fixture();
     const requestBody = {

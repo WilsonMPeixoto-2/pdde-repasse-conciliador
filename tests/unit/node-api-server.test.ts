@@ -23,6 +23,16 @@ async function listen(handler: (request: Request) => Promise<Response>, maxBodyB
 }
 
 describe('adaptador HTTP Node', () => {
+  test('configura limites explícitos para headers, requisição e keep-alive', () => {
+    const server = createNodeApiServer(async () => new Response('ok'));
+    servers.push(server);
+
+    expect(server.requestTimeout).toBe(30_000);
+    expect(server.headersTimeout).toBe(10_000);
+    expect(server.keepAliveTimeout).toBe(5_000);
+    expect(server.maxHeadersCount).toBe(100);
+  });
+
   test('converte método, rota, headers e JSON para Web Request/Response', async () => {
     const base = await listen(async (request) => new Response(JSON.stringify({
       method: request.method,

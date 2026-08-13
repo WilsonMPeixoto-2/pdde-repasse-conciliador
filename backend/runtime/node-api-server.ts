@@ -15,6 +15,10 @@ function bodyTooLarge(maxBodyBytes: number): BodyTooLargeError {
 
 interface NodeApiServerOptions {
   maxBodyBytes?: number;
+  requestTimeoutMs?: number;
+  headersTimeoutMs?: number;
+  keepAliveTimeoutMs?: number;
+  maxHeadersCount?: number;
   onError?: (cause: unknown) => void;
 }
 
@@ -84,7 +88,15 @@ export function createNodeApiServer(
 ): Server {
   const maxBodyBytes = z.number().int().min(1).max(10_000_000)
     .parse(options.maxBodyBytes ?? MAX_INSTITUTIONAL_JSON_BODY_BYTES);
-  return createServer(async (input, output) => {
+  const requestTimeoutMs = z.number().int().min(1_000).max(300_000)
+    .parse(options.requestTimeoutMs ?? 30_000);
+  const headersTimeoutMs = z.number().int().min(1_000).max(requestTimeoutMs)
+    .parse(options.headersTimeoutMs ?? Math.min(10_000, requestTimeoutMs));
+  const keepAliveTimeoutMs = z.number().int().min(1_000).max(60_000)
+    .parse(options.keepAliveTimeoutMs ?? 5_000);
+  const maxHeadersCount = z.number().int().min(10).max(500)
+    .parse(options.maxHeadersCount ?? 100);
+  const server = createServer(async (input, output) => {
     try {
       await writeWebResponse(await handler(await toWebRequest(input, maxBodyBytes)), output);
     } catch (cause) {
@@ -96,4 +108,9 @@ export function createNodeApiServer(
       writeError(output, 500, 'Erro interno no adaptador HTTP.');
     }
   });
+  server.requestTimeout = requestTimeoutMs;
+  server.headersTimeout = headersTimeoutMs;
+  server.keepAliveTimeout = keepAliveTimeoutMs;
+  server.maxHeadersCount = maxHeadersCount;
+  return server;
 }

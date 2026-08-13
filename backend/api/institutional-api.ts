@@ -125,7 +125,8 @@ function booleanQuery(url: URL, name: string): boolean | undefined {
 
 async function requestJson(request: Request): Promise<unknown> {
   const contentType = request.headers.get('content-type') ?? '';
-  if (!contentType.toLowerCase().startsWith('application/json')) {
+  const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
+  if (mediaType !== 'application/json') {
     throw new Error('Content-Type application/json é obrigatório.');
   }
   const declaredLength = request.headers.get('content-length');
