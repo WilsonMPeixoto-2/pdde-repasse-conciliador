@@ -2,17 +2,22 @@ import { readFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { collectPddeInfo } from '../../backend/application/collect-pddeinfo';
+import { JsonlEvidenceStore } from '../../backend/adapters/jsonl-evidence-store';
 import { normalizePddeInfoSchools } from '../../backend/adapters/pddeinfo-normalizer';
+import { collectPddeInfo } from '../../backend/application/collect-pddeinfo';
+import { EvidenceHistoryReader } from '../../backend/application/evidence-history';
 import { loadMasterSchools } from '../../scripts/collect-pddeinfo';
 
-const live = process.env.PDDEINFO_FULL_LIVE === '1';
+// Habilitado no CI apenas nesta rodada controlada do v0.4.
+// Antes do merge, volta ao modo opt-in via PDDEINFO_FULL_LIVE=1.
+const live = process.env.PDDEINFO_FULL_LIVE === '1' || process.env.CI === 'true';
 const liveTest = live ? test : test.skip;
 
 describe('PDDEInfo público — coleta completa opt-in', () => {
-  liveTest('consulta autonomamente as 163 escolas e produz envelope completo', async () => {
+  liveTest('consulta as 163 escolas e preserva a trilha íntegra de evidências', async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), 'pddeinfo-full-live-'));
     const schools = await loadMasterSchools();
+    const evidenceStore = new JsonlEvidenceStore(join(workspacePath, 'evidence', 'events.jsonl'));
 
     const result = await collectPddeInfo({
       schools,
@@ -20,6 +25,7 @@ describe('PDDEInfo público — coleta completa opt-in', () => {
       fiscalYear: 2026,
       batchSize: 3,
       batchDelayMs: 1_500,
+      evidenceStore,
     });
 
     const manifest = JSON.parse(await readFile(result.manifestPath, 'utf8')) as {
@@ -48,10 +54,28 @@ describe('PDDEInfo público — coleta completa opt-in', () => {
     expect(normalized.statistics.schools).toBe(163);
     expect(normalized.payments.length).toBeGreaterThan(0);
 
+    const integrity = await evidenceStore.verifyIntegrity();
+    expect(integrity).toEqual({ valid: true, events: 493 });
+    const projection = await new EvidenceHistoryReader(evidenceStore).getRun(result.runId);
+    expect(projection).toMatchObject({
+      runId: result.runId,
+      source: 'PDDEINFO',
+      status: 'COMPLETE',
+      counts: {
+        events: 493,
+        attempts: 163,
+        failedAttempts: 0,
+        artifacts: 328,
+        findings: 0,
+        humanReview: 0,
+      },
+    });
+
     console.log('PDDEINFO_FULL_LIVE_SUMMARY', JSON.stringify({
       collection: result.statistics,
       normalization: normalized.statistics,
       warnings: normalized.warnings.length,
+      evidence: integrity,
     }));
   }, 300_000);
 });
