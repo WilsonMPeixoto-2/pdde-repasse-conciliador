@@ -15,6 +15,8 @@ import {
   type PddeInfoHttpResult,
 } from '../adapters/pddeinfo-http';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
+import type { EvidenceEventInput } from '../core/evidence';
+import type { EvidenceEventWriter } from './evidence-store';
 
 const timestampSchema = z.string().refine(
   (value) => Number.isFinite(Date.parse(value)),
@@ -54,6 +56,7 @@ export interface CollectPddeInfoOptions {
   batchDelayMs?: number;
   fetchSchoolHtml?: FetchSchoolHtml;
   sleep?: (milliseconds: number) => Promise<void>;
+  evidenceStore?: EvidenceEventWriter;
 }
 
 interface SuccessManifestEntry {
@@ -70,6 +73,7 @@ interface SuccessManifestEntry {
   normalizedSha256: string;
   rawPath: string;
   normalizedPath: string;
+  normalizedBytes: number;
   warnings: string[];
 }
 
@@ -118,10 +122,13 @@ function sha256(content: string | Uint8Array): string {
   return hash.digest('hex');
 }
 
-async function writeJson(path: string, value: unknown): Promise<string> {
+async function writeJson(path: string, value: unknown): Promise<{ sha256: string; bytes: number }> {
   const serialized = `${JSON.stringify(value, null, 2)}\n`;
   await writeFile(path, serialized, { flag: 'wx' });
-  return sha256(serialized);
+  return {
+    sha256: sha256(serialized),
+    bytes: Buffer.byteLength(serialized, 'utf8'),
+  };
 }
 
 function validateMasterSubset(schools: PddeInfoExpectedSchool[]): void {
@@ -133,6 +140,14 @@ function validateMasterSubset(schools: PddeInfoExpectedSchool[]): void {
   if (uniqueSme.size !== schools.length) {
     throw new Error('A lista de escolas contém código SME duplicado; a coleta foi bloqueada.');
   }
+}
+
+async function appendEvidence(
+  store: EvidenceEventWriter | undefined,
+  event: Omit<EvidenceEventInput, 'eventId'>,
+): Promise<void> {
+  if (!store) return;
+  await store.append({ ...event, eventId: randomUUID() } as EvidenceEventInput);
 }
 
 export async function collectPddeInfo(
@@ -162,6 +177,18 @@ export async function collectPddeInfo(
   await mkdir(rawDirectory);
   await mkdir(normalizedDirectory);
 
+  await appendEvidence(rawOptions.evidenceStore, {
+    runId,
+    type: 'EXECUTION_STARTED',
+    occurredAt: startedAt,
+    source: 'PDDEINFO',
+    fiscalYear: parsed.fiscalYear,
+    payload: {
+      portfolioSize: parsed.schools.length,
+      parserVersion: PDDEINFO_HTML_PARSER_VERSION,
+    },
+  });
+
   const fetchSchoolHtml = rawOptions.fetchSchoolHtml ?? fetchPddeInfoSchoolHtml;
   const sleep = rawOptions.sleep ?? defaultSleep;
   const successfulByInep = new Map<string, PddeInfoRawSchool>();
@@ -176,6 +203,7 @@ export async function collectPddeInfo(
       inep: school.inep,
     });
 
+    let entry: SchoolManifestEntry;
     try {
       httpResult = await fetchSchoolHtml({
         fiscalYear: parsed.fiscalYear,
@@ -201,9 +229,9 @@ export async function collectPddeInfo(
       }
 
       const normalizedPath = `normalized/${school.inep}.json`;
-      const normalizedSha256 = await writeJson(join(runDirectory, normalizedPath), parsedSchool);
+      const normalizedArtifact = await writeJson(join(runDirectory, normalizedPath), parsedSchool);
       successfulByInep.set(school.inep, parsedSchool);
-      entriesByInep.set(school.inep, {
+      entry = {
         inep: school.inep,
         sme: school.sme,
         nome: school.nome,
@@ -214,13 +242,14 @@ export async function collectPddeInfo(
         httpStatus: httpResult.httpStatus,
         responseBytes: httpResult.responseBytes,
         rawSha256,
-        normalizedSha256,
+        normalizedSha256: normalizedArtifact.sha256,
         rawPath,
         normalizedPath,
+        normalizedBytes: normalizedArtifact.bytes,
         warnings: validation.warnings,
-      });
+      };
     } catch (cause) {
-      entriesByInep.set(school.inep, {
+      entry = {
         inep: school.inep,
         sme: school.sme,
         nome: school.nome,
@@ -233,6 +262,73 @@ export async function collectPddeInfo(
         ...(rawSha256 ? { rawSha256 } : {}),
         ...(rawPath ? { rawPath } : {}),
         error: cause instanceof Error ? cause.message : String(cause),
+      };
+    }
+
+    entriesByInep.set(school.inep, entry);
+
+    if (entry.status === 'SUCCESS') {
+      await appendEvidence(rawOptions.evidenceStore, {
+        runId,
+        type: 'SOURCE_ATTEMPT_RECORDED',
+        occurredAt: entry.queriedAt,
+        source: 'PDDEINFO',
+        fiscalYear: parsed.fiscalYear,
+        schoolInep: school.inep,
+        payload: {
+          status: 'SUCCESS',
+          attempts: entry.attempts,
+          httpStatus: entry.httpStatus,
+          responseBytes: entry.responseBytes,
+          sourceUrl: entry.sourceUrl,
+        },
+      });
+      await appendEvidence(rawOptions.evidenceStore, {
+        runId,
+        type: 'ARTIFACT_PRESERVED',
+        occurredAt: entry.queriedAt,
+        source: 'PDDEINFO',
+        fiscalYear: parsed.fiscalYear,
+        schoolInep: school.inep,
+        payload: {
+          kind: 'RAW_HTML',
+          path: entry.rawPath,
+          sha256: entry.rawSha256,
+          bytes: entry.responseBytes,
+          mediaType: 'text/html',
+        },
+      });
+      await appendEvidence(rawOptions.evidenceStore, {
+        runId,
+        type: 'ARTIFACT_PRESERVED',
+        occurredAt: entry.queriedAt,
+        source: 'PDDEINFO',
+        fiscalYear: parsed.fiscalYear,
+        schoolInep: school.inep,
+        payload: {
+          kind: 'NORMALIZED_JSON',
+          path: entry.normalizedPath,
+          sha256: entry.normalizedSha256,
+          bytes: entry.normalizedBytes,
+          mediaType: 'application/json',
+        },
+      });
+    } else {
+      await appendEvidence(rawOptions.evidenceStore, {
+        runId,
+        type: 'SOURCE_ATTEMPT_RECORDED',
+        occurredAt: entry.queriedAt ?? new Date().toISOString(),
+        source: 'PDDEINFO',
+        fiscalYear: parsed.fiscalYear,
+        schoolInep: school.inep,
+        payload: {
+          status: 'FAILED',
+          ...(entry.attempts ? { attempts: entry.attempts } : {}),
+          ...(entry.httpStatus ? { httpStatus: entry.httpStatus } : {}),
+          ...(entry.responseBytes !== undefined ? { responseBytes: entry.responseBytes } : {}),
+          error: entry.error,
+          sourceUrl: entry.sourceUrl,
+        },
       });
     }
   };
@@ -273,7 +369,7 @@ export async function collectPddeInfo(
     statistics,
     schools: orderedEntries,
   };
-  await writeJson(manifestPath, manifest);
+  const manifestArtifact = await writeJson(manifestPath, manifest);
 
   const envelope = {
     source: 'PDDEINFO',
@@ -284,7 +380,48 @@ export async function collectPddeInfo(
     parserVersion: PDDEINFO_HTML_PARSER_VERSION,
     schools: successfulSchools,
   };
-  await writeJson(pddeInfoPath, envelope);
+  const envelopeArtifact = await writeJson(pddeInfoPath, envelope);
+
+  await appendEvidence(rawOptions.evidenceStore, {
+    runId,
+    type: 'ARTIFACT_PRESERVED',
+    occurredAt: completedAt,
+    source: 'PDDEINFO',
+    fiscalYear: parsed.fiscalYear,
+    payload: {
+      kind: 'MANIFEST',
+      path: 'manifest.json',
+      sha256: manifestArtifact.sha256,
+      bytes: manifestArtifact.bytes,
+      mediaType: 'application/json',
+    },
+  });
+  await appendEvidence(rawOptions.evidenceStore, {
+    runId,
+    type: 'ARTIFACT_PRESERVED',
+    occurredAt: completedAt,
+    source: 'PDDEINFO',
+    fiscalYear: parsed.fiscalYear,
+    payload: {
+      kind: 'NORMALIZED_JSON',
+      path: `pddeinfo-${parsed.fiscalYear}.json`,
+      sha256: envelopeArtifact.sha256,
+      bytes: envelopeArtifact.bytes,
+      mediaType: 'application/json',
+    },
+  });
+  await appendEvidence(rawOptions.evidenceStore, {
+    runId,
+    type: 'EXECUTION_FINISHED',
+    occurredAt: completedAt,
+    source: 'PDDEINFO',
+    fiscalYear: parsed.fiscalYear,
+    payload: {
+      status,
+      succeeded,
+      failed,
+    },
+  });
 
   return {
     status,
