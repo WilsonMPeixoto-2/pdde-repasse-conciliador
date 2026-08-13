@@ -15,6 +15,8 @@ describe('migration Postgres de evidências', () => {
     expect(sql).toMatch(/pgcrypto with schema extensions/);
     expect(sql).toMatch(/extensions\.digest\(/);
     expect(sql).toMatch(/create table public\.evidence_events/);
+    expect(sql).toMatch(/char_length\(event_id\) between 1 and 160/);
+    expect(sql).toMatch(/char_length\(run_id\) between 1 and 160/);
     expect(sql).toMatch(/enable row level security/);
     expect(sql).toMatch(/create.*index.*run_id.*sequence/s);
     expect(sql).toMatch(/create.*index.*school_inep.*sequence/s);

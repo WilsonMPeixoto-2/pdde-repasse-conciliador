@@ -401,6 +401,42 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
     }
   });
 
+  test('recusa identificadores que não pertencem ao contrato append-only', async () => {
+    await database.exec('begin');
+    try {
+      await database.exec('set role service_role');
+      await database.exec('savepoint invalid_event_id');
+      await expect(database.query(`
+        select public.append_evidence_event(
+          'evento com espaços',
+          'run-valido',
+          'OBSERVATION_RECORDED',
+          '2026-08-13T12:00:00Z'::timestamptz,
+          'CONCILIADOR',
+          2026::smallint,
+          null,
+          '{"observationKind":"INVALID_IDENTIFIER"}'::jsonb
+        )
+      `)).rejects.toThrow(/event_id|check constraint/i);
+      await database.exec('rollback to savepoint invalid_event_id');
+      await expect(database.query(`
+        select public.append_evidence_event(
+          'evento-valido',
+          '${'r'.repeat(161)}',
+          'OBSERVATION_RECORDED',
+          '2026-08-13T12:00:00Z'::timestamptz,
+          'CONCILIADOR',
+          2026::smallint,
+          null,
+          '{"observationKind":"INVALID_IDENTIFIER"}'::jsonb
+        )
+      `)).rejects.toThrow(/run_id|check constraint/i);
+    } finally {
+      await database.exec('rollback');
+      await database.exec('reset role');
+    }
+  });
+
   test('nega leitura anônima e bloqueia UPDATE/DELETE/TRUNCATE até para o owner', async () => {
     await database.exec('set role anon');
     try {

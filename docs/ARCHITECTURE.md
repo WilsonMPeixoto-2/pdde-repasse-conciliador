@@ -84,6 +84,7 @@ As migrations `20260813050000_evidence_events.sql` e `20260813064845_institution
 - RLS habilitado e forçado;
 - sem leitura/escrita para `anon` ou `authenticated` nesta etapa;
 - `UPDATE`, `DELETE` e `TRUNCATE` bloqueados por trigger;
+- `event_id` e `run_id` limitados ao mesmo contrato canônico do domínio;
 - append por função `SECURITY DEFINER` concedida apenas a `service_role`;
 - `pg_advisory_xact_lock` serializa sequência e cadeia de hashes.
 - bucket privado único `pdde-evidence`, limitado a tipos e tamanho conhecidos; comandos e adaptador recusam referências a qualquer outro bucket;

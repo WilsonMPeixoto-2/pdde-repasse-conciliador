@@ -3,8 +3,14 @@ create extension if not exists pgcrypto with schema extensions;
 
 create table public.evidence_events (
   sequence bigint primary key,
-  event_id text not null unique,
-  run_id text not null,
+  event_id text not null unique check (
+    char_length(event_id) between 1 and 160
+    and event_id ~ '^[A-Za-z0-9._:-]+$'
+  ),
+  run_id text not null check (
+    char_length(run_id) between 1 and 160
+    and run_id ~ '^[A-Za-z0-9._:-]+$'
+  ),
   event_type text not null check (event_type in (
     'EXECUTION_STARTED',
     'EXECUTION_FINISHED',
