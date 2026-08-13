@@ -4,9 +4,7 @@ import { fetchPddeInfoSchoolHtml } from '../../backend/adapters/pddeinfo-http';
 import { parsePddeInfoSchoolHtml } from '../../backend/adapters/pddeinfo-html';
 import { normalizePddeInfoSchools } from '../../backend/adapters/pddeinfo-normalizer';
 
-// Temporariamente habilitado no CI desta branch para validar o v0.3 contra o portal real.
-// Antes da integração à main, este teste volta ao modo opt-in via PDDEINFO_LIVE=1.
-const live = process.env.PDDEINFO_LIVE === '1' || process.env.CI === 'true';
+const live = process.env.PDDEINFO_LIVE === '1';
 const liveTest = live ? test : test.skip;
 
 const expectedSchool = {
