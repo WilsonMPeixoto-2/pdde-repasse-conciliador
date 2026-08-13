@@ -5,6 +5,7 @@ import {
   ArtifactUploadIntegrityError,
   ArtifactUploadNotFoundError,
 } from '../../backend/application/artifact-intake-service';
+import { ReconciliationArtifactEvidenceError } from '../../backend/application/execution-command-service';
 
 const school = { inep: '33069247', sme: '0410001', nome: 'EM EMA NEGRAO DE LIMA' };
 const execution = {
@@ -274,6 +275,27 @@ describe('API institucional', () => {
     expect(response.status).toBe(409);
     await expect(json(response)).resolves.toMatchObject({
       error: expect.stringMatching(/idempotência/i),
+    });
+  });
+
+  test('traduz artefato sem evidência institucional exata para HTTP 409', async () => {
+    const { api, commandService } = fixture();
+    commandService.requestReconciliation.mockRejectedValueOnce(
+      new ReconciliationArtifactEvidenceError(
+        'Movimentações: não há evidência ARTIFACT_PRESERVED exata.',
+      ),
+    );
+    const response = await api(new Request('http://localhost/api/reconciliations', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'idempotency-key': 'artefato-nao-confirmado',
+      },
+      body: JSON.stringify({ fiscalYear: 2026 }),
+    }));
+    expect(response.status).toBe(409);
+    await expect(json(response)).resolves.toMatchObject({
+      error: expect.stringMatching(/evidência|preserved/i),
     });
   });
 

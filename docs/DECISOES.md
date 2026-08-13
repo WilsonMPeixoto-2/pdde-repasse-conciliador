@@ -2,6 +2,12 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
+## 2026-08-13 — Conciliação só referencia artefato institucional comprovado
+
+**Decisão:** antes de enfileirar uma conciliação, o backend exige um `ARTIFACT_PRESERVED` exato para cada referência recebida. Devem coincidir proprietário do path, bucket, path, SHA-256, exercício, origem e papel/tipo do arquivo. O cliente não pode enviar `sourceCollectionRunId`: esse vínculo é acrescentado internamente apenas quando o JSON PDDEInfo pertence a uma execução cujo último evento de ciclo é `EXECUTION_FINISHED/COMPLETE`. Um JSON confirmado por upload, mas sem ciclo de coleta, pode ser usado sem fabricar esse vínculo; ciclos conhecidos `RUNNING`, `PARTIAL` ou `FAILED` são recusados.
+
+**Motivo:** uma referência bem formada não prova que o objeto foi recebido, conferido ou produzido pela execução alegada. Extrair o `runId` do texto do path também confundiria lote de entrada com coleta concluída. A trilha append-only deve governar a procedência, não dados derivados do pedido do cliente.
+
 ## 2026-08-13 — Arquivos operacionais entram por upload direto assinado
 
 **Decisão:** JSON/CSV/XLS administrativos não atravessam o corpo da API. O backend autentica a operação, deriva um path imutável, emite um ticket de upload temporário com `upsert` desativado e registra a solicitação sem guardar URL ou token. Depois do envio direto ao bucket privado, uma confirmação protegida recalcula tamanho e SHA-256 antes de anexar `ARTIFACT_PRESERVED`.

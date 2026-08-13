@@ -5,6 +5,7 @@ import type {
   PddeInfoJobRequest,
   ReconciliationJobRequest,
 } from '../application/execution-command-service';
+import { ReconciliationArtifactEvidenceError } from '../application/execution-command-service';
 import {
   ArtifactUploadIdempotencyConflictError,
   ArtifactUploadIntegrityError,
@@ -332,6 +333,9 @@ export function createInstitutionalApi(
       if (cause instanceof URIError) return errorResponse(400, 'Caminho de URL inválido.');
       if (cause instanceof ArtifactUploadNotFoundError) {
         return errorResponse(404, cause.message);
+      }
+      if (cause instanceof ReconciliationArtifactEvidenceError) {
+        return errorResponse(409, cause.message);
       }
       if (
         cause instanceof ArtifactUploadIdempotencyConflictError

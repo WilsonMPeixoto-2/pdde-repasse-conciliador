@@ -37,6 +37,7 @@ describe('reconcileFiles — falha auditável', () => {
       requestedThrough: '2026-08-12',
       generatedAt: '2026-08-12T09:00:00-03:00',
       reconciliationRunId: 'reconcile-failed-run',
+      sourceCollectionRunId: null,
       evidenceStore,
     })).rejects.toThrow();
 
@@ -46,7 +47,7 @@ describe('reconcileFiles — falha auditável', () => {
     expect(events[1]).toMatchObject({
       type: 'EXECUTION_FINISHED', source: 'CONCILIADOR',
       payload: expect.objectContaining({
-        status: 'FAILED', failed: 1, sourceCollectionRunId: 'collect-source-run', error: expect.any(String),
+        status: 'FAILED', failed: 1, sourceCollectionRunId: null, error: expect.any(String),
       }),
     });
     expect(await evidenceStore.verifyIntegrity()).toEqual({ valid: true, events: 2 });

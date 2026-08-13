@@ -312,11 +312,8 @@ begin
         'attempt', v_job.attempts,
         'maxAttempts', v_job.max_attempts,
         'sourceCollectionRunId', case
-          when v_job.job_kind = 'RECONCILIATION' then pg_catalog.split_part(
-            v_job.request_payload #>> '{pddeInfoArtifact,path}',
-            '/',
-            2
-          )
+          when v_job.job_kind = 'RECONCILIATION'
+            then v_job.request_payload ->> 'sourceCollectionRunId'
           else null
         end
       )

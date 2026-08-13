@@ -46,7 +46,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
   const artifactStore = new SupabaseArtifactStore(client);
   const artifactIntakeService = new ArtifactIntakeService(artifactStore, evidenceStore);
   const queue = new SupabaseExecutionQueue(client);
-  const commandService = new ExecutionCommandService(queue);
+  const commandService = new ExecutionCommandService(queue, { artifactEvidence: evidenceStore });
   const readRepository = new SupabaseInstitutionalReadRepository(client);
   const readService = new InstitutionalReadService(evidenceStore, schools, readRepository);
   return {

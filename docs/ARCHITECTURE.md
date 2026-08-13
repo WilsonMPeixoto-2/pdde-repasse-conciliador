@@ -115,6 +115,10 @@ Uma execução abandonada pode ser reclamada. Ao alcançar `max_attempts`, o pr�
 
 Arquivos operacionais entram por um fluxo administrativo separado: a API autoriza um path estável com `upsert: false`, o cliente envia os bytes diretamente ao Storage com ticket de duas horas e a confirmação protegida produz o evento append-only. A chave administrativa da API e a credencial `service_role` nunca são entregues ao cliente.
 
+Ao receber `POST /api/reconciliations`, `ExecutionCommandService` não trata as referências do cliente como prova. Para PDDEInfo, Movimentações e cada Liberação, ele consulta o log pelo proprietário de `runs/<runId>/...` e exige um `ARTIFACT_PRESERVED` institucional que coincida exatamente em bucket, path, SHA-256, exercício, origem e tipo/papel. A ausência ou divergência encerra o comando com conflito antes do enqueue.
+
+O pedido HTTP permanece estrito e não aceita `sourceCollectionRunId`. Esse campo só existe no payload interno da fila quando o artefato PDDEInfo pertence a um ciclo conhecido do mesmo exercício cujo evento mais recente é `EXECUTION_FINISHED` com status `COMPLETE`. Uploads confirmados sem ciclo continuam utilizáveis como entradas avulsas, mas não são apresentados como coleta de origem. A função Postgres de claim apenas copia esse valor validado; ela não o deduz do path. O runner também passa esse valor (inclusive `null`) explicitamente ao conciliador, impedindo que um `runId` autodeclarado dentro do JSON recupere o vínculo descartado pela validação institucional.
+
 No staging de Liberações, o runner deriva `CNPJ__PROGRAMA.xls` do conteúdo validado, não do basename do objeto. Assim, paths opacos do Storage continuam compatíveis com o carregador canônico e nomes fornecidos pelo cliente não governam identidade financeira.
 
 ## Coleta PDDEInfo

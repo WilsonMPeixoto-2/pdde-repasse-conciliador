@@ -21,6 +21,10 @@ const timestampSchema = z.string().refine(
   (value) => Number.isFinite(Date.parse(value)),
   'data e hora inválidas',
 );
+const identifierSchema = z.string().min(1).max(160).regex(
+  /^[A-Za-z0-9._:-]+$/,
+  'identificador contém caracteres inválidos',
+);
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
   (value) => Number.isFinite(Date.parse(`${value}T00:00:00Z`)),
   'data ISO inválida',
@@ -62,6 +66,7 @@ export type ReconcileFilesOptions = z.input<typeof optionsSchema> & {
   evidenceStore?: EvidenceEventWriter;
   artifactStore?: ArtifactStore;
   reconciliationRunId?: string;
+  sourceCollectionRunId?: string | null;
   manageExecutionLifecycle?: boolean;
   institutionalPathPrefix?: string;
 };
@@ -150,6 +155,7 @@ export async function reconcileFiles(
     evidenceStore,
     artifactStore,
     reconciliationRunId: requestedRunId,
+    sourceCollectionRunId: requestedSourceCollectionRunId,
     manageExecutionLifecycle = true,
     institutionalPathPrefix: rawInstitutionalPathPrefix,
     ...serializableOptions
@@ -166,6 +172,11 @@ export async function reconcileFiles(
   if (envelope.collectionStatus === 'PARTIAL') {
     throw new Error('A coleta PDDEInfo está marcada como PARTIAL; conclua as escolas pendentes antes de iniciar a conciliação.');
   }
+  const sourceCollectionRunId = requestedSourceCollectionRunId === undefined
+    ? (envelope.runId ? identifierSchema.parse(envelope.runId) : null)
+    : (requestedSourceCollectionRunId === null
+      ? null
+      : identifierSchema.parse(requestedSourceCollectionRunId));
   const pddeInfo = normalizePddeInfoSchools(envelope.schools, {
     fiscalYear: options.fiscalYear,
     queriedAt: envelope.fetchedAt,
@@ -185,7 +196,7 @@ export async function reconcileFiles(
       fiscalYear: options.fiscalYear,
       payload: {
         portfolioSize: pddeInfo.payments.length,
-        sourceCollectionRunId: envelope.runId ?? null,
+        sourceCollectionRunId,
         requestedThrough: options.requestedThrough,
         pddeInfoFetchedAt: envelope.fetchedAt,
       },
@@ -244,7 +255,7 @@ export async function reconcileFiles(
         metadata: {
           localPath: outputPath,
           generatedAt,
-          sourceCollectionRunId: envelope.runId ?? null,
+          sourceCollectionRunId,
         },
       })
       : undefined;
@@ -310,7 +321,7 @@ export async function reconcileFiles(
           succeeded: portfolio.rows.length,
           failed: 0,
           summary: portfolio.summary,
-          sourceCollectionRunId: envelope.runId ?? null,
+          sourceCollectionRunId,
         },
       });
     }
@@ -354,7 +365,7 @@ export async function reconcileFiles(
         payload: {
           status: 'FAILED',
           failed: 1,
-          sourceCollectionRunId: envelope.runId ?? null,
+          sourceCollectionRunId,
           error: cause instanceof Error ? cause.message : String(cause),
         },
       });

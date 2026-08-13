@@ -23,7 +23,8 @@ describe('migração Postgres do backend institucional', () => {
     expect(sql).toMatch(/create or replace function public\.claim_execution_job/);
     expect(sql).toMatch(/for update skip locked/);
     expect(sql).toMatch(/claim_execution_job[\s\S]*execution_started/);
-    expect(sql).toMatch(/'sourcecollectionrunid'[\s\S]*pddeinfoartifact/);
+    expect(sql).toMatch(/'sourcecollectionrunid'[\s\S]*request_payload\s*->>\s*'sourcecollectionrunid'/);
+    expect(sql).not.toMatch(/split_part\([\s\S]*pddeinfoartifact/);
     expect(sql).toMatch(/create or replace function public\.renew_execution_job_lease/);
     expect(sql).toMatch(/create or replace function public\.complete_execution_job/);
     expect(sql).toMatch(/complete_execution_job[\s\S]*execution_finished/);

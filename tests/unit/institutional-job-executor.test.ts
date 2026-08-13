@@ -132,6 +132,7 @@ describe('InstitutionalJobExecutor', () => {
       movementsArtifact: ref('runs/import/movements.csv'),
       releaseArtifacts: [ref('runs/inputs/sigef-liberacoes/upload-id.xls')],
       title: 'Relatório institucional',
+      sourceCollectionRunId: 'coleta-validada',
     }))).resolves.toEqual({ status: 'COMPLETE' });
 
     const attempt = resolve(root, 'jobs', '11111111-1111-4111-8111-111111111111', 'attempt-1');
@@ -141,6 +142,7 @@ describe('InstitutionalJobExecutor', () => {
       releaseDirectoryPath: join(attempt, 'inputs', 'releases'),
       outputPath: join(attempt, 'reports', 'reconciliation.xlsx'),
       reconciliationRunId: 'reconciliation-run-1',
+      sourceCollectionRunId: 'coleta-validada',
       fiscalYear: 2026,
       requestedThrough: '2026-08-13',
       title: 'Relatório institucional',

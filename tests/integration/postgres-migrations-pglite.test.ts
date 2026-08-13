@@ -153,6 +153,7 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
           '${'b'.repeat(64)}'::text,
           '{
             "fiscalYear": 2026,
+            "sourceCollectionRunId": "pglite-run-1",
             "pddeInfoArtifact": {
               "bucket": "pdde-evidence",
               "path": "runs/pglite-run-1/attempts/1/pddeinfo-2026.json",

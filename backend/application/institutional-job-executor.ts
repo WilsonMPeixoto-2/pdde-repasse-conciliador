@@ -11,7 +11,7 @@ import {
 import type { EvidenceEventStore } from './evidence-store';
 import {
   pddeInfoJobRequestSchema,
-  reconciliationJobRequestSchema,
+  reconciliationJobPayloadSchema,
 } from './execution-command-service';
 import type { ExecutionJobExecutor, ExecutionJobResult } from './execution-worker';
 import {
@@ -100,7 +100,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
   }
 
   private async executeReconciliation(job: ExecutionJob): Promise<ExecutionJobResult> {
-    const request = reconciliationJobRequestSchema.parse(job.payload);
+    const request = reconciliationJobPayloadSchema.parse(job.payload);
     const attemptPath = this.attemptPath(job);
     const inputPath = join(attemptPath, 'inputs');
     const releasePath = join(inputPath, 'releases');
@@ -138,6 +138,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       evidenceStore: this.dependencies.evidenceStore,
       artifactStore: this.dependencies.artifactStore,
       reconciliationRunId: job.runId,
+      sourceCollectionRunId: request.sourceCollectionRunId ?? null,
       manageExecutionLifecycle: false,
       institutionalPathPrefix: `attempts/${job.attempts}`,
     });

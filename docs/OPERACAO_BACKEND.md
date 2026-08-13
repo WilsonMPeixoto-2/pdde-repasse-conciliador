@@ -117,6 +117,8 @@ A confirmação baixa o objeto pelo backend, recalcula tamanho e SHA-256 e só e
 
 Um `runId` usado apenas para agrupar uploads permanece consultável no log e nos artefatos, mas não aparece como falsa execução `UNKNOWN`. A projeção de execuções exige ao menos um evento de solicitação, início ou término da execução.
 
+Uma conciliação só é aceita depois que **todas** as referências informadas encontram eventos `ARTIFACT_PRESERVED` exatos: mesmo bucket, path, SHA-256, exercício, origem e papel/tipo. Referência ainda não confirmada, hash divergente ou arquivo preservado para outro papel retorna `409` sem criar job. O corpo público não aceita `sourceCollectionRunId`; o backend vincula a conciliação a uma coleta somente quando o JSON PDDEInfo pertence a um ciclo encerrado como `COMPLETE`. JSON recebido por lote sem ciclo pode ser usado, mas permanece corretamente sem vínculo de coleta. Ciclo conhecido ainda em andamento, `PARTIAL` ou `FAILED` precisa ser resolvido antes da conciliação.
+
 Ao executar uma conciliação, o runner não confia no nome original de uma Liberação. Ele inspeciona CNPJ, programa e exercício dentro de cada XLS e materializa a pasta transitória no padrão canônico `CNPJ__PROGRAMA.xls`; dois uploads do mesmo par são rejeitados antes do cálculo financeiro.
 
 ## Persistência e recuperação
