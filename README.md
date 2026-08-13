@@ -1,6 +1,6 @@
 # Conciliador de Repasses PDDE — 4ª CRE
 
-Marco `v0.1.0` da ferramenta que concilia, por escola, ação e parcela, três evidências oficiais:
+Marco `v0.2.0` da ferramenta que concilia, por escola, ação e parcela, três evidências oficiais:
 
 1. pagamento informado no PDDEInfo;
 2. ordem bancária e conta destinatária exportadas de **SIGEF Liberações**;
@@ -13,16 +13,19 @@ A versão publicada `v21` do extrator permanece intacta. Este projeto evolui seu
 - normalização estrita do retorno real das 163 escolas da 4ª CRE;
 - leitura em fluxo do CSV SIGEF com 478.855 linhas, sem carregar o arquivo integralmente em memória;
 - leitura do `.xls` de Liberações, que o SIGEF entrega como HTML em Windows-1252;
-- importação em lote de uma pasta de Liberações com conferência de cobertura;
+- **Assistente de Liberações** que aceita `.xls` com qualquer nome, identifica CNPJ/programa/exercício e organiza os quatro programas suportados;
+- preservação de originais por hash, geração de `CNPJ__PROGRAMA.xls`, detecção de duplicidades, atualizações monotônicas, conflitos, pasta incorreta e arquivo fora da carteira;
+- planilha de controle das Liberações com `Resumo`, `Cobertura`, `Arquivos` e `Pendências`;
+- importação em lote da pasta canônica de Liberações com conferência de cobertura;
 - comparação por CNPJ, exercício, programa, ação, parcela, valor, data, conta e ordem bancária;
 - soma controlada de múltiplos créditos ligados à mesma ordem bancária;
 - complemento de conta ausente somente quando uma liberação correspondente e confiável a fornece;
 - relatório `.xlsx` com as abas `Conciliação`, `Exceções` e `Metadados`;
 - releitura e auditoria do Excel antes da gravação;
-- valores financeiros calculados em centavos inteiros e ausência deliberada de fórmulas no relatório;
+- valores financeiros calculados em centavos inteiros e ausência deliberada de fórmulas nos relatórios;
 - neutralização de textos potencialmente interpretáveis como fórmulas pelo Excel.
 
-## Status controlados
+## Status controlados da conciliação
 
 - `REPASSE_CONFIRMADO`
 - `ORDEM_BANCARIA_CONFIRMADA_CREDITO_NAO_LOCALIZADO`
@@ -42,26 +45,66 @@ npm run check
 
 O comando `npm run check` executa testes, compilação TypeScript estrita e build do frontend preservado da v21.
 
-## Execução
+## 1. Preparar as exportações de Liberações
+
+Não é mais necessário renomear manualmente cada download do SIGEF. Coloque os `.xls` em um workspace e execute:
+
+```bash
+npm run releases:assist -- \
+  --pdde-info /caminho/pddeinfo.json \
+  --workspace /caminho/coleta-liberacoes \
+  --year 2026
+```
+
+O assistente cria:
+
+```text
+coleta-liberacoes/
+├── originais/
+│   ├── 02/
+│   ├── 0A/
+│   ├── 0B/
+│   ├── Z9/
+│   └── _pendentes/
+├── liberacoes/
+│   └── CNPJ__PROGRAMA.xls
+└── controle/
+    └── controle-liberacoes-2026.xlsx
+```
+
+Programas suportados:
+
+- `02` — PDDE / PDDE Básico;
+- `0A` — PDDE Equidade;
+- `0B` — PDDE Qualidade;
+- `Z9` — PDDE Educação Integral.
+
+A execução é incremental e idempotente. Um arquivo canônico não é substituído por conteúdo conflitante; atualizações são aceitas apenas quando uma consulta posterior contém todos os registros anteriores e acrescenta novos registros.
+
+Detalhes operacionais: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
+
+## 2. Executar a conciliação
+
+Use diretamente a pasta `liberacoes` produzida pelo assistente:
 
 ```bash
 npm run reconcile -- \
   --pdde-info /caminho/pddeinfo.json \
   --movements /caminho/extrato-bancario.csv \
-  --releases-dir /caminho/liberacoes \
+  --releases-dir /caminho/coleta-liberacoes/liberacoes \
   --output /caminho/conciliacao.xlsx \
   --year 2026 \
   --requested-through 2026-08-12
 ```
 
-Na importação por pasta, nomeie cada exportação como `CNPJ__PROGRAMA.xls`:
+A importação canônica usa nomes como:
 
 ```text
 12345678000190__02.xls
 12345678000190__0B.xls
 ```
 
-O comando confere o CNPJ do nome contra o conteúdo do arquivo, rejeita pares alheios à carteira e informa os pares esperados, importados e faltantes. Arquivos `.xls` mal nomeados não são ignorados silenciosamente.
+O conciliador confere o CNPJ do nome contra o conteúdo do arquivo, rejeita pares alheios à carteira e informa os pares esperados, importados e faltantes. Arquivos `.xls` mal nomeados não são ignorados silenciosamente.
 
 ### Alternativa por manifesto
 
@@ -81,7 +124,7 @@ Use `--release-manifest` quando precisar preservar a URL específica de cada exp
 
 Sem manifesto nem pasta, a ferramenta registra a fonte Liberações como indisponível para cada CNPJ/programa e classifica as linhas afetadas como `CONSULTA_INCONCLUSIVA`.
 
-Use `--overwrite` somente quando quiser substituir conscientemente um arquivo já existente.
+Use `--overwrite` somente quando quiser substituir conscientemente um arquivo de conciliação já existente.
 
 ## Primeira execução real parcial
 
@@ -101,13 +144,15 @@ O resultado parcial é um artefato gerado e, por isso, não integra o histórico
 ## Estrutura principal
 
 - `backend/core/`: esquemas, normalização e motor de conciliação;
-- `backend/adapters/`: leitores de PDDEInfo, Liberações e Movimentações;
-- `backend/application/`: composição da carteira e execução por arquivos;
-- `backend/report/`: geração e validação do Excel;
-- `scripts/reconcile.ts`: interface de linha de comando;
+- `backend/adapters/`: leitores e inspetores de PDDEInfo, Liberações e Movimentações;
+- `backend/application/`: composição da carteira, Assistente de Liberações e execução por arquivos;
+- `backend/report/`: geração e validação dos relatórios Excel;
+- `scripts/assist-releases.ts`: preparação das exportações de Liberações;
+- `scripts/reconcile.ts`: interface de linha de comando da conciliação;
 - `tests/unit/`: regras e regressões sintéticas;
-- `tests/integration/`: verificações opcionais contra arquivos oficiais locais.
-- `docs/ARCHITECTURE.md`: fluxo, invariantes e limites do marco.
+- `tests/integration/`: verificações opcionais contra arquivos oficiais locais;
+- `docs/ARCHITECTURE.md`: fluxo, invariantes e limites do núcleo;
+- `docs/ASSISTENTE_LIBERACOES.md`: operação e estados do Assistente de Liberações.
 
 ## Dados públicos e arquivos grandes
 
@@ -115,4 +160,4 @@ Os dados utilizados são públicos. Bases nacionais, exportações operacionais 
 
 ## Próximo corte
 
-Incorporar as exportações de Liberações 2026 para os pares CNPJ/programa da carteira, executar a conciliação completa e, somente depois de revisar as exceções, integrar a nova experiência à aplicação web candidata.
+Completar a coleta real das exportações de Liberações 2026 para os pares CNPJ/programa da carteira, revisar as pendências produzidas pelo assistente, executar a conciliação completa e, somente depois de revisar as exceções, integrar a nova experiência à aplicação web candidata.
