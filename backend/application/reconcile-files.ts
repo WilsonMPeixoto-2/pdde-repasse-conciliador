@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -5,11 +6,13 @@ import { z } from 'zod';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import { parseSigefMovementCsv } from '../adapters/sigef-movements-csv';
 import { canonicalCnpj, canonicalProgramCode } from '../core/normalization';
+import type { EvidenceEventInput } from '../core/evidence';
 import {
   buildReconciliationWorkbook,
   validateReconciliationWorkbook,
   type ReconciliationWorkbookAudit,
 } from '../report/reconciliation-workbook';
+import type { EvidenceEventWriter } from './evidence-store';
 import { loadSigefReleaseExports } from './load-sigef-release-exports';
 import { assembleReconciliationPortfolio } from './reconciliation-pipeline';
 
@@ -24,6 +27,7 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
 const pddeInfoEnvelopeSchema = z.object({
   fetchedAt: timestampSchema,
   collectionStatus: z.enum(['COMPLETE', 'PARTIAL']).optional(),
+  runId: z.string().min(1).optional(),
   schools: z.array(z.unknown()),
 }).passthrough();
 const optionsSchema = z.object({
@@ -53,10 +57,14 @@ const optionsSchema = z.object({
   }
 });
 
-export type ReconcileFilesOptions = z.input<typeof optionsSchema>;
+export type ReconcileFilesOptions = z.input<typeof optionsSchema> & {
+  evidenceStore?: EvidenceEventWriter;
+  reconciliationRunId?: string;
+};
 
 export interface ReconcileFilesResult {
   outputPath: string;
+  reconciliationRunId?: string;
   workbookAudit: ReconciliationWorkbookAudit;
   pddeInfo: {
     schools: number;
@@ -114,10 +122,28 @@ async function writeWorkbook(path: string, bytes: Buffer, overwrite: boolean): P
   }
 }
 
+function artifactSha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function generatedRunId(generatedAt: string): string {
+  const timestamp = generatedAt.replace(/[^0-9A-Za-z]+/g, '').slice(0, 20);
+  return `reconcile-${timestamp}-${randomUUID().slice(0, 8)}`;
+}
+
+async function appendEvidence(
+  store: EvidenceEventWriter | undefined,
+  event: Omit<EvidenceEventInput, 'eventId'>,
+): Promise<void> {
+  if (!store) return;
+  await store.append({ ...event, eventId: randomUUID() } as EvidenceEventInput);
+}
+
 export async function reconcileFiles(
   rawOptions: ReconcileFilesOptions,
 ): Promise<ReconcileFilesResult> {
-  const options = optionsSchema.parse(rawOptions);
+  const { evidenceStore, reconciliationRunId: requestedRunId, ...serializableOptions } = rawOptions;
+  const options = optionsSchema.parse(serializableOptions);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const envelope = pddeInfoEnvelopeSchema.parse(await parseJsonFile(options.pddeInfoPath));
   if (envelope.collectionStatus === 'PARTIAL') {
@@ -130,70 +156,166 @@ export async function reconcileFiles(
   if (pddeInfo.payments.length === 0) {
     throw new Error('O PDDEInfo não produziu registros financeiros conciliáveis.');
   }
-  const targetCnpjs = [...new Set(pddeInfo.payments.map(
-    (payment) => canonicalCnpj(payment.school.cnpj),
-  ))];
-  const programCodes = [...new Set(pddeInfo.payments.map(
-    (payment) => canonicalProgramCode(payment.programCode),
-  ))];
-  const expectedReleasePairs = pddeInfo.payments.map((payment) => ({
-    cnpj: canonicalCnpj(payment.school.cnpj),
-    programCode: canonicalProgramCode(payment.programCode),
-  }));
 
-  const movements = await parseSigefMovementCsv(createReadStream(options.movementsPath), {
-    targetCnpjs,
-    programCodes,
-    queriedAt: generatedAt,
-    requestedThrough: options.requestedThrough,
-  });
-
-  const loadedReleases = await loadSigefReleaseExports({
+  const reconciliationRunId = requestedRunId ?? generatedRunId(generatedAt);
+  let evidenceRunStarted = false;
+  await appendEvidence(evidenceStore, {
+    runId: reconciliationRunId,
+    type: 'EXECUTION_STARTED',
+    occurredAt: generatedAt,
+    source: 'CONCILIADOR',
     fiscalYear: options.fiscalYear,
-    expectedPairs: expectedReleasePairs,
-    ...(options.releaseManifestPath ? { manifestPath: options.releaseManifestPath } : {}),
-    ...(options.releaseDirectoryPath ? { directoryPath: options.releaseDirectoryPath } : {}),
-    ...(options.releaseDirectorySourceUrl
-      ? { directorySourceUrl: options.releaseDirectorySourceUrl }
-      : {}),
-  });
-  const releaseExports = loadedReleases.exports;
-
-  const portfolio = assembleReconciliationPortfolio({ pddeInfo, releaseExports, movements });
-  const workbook = await buildReconciliationWorkbook({
-    portfolio,
-    generatedAt,
-    title: options.title ?? `Conciliação de repasses PDDE ${options.fiscalYear} — 4ª CRE`,
-  });
-  const workbookAudit = await validateReconciliationWorkbook(workbook, portfolio);
-  const outputPath = resolve(options.outputPath);
-  await writeWorkbook(outputPath, workbook, options.overwrite);
-
-  return {
-    outputPath,
-    workbookAudit,
-    pddeInfo: {
-      ...pddeInfo.statistics,
-      warnings: pddeInfo.warnings,
+    payload: {
+      portfolioSize: pddeInfo.payments.length,
+      sourceCollectionRunId: envelope.runId ?? null,
+      requestedThrough: options.requestedThrough,
+      pddeInfoFetchedAt: envelope.fetchedAt,
     },
-    releases: {
-      mode: loadedReleases.mode,
-      exports: releaseExports.length,
-      records: releaseExports.reduce((sum, item) => sum + item.releases.length, 0),
-      expectedPairs: loadedReleases.coverage.expectedPairs,
-      importedPairs: loadedReleases.coverage.importedPairs,
-      missingPairs: loadedReleases.coverage.missingPairs,
-    },
-    movements: {
-      rowsRead: movements.statistics.rowsRead,
-      targetRows: movements.statistics.targetRows,
-      creditRows: movements.statistics.creditRows,
-      debitRows: movements.statistics.debitRows,
-      ...(movements.source.coverageThrough
-        ? { coverageThrough: movements.source.coverageThrough }
+  });
+  evidenceRunStarted = Boolean(evidenceStore);
+
+  try {
+    const targetCnpjs = [...new Set(pddeInfo.payments.map(
+      (payment) => canonicalCnpj(payment.school.cnpj),
+    ))];
+    const programCodes = [...new Set(pddeInfo.payments.map(
+      (payment) => canonicalProgramCode(payment.programCode),
+    ))];
+    const expectedReleasePairs = pddeInfo.payments.map((payment) => ({
+      cnpj: canonicalCnpj(payment.school.cnpj),
+      programCode: canonicalProgramCode(payment.programCode),
+    }));
+
+    const movements = await parseSigefMovementCsv(createReadStream(options.movementsPath), {
+      targetCnpjs,
+      programCodes,
+      queriedAt: generatedAt,
+      requestedThrough: options.requestedThrough,
+    });
+
+    const loadedReleases = await loadSigefReleaseExports({
+      fiscalYear: options.fiscalYear,
+      expectedPairs: expectedReleasePairs,
+      ...(options.releaseManifestPath ? { manifestPath: options.releaseManifestPath } : {}),
+      ...(options.releaseDirectoryPath ? { directoryPath: options.releaseDirectoryPath } : {}),
+      ...(options.releaseDirectorySourceUrl
+        ? { directorySourceUrl: options.releaseDirectorySourceUrl }
         : {}),
-      coverageLagDays: movements.statistics.coverageLagDays,
-    },
-    reconciliation: portfolio.summary,
-  };
+    });
+    const releaseExports = loadedReleases.exports;
+
+    const portfolio = assembleReconciliationPortfolio({ pddeInfo, releaseExports, movements });
+    const workbook = await buildReconciliationWorkbook({
+      portfolio,
+      generatedAt,
+      title: options.title ?? `Conciliação de repasses PDDE ${options.fiscalYear} — 4ª CRE`,
+    });
+    const workbookAudit = await validateReconciliationWorkbook(workbook, portfolio);
+    const outputPath = resolve(options.outputPath);
+    await writeWorkbook(outputPath, workbook, options.overwrite);
+
+    for (const row of portfolio.rows) {
+      await appendEvidence(evidenceStore, {
+        runId: reconciliationRunId,
+        type: 'FINDING_RECORDED',
+        occurredAt: generatedAt,
+        source: 'CONCILIADOR',
+        fiscalYear: options.fiscalYear,
+        schoolInep: row.payment.school.inep,
+        payload: {
+          status: row.reconciliation.status,
+          reasonCode: row.reconciliation.reasonCode,
+          requiresHumanReview: row.reconciliation.requiresHumanReview,
+          data: {
+            paymentId: row.payment.id,
+            schoolCnpj: row.payment.school.cnpj,
+            programCode: row.payment.programCode,
+            actionCode: row.payment.actionCode,
+            installmentCode: row.payment.installmentCode,
+            amountPaidCents: row.payment.amountPaidCents,
+            matchedReleaseId: row.reconciliation.matchedReleaseId,
+            matchedMovementIds: row.reconciliation.matchedMovementIds,
+            differences: row.reconciliation.differences,
+            accountResolution: row.accountResolution,
+          },
+        },
+      });
+    }
+
+    await appendEvidence(evidenceStore, {
+      runId: reconciliationRunId,
+      type: 'ARTIFACT_PRESERVED',
+      occurredAt: generatedAt,
+      source: 'CONCILIADOR',
+      fiscalYear: options.fiscalYear,
+      payload: {
+        kind: 'REPORT',
+        path: outputPath,
+        sha256: artifactSha256(workbook),
+        bytes: workbook.byteLength,
+        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    });
+
+    await appendEvidence(evidenceStore, {
+      runId: reconciliationRunId,
+      type: 'EXECUTION_FINISHED',
+      occurredAt: generatedAt,
+      source: 'CONCILIADOR',
+      fiscalYear: options.fiscalYear,
+      payload: {
+        status: 'COMPLETE',
+        succeeded: portfolio.rows.length,
+        failed: 0,
+        summary: portfolio.summary,
+        sourceCollectionRunId: envelope.runId ?? null,
+      },
+    });
+
+    return {
+      outputPath,
+      ...(evidenceStore ? { reconciliationRunId } : {}),
+      workbookAudit,
+      pddeInfo: {
+        ...pddeInfo.statistics,
+        warnings: pddeInfo.warnings,
+      },
+      releases: {
+        mode: loadedReleases.mode,
+        exports: releaseExports.length,
+        records: releaseExports.reduce((sum, item) => sum + item.releases.length, 0),
+        expectedPairs: loadedReleases.coverage.expectedPairs,
+        importedPairs: loadedReleases.coverage.importedPairs,
+        missingPairs: loadedReleases.coverage.missingPairs,
+      },
+      movements: {
+        rowsRead: movements.statistics.rowsRead,
+        targetRows: movements.statistics.targetRows,
+        creditRows: movements.statistics.creditRows,
+        debitRows: movements.statistics.debitRows,
+        ...(movements.source.coverageThrough
+          ? { coverageThrough: movements.source.coverageThrough }
+          : {}),
+        coverageLagDays: movements.statistics.coverageLagDays,
+      },
+      reconciliation: portfolio.summary,
+    };
+  } catch (cause) {
+    if (evidenceRunStarted) {
+      await appendEvidence(evidenceStore, {
+        runId: reconciliationRunId,
+        type: 'EXECUTION_FINISHED',
+        occurredAt: generatedAt,
+        source: 'CONCILIADOR',
+        fiscalYear: options.fiscalYear,
+        payload: {
+          status: 'FAILED',
+          failed: 1,
+          sourceCollectionRunId: envelope.runId ?? null,
+          error: cause instanceof Error ? cause.message : String(cause),
+        },
+      });
+    }
+    throw cause;
+  }
 }
