@@ -6,7 +6,7 @@ O produto distingue evidências de fontes diferentes sem transformar ausência, 
 
 ## Estado atual
 
-Marco em desenvolvimento: **v0.5.0 — backend institucional**.
+Marco atual: **v0.4.0**.
 
 Já estão implementados e testados:
 
@@ -22,19 +22,12 @@ Já estão implementados e testados:
 - projeções de leitura por execução e por histórico escolar;
 - CLI para inspeção da trilha com verificação prévia de integridade;
 - migration Postgres/Supabase equivalente, com RLS fechado e mutação de eventos bloqueada;
-- adaptadores Supabase para eventos e Storage privado, sem SDK no domínio;
-- fila Postgres durável com idempotência, lease, heartbeat e tentativas;
-- início e término da execução atômicos com os eventos de evidência;
-- artefatos institucionais imutáveis por `runId`, SHA-256 e metadata;
-- read models para escolas, execuções, histórico, achados, artefatos e relatório;
-- API HTTP Node 22 com comandos protegidos e respostas assíncronas `202 + runId`;
-- runner separado para coletas/conciliações longas;
 - motor determinístico de conciliação;
 - leitura de exportações do SIGEF Liberações e CSV de SIGEF Movimentações;
 - Assistente de Liberações incremental e idempotente;
 - relatório Excel auditável, sem fórmulas ocultas e com proteção contra formula injection.
 
-## Baseline real de regressão do v0.4
+## Validação real do v0.4
 
 Em 13/08/2026, a implementação deste repositório repetiu a coleta real das 163 escolas com a trilha de evidências ativada:
 
@@ -48,12 +41,6 @@ Em 13/08/2026, a implementação deste repositório repetiu a coleta real das 16
 - **493/493 eventos com cadeia SHA-256 íntegra**.
 
 A mesma rodada concluiu testes, typecheck e build com sucesso. Os testes que acessam o portal real permanecem opt-in para que indisponibilidade externa do FNDE não seja tratada como regressão do código.
-
-### Revalidação pública durante a v0.5
-
-Em uma coleta posterior de 13/08/2026, o portal voltou a responder e o canônico concluiu novamente 163/163 escolas. O snapshot atual continha **468 linhas financeiras nos HTMLs brutos e as mesmas 468 após normalização**, 169 com pagamento informado, 47 casos sem conta correspondente, 0 warnings e 493/493 eventos íntegros.
-
-A redução de 52 linhas frente ao baseline v0.4 está na própria resposta pública: 111 primeiras parcelas regulares, 111 segundas parcelas regulares, 52 Primeira Infância P1, 145 Educação Conectada, 43 Escola e Comunidade e 6 Escola das Adolescências. O baseline de 520 continua registrado como fato histórico; o teste externo compara a normalização às linhas realmente recebidas em vez de transformar 520 em constante eterna.
 
 ## Regra central de evidência
 
@@ -139,22 +126,11 @@ npm run evidence:inspect -- \
 
 A inspeção verifica primeiro a integridade da cadeia. A projeção por execução informa início, fim, status, origem, vínculo com coleta anterior e contagens de tentativas, artefatos, achados e revisões humanas.
 
-## Backend Postgres / Supabase
+## Postgres / Supabase
 
-As migrations em `supabase/migrations/` materializam o log append-only, Storage privado, fila durável e a projeção reconstruível de execuções. A escrita usa somente o backend/runner confiável; `anon` e `authenticated` não recebem acesso direto às tabelas ou RPCs administrativas.
+A migration `supabase/migrations/20260813050000_evidence_events.sql` materializa o mesmo modelo append-only em Postgres, com índices, `pgcrypto`, RLS fechado, trigger contra `UPDATE`/`DELETE` e função serializada de append.
 
-Em 13/08/2026, a tentativa de criar o projeto exclusivo `pdde-repasse-conciliador` em `sa-east-1` foi recusada pelo limite de dois projetos gratuitos ativos do proprietário. Nenhum banco de outro sistema foi reutilizado. A implementação e os testes live opt-in estão prontos; a aplicação no Postgres real depende de liberar uma vaga ou atualizar o plano.
-
-Operação, variáveis, endpoints e recuperação: [`docs/OPERACAO_BACKEND.md`](docs/OPERACAO_BACKEND.md).
-
-## API e runner
-
-```bash
-npm run api:start
-npm run worker:start
-```
-
-A API não executa a carteira de 163 escolas dentro da requisição. `POST /api/executions/pddeinfo` e `POST /api/reconciliations` exigem token administrativo e `Idempotency-Key`, persistem o pedido e retornam `202 Accepted`. O runner reclama o job no Postgres e o cliente acompanha o `runId` por polling. `POST /api/artifacts/uploads` emite um ticket temporário para upload direto e imutável de JSON/CSV/XLS; a confirmação recalcula tamanho e SHA-256 antes de registrar `ARTIFACT_PRESERVED`. Uma conciliação só entra na fila quando todas as referências coincidem com essas evidências institucionais; o vínculo com uma coleta é gerado internamente apenas para ciclo PDDEInfo `COMPLETE`. Assim, arquivos grandes não atravessam a API, paths não fabricam procedência e nenhuma credencial `service_role` chega ao cliente. O health público coalesce chamadas concorrentes e reutiliza por 10 segundos o resultado da verificação integral da cadeia, evitando transformar o endpoint em uma varredura ilimitada do banco.
+**A migration ainda não foi aplicada a um projeto Supabase dedicado**, porque os projetos já conectados pertencem a outros sistemas. Isso evita misturar bases por conveniência nominal. A criação/vinculação do banco canônico será uma etapa própria.
 
 ## Assistente de Liberações
 
@@ -172,8 +148,6 @@ Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 - `backend/core/` — modelos, normalização, evidência e regras determinísticas;
 - `backend/adapters/` — acesso às fontes e implementações de persistência;
 - `backend/application/` — coleta, conciliação, portas de persistência e projeções de histórico;
-- `backend/api/` — contrato HTTP institucional, independente do servidor Node;
-- `backend/runtime/` — composição segura do Supabase, API e runner;
 - `backend/report/` — geração e validação dos relatórios Excel;
 - `scripts/` — interfaces operacionais;
 - `supabase/migrations/` — schema institucional versionado;
@@ -184,10 +158,8 @@ Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 - [`docs/PROJETO.md`](docs/PROJETO.md)
 - [`docs/DECISOES.md`](docs/DECISOES.md)
 - [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
-- [`docs/VALIDACAO_REAL_V05_2026-08-13.md`](docs/VALIDACAO_REAL_V05_2026-08-13.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md)
-- [`docs/OPERACAO_BACKEND.md`](docs/OPERACAO_BACKEND.md)
 
 A documentação é memória do projeto, não gate burocrático.
 

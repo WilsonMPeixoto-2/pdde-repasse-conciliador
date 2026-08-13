@@ -1,35 +1,44 @@
 # Arquitetura atual e direção de evolução
 
-## Estado atual — v0.5.0
+## Estado atual — v0.4.0
 
-O repositório cobre seis responsabilidades separadas:
+O repositório já cobre quatro responsabilidades separadas:
 
 1. coleta autônoma e validação do PDDEInfo;
 2. preservação append-only de evidências e artefatos;
 3. conciliação determinística entre fontes;
-4. projeções de leitura por execução e por escola;
-5. API institucional de consulta e comando;
-6. execução longa por fila Postgres e runner confiável.
+4. projeções de leitura por execução e por escola.
 
 A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
 
 ## Fluxo atual
 
-```mermaid
-flowchart TD
-    API["API: consulta e comandos"] --> Queue["Fila Postgres + idempotência"]
-    API --> Intake["Ingestão: ticket + confirmação"]
-    Queue --> Runner["Runner Node 22 + lease"]
-    Runner --> Collect["PDDEInfo: HTTP + parser"]
-    Runner --> Reconcile["Conciliação determinística"]
-    Collect --> Evidence["Eventos append-only"]
-    Reconcile --> Evidence
-    Collect --> Storage["Storage: HTML, JSON e manifest"]
-    Reconcile --> Storage
-    Intake --> Storage
-    Intake --> Evidence
-    Evidence --> Read["Projeções: escola, execução e achados"]
-    Read --> API
+```text
+Lista-mestre 163 escolas
+        │
+        ▼
+PDDEInfo HTTP + parser
+        │
+        ├── HTML/JSON/manifest ───────────────┐
+        │                                      │
+        ▼                                      ▼
+normalização                         trilha append-only
+        │                           evidence/events.jsonl
+        │                                      │
+        ├─────────────┐                        │
+        │             │                        │
+        ▼             ▼                        │
+SIGEF Liberações   SIGEF Movimentações         │
+        │             │                        │
+        └──────┬──────┘                        │
+               ▼                               │
+       conciliação determinística              │
+               │                               │
+               ├── FINDING_RECORDED ──────────┤
+               ├── Excel + SHA-256 ───────────┤
+               ▼                               ▼
+          resultado                     projeções de leitura
+                                   execução / histórico escolar
 ```
 
 Observação de fonte e conclusão derivada permanecem separadas. Eventos gerados pelo motor usam origem `CONCILIADOR`; eles não são apresentados como se tivessem sido observados diretamente no PDDEInfo ou SIGEF.
@@ -38,7 +47,6 @@ Observação de fonte e conclusão derivada permanecem separadas. Eventos gerado
 
 `backend/core/evidence.ts` define eventos canônicos:
 
-- `EXECUTION_REQUESTED`;
 - `EXECUTION_STARTED`;
 - `EXECUTION_FINISHED`;
 - `SOURCE_ATTEMPT_RECORDED`;
@@ -77,62 +85,23 @@ O arquivo padrão é:
 
 ### Postgres / Supabase
 
-As migrations `20260813050000_evidence_events.sql` e `20260813064845_institutional_backend.sql` materializam o backend:
+`supabase/migrations/20260813050000_evidence_events.sql` materializa o mesmo princípio em Postgres:
 
 - `pgcrypto` para SHA-256;
 - índices por execução, escola e fonte/exercício;
 - RLS habilitado e forçado;
 - sem leitura/escrita para `anon` ou `authenticated` nesta etapa;
-- `UPDATE`, `DELETE` e `TRUNCATE` bloqueados por trigger;
-- `event_id` e `run_id` limitados ao mesmo contrato canônico do domínio;
+- `UPDATE` e `DELETE` bloqueados por trigger;
 - append por função `SECURITY DEFINER` concedida apenas a `service_role`;
 - `pg_advisory_xact_lock` serializa sequência e cadeia de hashes.
-- bucket privado único `pdde-evidence`, limitado a tipos e tamanho conhecidos; comandos e adaptador recusam referências a qualquer outro bucket;
-- `execution_jobs` com idempotência, owner, lease e limite de tentativas;
-- claim/conclusão atômicos com `EXECUTION_STARTED`/`EXECUTION_FINISHED`;
-- projeção `execution_read_models` reconstruída integralmente do log;
-- índices parciais para achados e paginação por cursor.
 
-`SupabaseEvidenceStore`, `SupabaseArtifactStore`, `SupabaseExecutionQueue` e `SupabaseInstitutionalReadRepository` mantêm o SDK no limite de infraestrutura. Domínio e casos de uso conhecem apenas portas próprias. `ArtifactIntakeService` coordena tickets assinados para JSON/CSV/XLS, registra a solicitação sem guardar o token temporário e só preserva o artefato após baixar e validar tamanho e SHA-256. Um único validador governa o namespace `runs/<runId>/...` na ingestão, nos comandos e no adaptador: `:` é permitido somente no segmento de `runId`, enquanto segmentos vazios, `.`/`..`, barras invertidas e caracteres fora do subconjunto institucional são recusados. Em colisões de path, o adaptador aceita idempotência somente quando bytes e identidade institucional (tipo, MIME, escola e metadados) coincidem; um digest dessa identidade é gravado nos metadados do objeto.
-
-As migrations ainda **não foram aplicadas a um projeto Supabase dedicado**. A criação de `pdde-repasse-conciliador` em `sa-east-1`, a custo informado de US$ 0/mês, foi recusada pelo limite de projetos gratuitos ativos. Bancos de outras aplicações não foram reutilizados.
-
-## API e execução assíncrona
-
-`backend/api/institutional-api.ts` implementa o contrato com Web `Request`/`Response`; `backend/runtime/node-api-server.ts` é apenas o adaptador HTTP Node. Essa separação mantém o contrato testável sem depender de um provedor específico.
-
-O processo HTTP possui lifecycle explícito. Em `SIGTERM`/`SIGINT`, o listener para de aceitar conexões, conexões ociosas são fechadas e respostas ativas podem terminar antes da saída. O período gracioso é limitado a 30 segundos por padrão e configurável entre 1 e 120 segundos; conexões remanescentes são encerradas ao fim do prazo. O listener temporário de erro do startup é removido depois de `listening`; erros posteriores permanecem falhas observáveis pelo supervisor.
-
-O health expõe o resultado da auditoria criptográfica integral sem executar uma varredura por GET: verificações simultâneas compartilham a mesma promise e o resultado é reutilizado por 10 segundos. A auditoria permanece completa; apenas seu acionamento no hot path é limitado.
-
-Os `POST` protegidos criam um job e retornam `202 + runId`. O runner:
-
-1. reclama um job usando `FOR UPDATE SKIP LOCKED`;
-2. registra início na mesma transação;
-3. usa workspace isolado por `jobId/tentativa`;
-4. renova o lease por heartbeat;
-5. executa coleta ou conciliação existente;
-6. conclui `COMPLETE`, `PARTIAL` ou `FAILED` e registra o evento terminal atomicamente.
-
-Uma execução abandonada pode ser reclamada. Heartbeat e conclusão carregam também o número da tentativa como token de fencing: uma tentativa antiga não pode renovar nem encerrar o lease novo, mesmo se duas instâncias tiverem reutilizado o mesmo `workerId`. Quando a RPC de heartbeat confirma explicitamente essa perda de propriedade pelo SQLSTATE institucional `PDE01`, o worker aborta a tentativa antiga por `AbortSignal`; HTTP, espera entre lotes, leitura CSV, coleta e conciliação verificam o sinal antes de iniciar efeitos subsequentes. O resultado operacional é `LEASE_LOST`, sem nova chamada terminal pelo owner antigo. Operações externas que já estavam em voo não são transações distribuídas e podem terminar; os paths isolados por tentativa e o log append-only preservam sua procedência. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
-
-O processo aceita `SIGTERM`/`SIGINT` de forma graciosa: cancela a espera ociosa, mas não abandona um job já reclamado. Falha transitória de heartbeat não é tratada como prova de perda do lease: o próximo intervalo renova novamente e a RPC terminal cercada decide se a tentativa ainda é proprietária. Falhas de infraestrutura no claim ou fechamento propagam-se ao supervisor; a perda de lease confirmada pelo Postgres interrompe apenas aquela tentativa e deixa o runner disponível. Em particular, uma falha ao chamar a RPC terminal após o executor produzir `COMPLETE`/`PARTIAL` não dispara uma segunda conclusão `FAILED`, pois o primeiro resultado pode já ter sido confirmado no Postgres apesar da perda da resposta.
-
-Arquivos operacionais entram por um fluxo administrativo separado: a API autoriza um path estável com `upsert: false`, o cliente envia os bytes diretamente ao Storage com ticket de duas horas e a confirmação protegida produz o evento append-only. A chave administrativa da API e a credencial `service_role` nunca são entregues ao cliente.
-
-Ao receber `POST /api/reconciliations`, `ExecutionCommandService` não trata as referências do cliente como prova. Para PDDEInfo, Movimentações e cada Liberação, ele consulta o log pelo proprietário de `runs/<runId>/...` e exige um `ARTIFACT_PRESERVED` institucional que coincida exatamente em bucket, path, SHA-256, exercício, origem e tipo/papel. O coletor marca a carteira consolidada como `PDDEINFO_JSON`, e a ingestão marca CSV/XLS com seus papéis próprios; metadado de papel ausente nunca funciona como curinga. A ausência ou divergência encerra o comando com conflito antes do enqueue.
-
-O pedido HTTP permanece estrito e não aceita `sourceCollectionRunId`. Esse campo só existe no payload interno da fila quando o artefato PDDEInfo pertence a um ciclo conhecido do mesmo exercício cujo evento mais recente é `EXECUTION_FINISHED` com status `COMPLETE`. Se houve retry, o `ARTIFACT_PRESERVED` precisa estar, pela sequência append-only, entre o último `EXECUTION_STARTED` e esse término; um JSON da tentativa abandonada não herda o sucesso da tentativa seguinte. Uploads confirmados sem ciclo continuam utilizáveis como entradas avulsas, mas não são apresentados como coleta de origem. A função Postgres de claim apenas copia esse valor validado; ela não o deduz do path. O runner também passa esse valor (inclusive `null`) explicitamente ao conciliador, impedindo que um `runId` autodeclarado dentro do JSON recupere o vínculo descartado pela validação institucional.
-
-O histórico escolar é paginado por `sequence`, com 50 eventos por padrão e teto de 100. O Postgres filtra `school_inep`, calcula a página e consulta em lotes apenas as projeções materializadas dos `runId` presentes nela; não carrega todos os eventos de cada execução para reconstruir a resposta. Como as projeções derivam exclusivamente do log append-only, continuam descartáveis e reconstruíveis.
-
-No staging de Liberações, o runner deriva `CNPJ__PROGRAMA.xls` do conteúdo validado, não do basename do objeto. Assim, paths opacos do Storage continuam compatíveis com o carregador canônico e nomes fornecidos pelo cliente não governam identidade financeira.
+A migration está versionada, mas ainda **não foi aplicada a um projeto Supabase dedicado**. Os projetos já conectados pertencem a outras aplicações e não serão reutilizados por conveniência.
 
 ## Coleta PDDEInfo
 
 Principais módulos:
 
-1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry e teto de 10 MB lido em streaming;
+1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry;
 2. `pddeinfo-html.ts` interpreta e valida a identidade retornada;
 3. `pddeinfo-normalizer.ts` converte a resposta em pagamentos esperados;
 4. `collect-pddeinfo.ts` orquestra lotes, preserva artefatos e registra a execução;
@@ -158,7 +127,7 @@ Quando o PDDEInfo veio do layout padrão do coletor, `scripts/reconcile.ts` enco
 
 ## Leitura e projeções
 
-`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”. No Postgres, a view `execution_read_models` executa a mesma projeção no servidor; ela pode ser descartada e reconstruída a qualquer momento.
+`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”.
 
 As projeções já disponíveis incluem:
 
@@ -167,15 +136,6 @@ As projeções já disponíveis incluem:
 - vínculo da conciliação com a coleta anterior;
 - contagem de tentativas, falhas, artefatos, achados e revisões humanas;
 - linha do tempo por INEP.
-- listagem paginada de execuções e achados;
-- referências de artefatos e download curto assinado do relatório.
-- emissão e confirmação idempotentes de uploads institucionais, com auditoria da solicitação e do conteúdo efetivamente preservado.
-
-Lotes usados somente para ingestão continuam integralmente no log e na consulta de artefatos, mas não entram em `execution_read_models` sem ao menos um evento de ciclo de vida (`EXECUTION_REQUESTED`, `EXECUTION_STARTED` ou `EXECUTION_FINISHED`). Isso evita apresentar uma entrada operacional como execução `UNKNOWN`.
-
-Achados e relatórios de tentativas anteriores também permanecem no histórico auditável. A projeção corrente considera somente os `FINDING_RECORDED` posteriores ao último `EXECUTION_STARTED` de cada `runId`; assim, uma retomada não duplica achados nem revisões humanas nos endpoints e contadores atuais, sem apagar evidência da tentativa anterior. O endpoint de relatório aplica a mesma fronteira: a listagem de artefatos preserva todo o histórico, mas somente um `REPORT` da tentativa corrente pode receber URL de download assinada.
-
-O histórico escolar primeiro obtém os eventos diretamente associados ao INEP e depois busca somente as execuções relacionadas. Os `runId` são deduplicados e consultados em lotes conservadores de 40, com paginação interna e ordenação global por sequência; assim, o endpoint não volta a varrer o log inteiro e também não falha quando uma escola ultrapassa 500 execuções históricas.
 
 `scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 
@@ -194,7 +154,7 @@ O histórico escolar primeiro obtém os eventos diretamente associados ao INEP e
 
 ## Validação de escala
 
-No baseline v0.4 de 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
+Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
 
 - 163/163 escolas concluídas;
 - 520 registros financeiros;
@@ -204,20 +164,30 @@ No baseline v0.4 de 13/08/2026, a coleta real das 163 unidades foi repetida com 
 - 493 eventos append-only;
 - cadeia de integridade validada integralmente.
 
-Na revalidação posterior da v0.5, a fonte retornou 468 linhas financeiras brutas e o normalizador produziu exatamente 468 registros; 169 pagamentos, 47 ausências de conta, 0 warnings, 163/163 escolas e 493/493 hashes permaneceram estáveis. A distribuição das 468 linhas recebidas explica a diferença sem alterar regras: 111 + 111 parcelas regulares, 52 Primeira Infância P1, 145 Educação Conectada, 43 Escola e Comunidade e 6 Escola das Adolescências.
+## Direção da plataforma
 
-## Limites entre código atual e legado
+```text
+Aplicação web operacional
+        │
+        ▼
+API / casos de uso
+        │
+        ├── execução de coletas
+        ├── conciliação
+        ├── projeções de histórico
+        └── gestão de exceções
+        │
+        ▼
+Modelo canônico + trilha de evidências
+        │
+        ├── JSONL operacional/local
+        └── Postgres/Supabase institucional
+        │
+        ▼
+Fontes + motor determinístico
+```
 
-| Área | Classificação | Regra de evolução |
-|---|---|---|
-| `backend/core`, `backend/adapters`, `backend/application`, `backend/report` | canônico ativo | origem das regras, portas e implementações v0.5 |
-| `backend/api`, `backend/runtime`, `scripts` | canônico ativo | operação institucional e CLI |
-| `supabase/migrations`, testes | canônico ativo | schema, contratos e regressões |
-| `src/` | reaproveitável/transicional | a aplicação Vite ainda compila, mas não é a UI institucional final; nunca recebe `service_role` |
-| `backend/index.ts`, `backend/realtime.ts`, `backend/realtime-subscribers.ts` | legado AppDeploy | permanece como referência; está fora do typecheck canônico e não é importado pelo runtime v0.5 |
-| `SOURCE_MANIFEST.json` | snapshot histórico | não é manifesto dinâmico da v0.5 e não deve dirigir cópia cega de código |
-
-Nenhum arquivo legado foi apagado ou ligado implicitamente ao novo runtime.
+O passo seguinte é materializar o backend institucional sobre o contrato já validado, aplicar a migration em um projeto dedicado e expor as projeções por API para a futura interface web.
 
 ## Direção de UX
 
@@ -228,10 +198,9 @@ As implementações paralelas continuam sendo referência de UX, especialmente p
 ## Limites atuais
 
 - obtenção autônoma do SIGEF continua limitada por CAPTCHA em rotas relevantes;
-- a API/runner estão implementados, mas ainda não possuem plataforma canônica de deploy;
-- as migrations estão prontas, mas o limite da conta impediu criar/aplicar o Supabase exclusivo;
-- o teste live de Storage/fila/cadeia permanece opt-in até existir esse projeto;
-- autenticação de usuário final e interface web institucional ainda não estão integradas;
+- o fluxo principal ainda é CLI;
+- a migration Postgres está pronta, mas não há banco Supabase canônico criado/aplicado;
+- autenticação e interface web ainda não estão integradas;
 - arquivos operacionais grandes permanecem fora do Git quando não agregam valor ao histórico do código.
 
 ## Dependência transitiva

@@ -2,41 +2,11 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
-## 2026-08-13 — Conciliação só referencia artefato institucional comprovado
-
-**Decisão:** antes de enfileirar uma conciliação, o backend exige um `ARTIFACT_PRESERVED` exato para cada referência recebida. Devem coincidir proprietário do path, bucket, path, SHA-256, exercício, origem e papel/tipo do arquivo. O cliente não pode enviar `sourceCollectionRunId`: esse vínculo é acrescentado internamente apenas quando o JSON PDDEInfo pertence a uma execução cujo último evento de ciclo é `EXECUTION_FINISHED/COMPLETE`. Um JSON confirmado por upload, mas sem ciclo de coleta, pode ser usado sem fabricar esse vínculo; ciclos conhecidos `RUNNING`, `PARTIAL` ou `FAILED` são recusados.
-
-**Motivo:** uma referência bem formada não prova que o objeto foi recebido, conferido ou produzido pela execução alegada. Extrair o `runId` do texto do path também confundiria lote de entrada com coleta concluída. A trilha append-only deve governar a procedência, não dados derivados do pedido do cliente.
-
-## 2026-08-13 — Arquivos operacionais entram por upload direto assinado
-
-**Decisão:** JSON/CSV/XLS administrativos não atravessam o corpo da API. O backend autentica a operação, deriva um path imutável, emite um ticket de upload temporário com `upsert` desativado e registra a solicitação sem guardar URL ou token. Depois do envio direto ao bucket privado, uma confirmação protegida recalcula tamanho e SHA-256 antes de anexar `ARTIFACT_PRESERVED`.
-
-**Motivo:** limitar memória e duração da API, permitir arquivos maiores e manter `service_role` exclusivamente no backend sem perder idempotência, proveniência ou verificação do conteúdo recebido.
-
-## 2026-08-13 — Supabase dedicado, nunca compartilhado por conveniência
-
-**Decisão:** o backend institucional usará um projeto Supabase exclusivo chamado de forma inequívoca. RADAR PDDE, CTRH, PDDE Online e outros bancos existentes não serão reutilizados. Enquanto o limite da organização impedir a criação, a validação cloud permanece explicitamente bloqueada; não se pausa outro sistema sem autorização própria.
-
-**Motivo:** evitar acoplamento operacional, mistura de migrações e risco de afetar dados ou disponibilidade de aplicações independentes.
-
-## 2026-08-13 — Requisição curta e runner durável são processos separados
-
-**Decisão:** endpoints de comando apenas validam, aplicam idempotência, persistem o pedido e retornam `202 + runId`. Coleta PDDEInfo e conciliação rodam em worker Node 22 com fila Postgres, lease renovável e tentativas. Claim e conclusão do job registram os eventos de ciclo de vida na mesma transação.
-
-**Motivo:** a coleta conservadora das 163 escolas não cabe com segurança em runtimes HTTP curtos. A separação também permite polling, recuperação de crash e evita duplicação acidental.
-
-## 2026-08-13 — Chave administrativa fica exclusivamente no backend
-
-**Decisão:** `service_role`/`sb_secret_` só existe em API e runner confiáveis. O cliente web acessa contratos HTTP; comandos exigem token administrativo próprio. Dados podem ser públicos sem tornar operações de escrita públicas.
-
-**Motivo:** RLS e bucket privado perdem valor se a credencial que ignora políticas for entregue ao navegador.
-
 ## 2026-08-13 — Evidência operacional é append-only
 
 **Decisão:** coletas, artefatos, observações e achados relevantes entram em uma trilha de eventos append-only. Eventos já persistidos não são atualizados nem apagados para representar “estado atual”; projeções de leitura reconstroem execução e histórico escolar a partir da sequência registrada.
 
-Cada evento possui sequência, `previousHash` e SHA-256 próprio. A implementação local usa JSONL com verificação de integridade e o schema Postgres/Supabase adota o mesmo princípio, com escrita serializada e bloqueio de `UPDATE`/`DELETE`/`TRUNCATE`.
+Cada evento possui sequência, `previousHash` e SHA-256 próprio. A implementação local usa JSONL com verificação de integridade e o schema Postgres/Supabase adota o mesmo princípio, com escrita serializada e bloqueio de `UPDATE`/`DELETE`.
 
 Observações de fontes externas mantêm a origem da própria fonte. Conclusões derivadas pelo motor são registradas separadamente com origem `CONCILIADOR` e podem apontar para a coleta que as fundamentou.
 
@@ -100,13 +70,13 @@ Observações de fontes externas mantêm a origem da própria fonte. Conclusões
 
 ## 2026-08-12 — Dinheiro em centavos inteiros
 
-**Decisão:** cálculos monetários críticos usam inteiros em centavos, evitando dependência de ponto flutuante. Valores individuais e totais agregados precisam permanecer dentro da faixa de inteiros exatos do JavaScript; somas que excedam essa faixa falham explicitamente.
+**Decisão:** cálculos monetários críticos usam inteiros em centavos, evitando dependência de ponto flutuante.
 
 **Motivo:** reduzir erros de arredondamento e facilitar comparação exata.
 
 ## 2026-08-12 — Evidência forte exige chave forte
 
-**Decisão:** valor parecido não basta para ligar pagamento, OB e crédito. A conciliação considera, conforme disponibilidade, CNPJ, exercício, programa, ação, parcela, valor, data, documento/OB e conta. Documento presente e divergente não pode ser descartado em favor de fallback por data; esse fallback só é permitido quando o movimento não informa documento.
+**Decisão:** valor parecido não basta para ligar pagamento, OB e crédito. A conciliação considera, conforme disponibilidade, CNPJ, exercício, programa, ação, parcela, valor, data, documento/OB e conta.
 
 **Motivo:** créditos fracionados, múltiplas ordens, aplicações, estornos e outros lançamentos tornam correspondência por valor isolado insegura.
 
