@@ -83,4 +83,33 @@ describe('processo da API institucional', () => {
     await expect(pending).rejects.toThrow('listener indisponível');
     expect(server.listening).toBe(false);
   });
+
+  test('encerra conexões ativas que ultrapassam o prazo gracioso', async () => {
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const server = createServer(async () => {
+      markStarted?.();
+      await new Promise<void>(() => undefined);
+    });
+    servers.push(server);
+    const shutdown = new AbortController();
+    const pending = runApiServer(server, {
+      host: '127.0.0.1',
+      port: 0,
+      signal: shutdown.signal,
+      shutdownTimeoutMs: 50,
+    });
+
+    await vi.waitFor(() => expect(server.listening).toBe(true));
+    const response = fetch(serverAddress(server)).then(
+      () => null,
+      (cause: unknown) => cause,
+    );
+    await started;
+    shutdown.abort();
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(server.listening).toBe(false);
+    await expect(response).resolves.toBeInstanceOf(Error);
+  });
 });

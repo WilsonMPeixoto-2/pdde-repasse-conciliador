@@ -100,7 +100,7 @@ As migrations ainda **não foram aplicadas a um projeto Supabase dedicado**. A c
 
 `backend/api/institutional-api.ts` implementa o contrato com Web `Request`/`Response`; `backend/runtime/node-api-server.ts` é apenas o adaptador HTTP Node. Essa separação mantém o contrato testável sem depender de um provedor específico.
 
-O processo HTTP possui lifecycle explícito. Em `SIGTERM`/`SIGINT`, o listener para de aceitar conexões, conexões ociosas são fechadas e respostas ativas podem terminar antes da saída. O listener temporário de erro do startup é removido depois de `listening`; erros posteriores permanecem falhas observáveis pelo supervisor.
+O processo HTTP possui lifecycle explícito. Em `SIGTERM`/`SIGINT`, o listener para de aceitar conexões, conexões ociosas são fechadas e respostas ativas podem terminar antes da saída. O período gracioso é limitado a 30 segundos por padrão e configurável entre 1 e 120 segundos; conexões remanescentes são encerradas ao fim do prazo. O listener temporário de erro do startup é removido depois de `listening`; erros posteriores permanecem falhas observáveis pelo supervisor.
 
 O health expõe o resultado da auditoria criptográfica integral sem executar uma varredura por GET: verificações simultâneas compartilham a mesma promise e o resultado é reutilizado por 10 segundos. A auditoria permanece completa; apenas seu acionamento no hot path é limitado.
 

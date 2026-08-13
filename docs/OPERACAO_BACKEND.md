@@ -15,7 +15,7 @@ npm run worker:once
 
 `SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Erros da fila ou da RPC de conclusão encerram o processo com falha para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
 
-A API também trata `SIGTERM`/`SIGINT`: deixa de aceitar conexões, fecha as conexões ociosas e aguarda respostas ativas antes de encerrar. O listener de erro usado no startup é removido assim que a porta abre; erros posteriores são propagados ao processo em vez de serem consumidos por uma promise já resolvida.
+A API também trata `SIGTERM`/`SIGINT`: deixa de aceitar conexões, fecha as conexões ociosas e aguarda respostas ativas por até `PDDE_API_SHUTDOWN_MS` (30 segundos por padrão) antes de encerrar as conexões remanescentes. O listener de erro usado no startup é removido assim que a porta abre; erros posteriores são propagados ao processo em vez de serem consumidos por uma promise já resolvida.
 
 A escolha é deliberada. O repositório não contém hoje uma plataforma canônica de deploy. Além disso, os limites oficiais atuais de wall-clock das Supabase Edge Functions são de 150 segundos no plano Free e 400 segundos nos planos pagos; uma coleta conservadora das 163 escolas não deve depender dessa janela. Consulte [Supabase Edge Functions — Limits](https://supabase.com/docs/guides/functions/limits).
 
@@ -27,6 +27,8 @@ Use `.env.example` como referência. As obrigatórias são:
 - `SUPABASE_SECRET_KEY` ou a chave legada `SUPABASE_SERVICE_ROLE_KEY` com role `service_role`;
 - `PDDE_API_COMMAND_TOKEN` no processo da API;
 - `PDDE_WORKSPACE_PATH` no runner.
+
+`PDDE_API_SHUTDOWN_MS` é opcional e aceita de 1.000 a 120.000 milissegundos.
 
 A chave administrativa é validada no startup e nunca pertence ao bundle Vite. Chaves `sb_publishable_` e JWT com role `anon` são recusadas pelo adaptador de backend.
 

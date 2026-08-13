@@ -13,10 +13,19 @@ function portFromEnvironment(raw: string | undefined): number {
   return port;
 }
 
+function shutdownMilliseconds(raw: string | undefined): number {
+  const value = Number(raw ?? 30_000);
+  if (!Number.isInteger(value) || value < 1_000 || value > 120_000) {
+    throw new Error('PDDE_API_SHUTDOWN_MS deve estar entre 1000 e 120000.');
+  }
+  return value;
+}
+
 interface ApiServerOptions {
   host: string;
   port: number;
   signal: AbortSignal;
+  shutdownTimeoutMs?: number;
   onListening?: () => void;
 }
 
@@ -40,10 +49,13 @@ function listen(server: Server, host: string, port: number): Promise<void> {
   });
 }
 
-function close(server: Server): Promise<void> {
+function close(server: Server, timeoutMilliseconds: number): Promise<void> {
   if (!server.listening) return Promise.resolve();
   return new Promise((resolveClosed, rejectClosed) => {
+    const timeout = setTimeout(() => server.closeAllConnections(), timeoutMilliseconds);
+    timeout.unref();
     server.close((cause) => {
+      clearTimeout(timeout);
       if (cause) rejectClosed(cause);
       else resolveClosed();
     });
@@ -76,19 +88,24 @@ function waitForStop(
 
 export async function runApiServer(server: Server, options: ApiServerOptions): Promise<void> {
   if (options.signal.aborted) return;
+  const shutdownTimeoutMs = options.shutdownTimeoutMs ?? 30_000;
+  if (!Number.isInteger(shutdownTimeoutMs) || shutdownTimeoutMs < 1 || shutdownTimeoutMs > 120_000) {
+    throw new Error('shutdownTimeoutMs deve estar entre 1 e 120000.');
+  }
   await listen(server, options.host, options.port);
   try {
     options.onListening?.();
     const stop = await waitForStop(server, options.signal);
     if (stop.kind === 'ERROR') throw stop.cause;
   } finally {
-    await close(server);
+    await close(server, shutdownTimeoutMs);
   }
 }
 
 export async function main(): Promise<void> {
   const port = portFromEnvironment(process.env.PORT);
   const host = process.env.HOST?.trim() || '0.0.0.0';
+  const shutdownTimeoutMs = shutdownMilliseconds(process.env.PDDE_API_SHUTDOWN_MS);
   const shutdown = new AbortController();
   const requestShutdown = (): void => shutdown.abort();
   process.once('SIGTERM', requestShutdown);
@@ -105,6 +122,7 @@ export async function main(): Promise<void> {
       host,
       port,
       signal: shutdown.signal,
+      shutdownTimeoutMs,
       onListening: () => process.stdout.write(
         `PDDE backend institucional v${version} ouvindo em ${host}:${port}.\n`,
       ),
