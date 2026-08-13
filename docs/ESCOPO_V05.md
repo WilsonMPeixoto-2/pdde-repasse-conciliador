@@ -13,7 +13,7 @@ A conciliação é uma camada analítica complementar. Histórico técnico é au
 
 O backend admite **uma única tarefa ativa por vez**. Não fazem parte do escopo atual multi-worker, lease, heartbeat, fencing, retomada automática por outro executor ou cadeia de tentativas técnicas.
 
-Se uma execução for interrompida, ela pode ser marcada explicitamente como `FAILED` e uma nova consulta pode ser solicitada.
+A implantação deve manter **uma única instância do runner/executor**. Se o processo for interrompido durante uma tarefa, qualquer execução que tenha permanecido `RUNNING` será marcada como `FAILED` na próxima inicialização, liberando uma nova consulta.
 
 Achados e relatório só são publicados como resultado atual quando a execução termina `COMPLETE`. Artefatos incompletos podem permanecer para auditoria.
 
