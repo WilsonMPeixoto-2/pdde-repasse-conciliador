@@ -1,12 +1,13 @@
 import type { EvidenceEventStore } from './evidence-store';
 import type { EvidenceSource, PersistedEvidenceEvent } from '../core/evidence';
 
-export type ProjectedExecutionStatus = 'RUNNING' | 'COMPLETE' | 'PARTIAL' | 'FAILED' | 'UNKNOWN';
+export type ProjectedExecutionStatus = 'QUEUED' | 'RUNNING' | 'COMPLETE' | 'PARTIAL' | 'FAILED' | 'UNKNOWN';
 
 export interface EvidenceRunProjection {
   runId: string;
   source: EvidenceSource;
   fiscalYear: number;
+  requestedAt: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   status: ProjectedExecutionStatus;
@@ -33,10 +34,11 @@ function payloadRecord(event: PersistedEvidenceEvent | undefined): Record<string
 }
 
 function projectedStatus(
+  request: PersistedEvidenceEvent | undefined,
   start: PersistedEvidenceEvent | undefined,
   finish: PersistedEvidenceEvent | undefined,
 ): ProjectedExecutionStatus {
-  if (!start) return 'UNKNOWN';
+  if (!start) return request ? 'QUEUED' : 'UNKNOWN';
   if (!finish) return 'RUNNING';
   const status = payloadRecord(finish).status;
   return status === 'COMPLETE' || status === 'PARTIAL' || status === 'FAILED'
@@ -48,39 +50,7 @@ export class EvidenceHistoryReader {
   constructor(private readonly store: EvidenceEventStore) {}
 
   async getRun(runId: string): Promise<EvidenceRunProjection | null> {
-    const events = (await this.store.listByRun(runId)).sort((left, right) => left.sequence - right.sequence);
-    if (events.length === 0) return null;
-
-    const start = events.find((event) => event.type === 'EXECUTION_STARTED');
-    const finish = [...events].reverse().find((event) => event.type === 'EXECUTION_FINISHED');
-    const sourceEvent = start ?? events[0];
-    const startPayload = payloadRecord(start);
-    const sourceCollectionRunId = typeof startPayload.sourceCollectionRunId === 'string'
-      ? startPayload.sourceCollectionRunId
-      : null;
-
-    const attempts = events.filter((event) => event.type === 'SOURCE_ATTEMPT_RECORDED');
-    const findings = events.filter((event) => event.type === 'FINDING_RECORDED');
-
-    return {
-      runId,
-      source: sourceEvent.source,
-      fiscalYear: sourceEvent.fiscalYear,
-      startedAt: start?.occurredAt ?? null,
-      finishedAt: finish?.occurredAt ?? null,
-      status: projectedStatus(start, finish),
-      sourceCollectionRunId,
-      counts: {
-        events: events.length,
-        attempts: attempts.length,
-        failedAttempts: attempts.filter((event) => payloadRecord(event).status === 'FAILED').length,
-        artifacts: events.filter((event) => event.type === 'ARTIFACT_PRESERVED').length,
-        findings: findings.length,
-        humanReview: findings.filter(
-          (event) => payloadRecord(event).requiresHumanReview === true,
-        ).length,
-      },
-    };
+    return projectEvidenceRun(runId, await this.store.listByRun(runId));
   }
 
   async getSchoolHistory(inep: string): Promise<SchoolEvidenceHistory> {
@@ -93,4 +63,44 @@ export class EvidenceHistoryReader {
     const runs = projections.filter((run): run is EvidenceRunProjection => run !== null);
     return { schoolInep: inep, events, runs };
   }
+}
+
+export function projectEvidenceRun(
+  runId: string,
+  rawEvents: PersistedEvidenceEvent[],
+): EvidenceRunProjection | null {
+  const events = [...rawEvents].sort((left, right) => left.sequence - right.sequence);
+  if (events.length === 0) return null;
+
+  const request = events.find((event) => event.type === 'EXECUTION_REQUESTED');
+  const start = events.find((event) => event.type === 'EXECUTION_STARTED');
+  const finish = [...events].reverse().find((event) => event.type === 'EXECUTION_FINISHED');
+  const sourceEvent = start ?? request ?? events[0];
+  const startPayload = payloadRecord(start);
+  const sourceCollectionRunId = typeof startPayload.sourceCollectionRunId === 'string'
+    ? startPayload.sourceCollectionRunId
+    : null;
+  const attempts = events.filter((event) => event.type === 'SOURCE_ATTEMPT_RECORDED');
+  const findings = events.filter((event) => event.type === 'FINDING_RECORDED');
+
+  return {
+    runId,
+    source: sourceEvent.source,
+    fiscalYear: sourceEvent.fiscalYear,
+    requestedAt: request?.occurredAt ?? null,
+    startedAt: start?.occurredAt ?? null,
+    finishedAt: finish?.occurredAt ?? null,
+    status: projectedStatus(request, start, finish),
+    sourceCollectionRunId,
+    counts: {
+      events: events.length,
+      attempts: attempts.length,
+      failedAttempts: attempts.filter((event) => payloadRecord(event).status === 'FAILED').length,
+      artifacts: events.filter((event) => event.type === 'ARTIFACT_PRESERVED').length,
+      findings: findings.length,
+      humanReview: findings.filter(
+        (event) => payloadRecord(event).requiresHumanReview === true,
+      ).length,
+    },
+  };
 }

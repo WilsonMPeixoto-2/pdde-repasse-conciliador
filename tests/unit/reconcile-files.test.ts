@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, test } from 'vitest';
 import { JsonlEvidenceStore } from '../../backend/adapters/jsonl-evidence-store';
+import type { ArtifactStore, PreserveArtifactInput } from '../../backend/application/artifact-store';
 import { reconcileFiles } from '../../backend/application/reconcile-files';
 
 const temporaryDirectories: string[] = [];
@@ -85,6 +86,25 @@ describe('reconcileFiles', () => {
     const movementsPath = join(root, 'movements.csv');
     const outputPath = join(root, 'result.xlsx');
     const evidenceStore = new JsonlEvidenceStore(join(root, 'evidence', 'events.jsonl'));
+    const preserved: PreserveArtifactInput[] = [];
+    const artifactStore: ArtifactStore = {
+      async preserve(input) {
+        preserved.push(input);
+        return {
+          provider: 'SUPABASE_STORAGE',
+          bucket: 'pdde-evidence',
+          path: `runs/${input.runId}/${input.relativePath}`,
+          kind: input.kind,
+          sha256: 'b'.repeat(64),
+          bytes: input.bytes.byteLength,
+          mediaType: input.mediaType,
+          ...(input.schoolInep ? { schoolInep: input.schoolInep } : {}),
+          metadata: input.metadata ?? {},
+        };
+      },
+      async download() { throw new Error('não usado'); },
+      async createSignedDownload() { throw new Error('não usado'); },
+    };
     await writeFile(pddeInfoPath, JSON.stringify({
       fetchedAt: '2026-08-12T08:00:00-03:00',
       collectionStatus: 'COMPLETE',
@@ -104,6 +124,7 @@ describe('reconcileFiles', () => {
       generatedAt: '2026-08-12T09:00:00-03:00',
       reconciliationRunId: 'reconcile-test-run',
       evidenceStore,
+      artifactStore,
     });
 
     expect(result.releases).toEqual({
@@ -145,12 +166,22 @@ describe('reconcileFiles', () => {
         source: 'CONCILIADOR',
         payload: expect.objectContaining({
           kind: 'REPORT',
-          path: outputPath,
+          provider: 'SUPABASE_STORAGE',
+          bucket: 'pdde-evidence',
+          path: 'runs/reconcile-test-run/reports/reconciliation.xlsx',
           sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
           bytes: expect.any(Number),
         }),
       }),
     ]));
+    expect(preserved).toEqual([
+      expect.objectContaining({
+        runId: 'reconcile-test-run',
+        relativePath: 'reports/reconciliation.xlsx',
+        kind: 'REPORT',
+        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+    ]);
     expect(events.at(-1)).toMatchObject({
       type: 'EXECUTION_FINISHED',
       source: 'CONCILIADOR',

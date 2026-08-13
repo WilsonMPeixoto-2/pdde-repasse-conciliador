@@ -84,4 +84,30 @@ describe('cliente HTTP do PDDEInfo', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
   });
+
+  test('interrompe sem retry quando o corpo excede o limite real de bytes', async () => {
+    const subject = await loadSubject();
+    expect(subject, 'o cliente HTTP do PDDEInfo ainda não foi implementado').not.toBeNull();
+    if (!subject) return;
+
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(new Uint8Array(101).fill(120), {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=UTF-8' },
+    }));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect((subject.fetchPddeInfoSchoolHtml as (
+      options: Record<string, unknown>,
+    ) => Promise<unknown>)({
+      fiscalYear: 2026,
+      inep: '33069247',
+      fetchImpl,
+      sleep,
+      maxAttempts: 3,
+      maxResponseBytes: 100,
+    })).rejects.toThrow(/resposta.*excede.*100 bytes/i);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
 });

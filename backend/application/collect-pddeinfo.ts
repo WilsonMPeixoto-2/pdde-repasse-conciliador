@@ -16,6 +16,11 @@ import {
 } from '../adapters/pddeinfo-http';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import type { EvidenceEventInput } from '../core/evidence';
+import type {
+  ArtifactStore,
+  PreserveArtifactInput,
+  PreservedArtifact,
+} from './artifact-store';
 import type { EvidenceEventWriter } from './evidence-store';
 
 const timestampSchema = z.string().refine(
@@ -37,6 +42,10 @@ const baseOptionsSchema = z.object({
   startedAt: timestampSchema.optional(),
   batchSize: z.number().int().min(1).max(20).default(3),
   batchDelayMs: z.number().int().min(0).max(60_000).default(1_500),
+  institutionalPathPrefix: z.string().min(1).max(300).refine(
+    (value) => value.split('/').every((segment) => /^[A-Za-z0-9._-]+$/.test(segment)),
+    'prefixo institucional inválido',
+  ).optional(),
 }).strict();
 
 type CollectionStatus = 'COMPLETE' | 'PARTIAL';
@@ -57,6 +66,9 @@ export interface CollectPddeInfoOptions {
   fetchSchoolHtml?: FetchSchoolHtml;
   sleep?: (milliseconds: number) => Promise<void>;
   evidenceStore?: EvidenceEventWriter;
+  artifactStore?: ArtifactStore;
+  manageExecutionLifecycle?: boolean;
+  institutionalPathPrefix?: string;
 }
 
 interface SuccessManifestEntry {
@@ -122,12 +134,51 @@ function sha256(content: string | Uint8Array): string {
   return hash.digest('hex');
 }
 
-async function writeJson(path: string, value: unknown): Promise<{ sha256: string; bytes: number }> {
-  const serialized = `${JSON.stringify(value, null, 2)}\n`;
-  await writeFile(path, serialized, { flag: 'wx' });
+interface WrittenJsonArtifact {
+  sha256: string;
+  bytes: number;
+  content: Buffer;
+}
+
+class InstitutionalArtifactPersistenceError extends Error {}
+
+async function preserveInstitutionalArtifact(
+  store: ArtifactStore,
+  input: PreserveArtifactInput,
+): Promise<PreservedArtifact> {
+  try {
+    return await store.preserve(input);
+  } catch (cause) {
+    throw new InstitutionalArtifactPersistenceError(
+      cause instanceof Error ? cause.message : String(cause),
+    );
+  }
+}
+
+async function writeJson(path: string, value: unknown): Promise<WrittenJsonArtifact> {
+  const content = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  await writeFile(path, content, { flag: 'wx' });
   return {
-    sha256: sha256(serialized),
-    bytes: Buffer.byteLength(serialized, 'utf8'),
+    sha256: sha256(content),
+    bytes: content.byteLength,
+    content,
+  };
+}
+
+function artifactPayload(
+  local: { kind: 'RAW_HTML' | 'NORMALIZED_JSON' | 'MANIFEST'; path: string; sha256: string; bytes: number; mediaType: string },
+  institutional: PreservedArtifact | undefined,
+): EvidenceEventInput['payload'] {
+  if (!institutional) return local;
+  return {
+    kind: institutional.kind,
+    path: institutional.path,
+    sha256: institutional.sha256,
+    bytes: institutional.bytes,
+    mediaType: institutional.mediaType,
+    provider: institutional.provider,
+    bucket: institutional.bucket,
+    metadata: institutional.metadata,
   };
 }
 
@@ -161,6 +212,9 @@ export async function collectPddeInfo(
     ...(rawOptions.startedAt ? { startedAt: rawOptions.startedAt } : {}),
     ...(rawOptions.batchSize !== undefined ? { batchSize: rawOptions.batchSize } : {}),
     ...(rawOptions.batchDelayMs !== undefined ? { batchDelayMs: rawOptions.batchDelayMs } : {}),
+    ...(rawOptions.institutionalPathPrefix
+      ? { institutionalPathPrefix: rawOptions.institutionalPathPrefix }
+      : {}),
   });
   validateMasterSubset(parsed.schools);
 
@@ -171,28 +225,40 @@ export async function collectPddeInfo(
   const normalizedDirectory = join(runDirectory, 'normalized');
   const manifestPath = join(runDirectory, 'manifest.json');
   const pddeInfoPath = join(runDirectory, `pddeinfo-${parsed.fiscalYear}.json`);
+  const institutionalPath = (relativePath: string): string => (
+    parsed.institutionalPathPrefix
+      ? `${parsed.institutionalPathPrefix}/${relativePath}`
+      : relativePath
+  );
 
   await mkdir(resolve(parsed.workspacePath, 'runs'), { recursive: true });
   await mkdir(runDirectory, { recursive: false });
   await mkdir(rawDirectory);
   await mkdir(normalizedDirectory);
 
-  await appendEvidence(rawOptions.evidenceStore, {
-    runId,
-    type: 'EXECUTION_STARTED',
-    occurredAt: startedAt,
-    source: 'PDDEINFO',
-    fiscalYear: parsed.fiscalYear,
-    payload: {
-      portfolioSize: parsed.schools.length,
-      parserVersion: PDDEINFO_HTML_PARSER_VERSION,
-    },
-  });
+  const manageExecutionLifecycle = rawOptions.manageExecutionLifecycle ?? true;
+  if (manageExecutionLifecycle) {
+    await appendEvidence(rawOptions.evidenceStore, {
+      runId,
+      type: 'EXECUTION_STARTED',
+      occurredAt: startedAt,
+      source: 'PDDEINFO',
+      fiscalYear: parsed.fiscalYear,
+      payload: {
+        portfolioSize: parsed.schools.length,
+        parserVersion: PDDEINFO_HTML_PARSER_VERSION,
+      },
+    });
+  }
 
   const fetchSchoolHtml = rawOptions.fetchSchoolHtml ?? fetchPddeInfoSchoolHtml;
   const sleep = rawOptions.sleep ?? defaultSleep;
   const successfulByInep = new Map<string, PddeInfoRawSchool>();
   const entriesByInep = new Map<string, SchoolManifestEntry>();
+  const institutionalArtifactsByInep = new Map<string, {
+    raw?: PreservedArtifact;
+    normalized?: PreservedArtifact;
+  }>();
 
   const processSchool = async (school: PddeInfoExpectedSchool): Promise<void> => {
     let httpResult: PddeInfoHttpResult | null = null;
@@ -230,6 +296,40 @@ export async function collectPddeInfo(
 
       const normalizedPath = `normalized/${school.inep}.json`;
       const normalizedArtifact = await writeJson(join(runDirectory, normalizedPath), parsedSchool);
+      let rawInstitutional: PreservedArtifact | undefined;
+      let normalizedInstitutional: PreservedArtifact | undefined;
+      if (rawOptions.artifactStore) {
+        rawInstitutional = await preserveInstitutionalArtifact(rawOptions.artifactStore, {
+          runId,
+          relativePath: institutionalPath(`schools/${school.inep}/raw.html`),
+          kind: 'RAW_HTML',
+          bytes: rawBytes,
+          mediaType: 'text/html; charset=utf-8',
+          schoolInep: school.inep,
+          metadata: {
+            sourceUrl: httpResult.sourceUrl,
+            queriedAt: httpResult.queriedAt,
+            localPath: rawPath,
+          },
+        });
+        normalizedInstitutional = await preserveInstitutionalArtifact(rawOptions.artifactStore, {
+          runId,
+          relativePath: institutionalPath(`schools/${school.inep}/normalized.json`),
+          kind: 'NORMALIZED_JSON',
+          bytes: normalizedArtifact.content,
+          mediaType: 'application/json',
+          schoolInep: school.inep,
+          metadata: {
+            sourceUrl: httpResult.sourceUrl,
+            queriedAt: httpResult.queriedAt,
+            localPath: normalizedPath,
+          },
+        });
+      }
+      institutionalArtifactsByInep.set(school.inep, {
+        ...(rawInstitutional ? { raw: rawInstitutional } : {}),
+        ...(normalizedInstitutional ? { normalized: normalizedInstitutional } : {}),
+      });
       successfulByInep.set(school.inep, parsedSchool);
       entry = {
         inep: school.inep,
@@ -249,6 +349,7 @@ export async function collectPddeInfo(
         warnings: validation.warnings,
       };
     } catch (cause) {
+      if (cause instanceof InstitutionalArtifactPersistenceError) throw cause;
       entry = {
         inep: school.inep,
         sme: school.sme,
@@ -268,6 +369,7 @@ export async function collectPddeInfo(
     entriesByInep.set(school.inep, entry);
 
     if (entry.status === 'SUCCESS') {
+      const institutional = institutionalArtifactsByInep.get(school.inep);
       await appendEvidence(rawOptions.evidenceStore, {
         runId,
         type: 'SOURCE_ATTEMPT_RECORDED',
@@ -290,13 +392,13 @@ export async function collectPddeInfo(
         source: 'PDDEINFO',
         fiscalYear: parsed.fiscalYear,
         schoolInep: school.inep,
-        payload: {
+        payload: artifactPayload({
           kind: 'RAW_HTML',
           path: entry.rawPath,
           sha256: entry.rawSha256,
           bytes: entry.responseBytes,
           mediaType: 'text/html',
-        },
+        }, institutional?.raw),
       });
       await appendEvidence(rawOptions.evidenceStore, {
         runId,
@@ -305,13 +407,13 @@ export async function collectPddeInfo(
         source: 'PDDEINFO',
         fiscalYear: parsed.fiscalYear,
         schoolInep: school.inep,
-        payload: {
+        payload: artifactPayload({
           kind: 'NORMALIZED_JSON',
           path: entry.normalizedPath,
           sha256: entry.normalizedSha256,
           bytes: entry.normalizedBytes,
           mediaType: 'application/json',
-        },
+        }, institutional?.normalized),
       });
     } else {
       await appendEvidence(rawOptions.evidenceStore, {
@@ -335,7 +437,11 @@ export async function collectPddeInfo(
 
   for (let start = 0; start < parsed.schools.length; start += parsed.batchSize) {
     const batch = parsed.schools.slice(start, start + parsed.batchSize);
-    await Promise.all(batch.map(processSchool));
+    const results = await Promise.allSettled(batch.map(processSchool));
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (rejected) throw rejected.reason;
     if (start + parsed.batchSize < parsed.schools.length && parsed.batchDelayMs > 0) {
       await sleep(parsed.batchDelayMs);
     }
@@ -382,19 +488,40 @@ export async function collectPddeInfo(
   };
   const envelopeArtifact = await writeJson(pddeInfoPath, envelope);
 
+  const manifestInstitutional = rawOptions.artifactStore
+    ? await preserveInstitutionalArtifact(rawOptions.artifactStore, {
+      runId,
+      relativePath: institutionalPath('manifest.json'),
+      kind: 'MANIFEST',
+      bytes: manifestArtifact.content,
+      mediaType: 'application/json',
+      metadata: { localPath: 'manifest.json', completedAt },
+    })
+    : undefined;
+  const envelopeInstitutional = rawOptions.artifactStore
+    ? await preserveInstitutionalArtifact(rawOptions.artifactStore, {
+      runId,
+      relativePath: institutionalPath(`pddeinfo-${parsed.fiscalYear}.json`),
+      kind: 'NORMALIZED_JSON',
+      bytes: envelopeArtifact.content,
+      mediaType: 'application/json',
+      metadata: { localPath: `pddeinfo-${parsed.fiscalYear}.json`, completedAt },
+    })
+    : undefined;
+
   await appendEvidence(rawOptions.evidenceStore, {
     runId,
     type: 'ARTIFACT_PRESERVED',
     occurredAt: completedAt,
     source: 'PDDEINFO',
     fiscalYear: parsed.fiscalYear,
-    payload: {
+    payload: artifactPayload({
       kind: 'MANIFEST',
       path: 'manifest.json',
       sha256: manifestArtifact.sha256,
       bytes: manifestArtifact.bytes,
       mediaType: 'application/json',
-    },
+    }, manifestInstitutional),
   });
   await appendEvidence(rawOptions.evidenceStore, {
     runId,
@@ -402,26 +529,28 @@ export async function collectPddeInfo(
     occurredAt: completedAt,
     source: 'PDDEINFO',
     fiscalYear: parsed.fiscalYear,
-    payload: {
+    payload: artifactPayload({
       kind: 'NORMALIZED_JSON',
       path: `pddeinfo-${parsed.fiscalYear}.json`,
       sha256: envelopeArtifact.sha256,
       bytes: envelopeArtifact.bytes,
       mediaType: 'application/json',
-    },
+    }, envelopeInstitutional),
   });
-  await appendEvidence(rawOptions.evidenceStore, {
-    runId,
-    type: 'EXECUTION_FINISHED',
-    occurredAt: completedAt,
-    source: 'PDDEINFO',
-    fiscalYear: parsed.fiscalYear,
-    payload: {
-      status,
-      succeeded,
-      failed,
-    },
-  });
+  if (manageExecutionLifecycle) {
+    await appendEvidence(rawOptions.evidenceStore, {
+      runId,
+      type: 'EXECUTION_FINISHED',
+      occurredAt: completedAt,
+      source: 'PDDEINFO',
+      fiscalYear: parsed.fiscalYear,
+      payload: {
+        status,
+        succeeded,
+        failed,
+      },
+    });
+  }
 
   return {
     status,

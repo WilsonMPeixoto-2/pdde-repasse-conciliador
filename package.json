@@ -1,7 +1,7 @@
 {
   "name": "pdde-repasse-conciliador",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Coleta, evidência e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
   "type": "module",
   "engines": {
@@ -22,12 +22,16 @@
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
     "evidence:inspect": "node --import tsx scripts/inspect-evidence.ts",
+    "api:start": "node --import tsx scripts/api.ts",
+    "worker:start": "node --import tsx scripts/worker.ts",
+    "worker:once": "node --import tsx scripts/worker.ts --once",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "check": "npm run test && npm run typecheck && npm run build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.112.3",
     "cheerio": "^1.2.0",
     "csv-parse": "^7.0.2",
     "exceljs": "^4.4.0",
@@ -38,6 +42,7 @@
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.4",
     "@types/node": "^24.13.3",
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",

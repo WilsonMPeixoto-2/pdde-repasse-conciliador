@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { z } from 'zod';
 import { JsonlEvidenceStore } from '../backend/adapters/jsonl-evidence-store';
 import { collectPddeInfo } from '../backend/application/collect-pddeinfo';
+export { loadMasterSchools } from '../backend/application/school-catalog';
+import { loadMasterSchools } from '../backend/application/school-catalog';
 
 const HELP = `
 Uso:
@@ -24,16 +24,6 @@ A trilha append-only de evidências é criada automaticamente em:
 Uma execução com qualquer escola não concluída é marcada como PARTIAL e não deve
 ser usada como fonte aprovada para conciliação.
 `;
-
-const schoolSchema = z.object({
-  inep: z.string().regex(/^\d{8}$/),
-  sme: z.string().regex(/^\d{7}$/),
-  nome: z.string().min(1),
-}).strict();
-
-const masterSchema = z.object({
-  schools: z.array(schoolSchema).length(163),
-}).strict();
 
 export interface ParsedArguments {
   values: Map<string, string>;
@@ -106,17 +96,6 @@ export function optionsFromArguments(parsed: ParsedArguments): {
 
 export function evidenceStorePath(workspacePath: string): string {
   return resolve(workspacePath, 'evidence', 'events.jsonl');
-}
-
-export async function loadMasterSchools(): Promise<Array<{ inep: string; sme: string; nome: string }>> {
-  const source = await readFile(new URL('../backend/schools4cre.json', import.meta.url), 'utf8');
-  const parsed = masterSchema.parse(JSON.parse(source) as unknown);
-  const uniqueIneps = new Set(parsed.schools.map((school) => school.inep));
-  const uniqueSme = new Set(parsed.schools.map((school) => school.sme));
-  if (uniqueIneps.size !== 163 || uniqueSme.size !== 163) {
-    throw new Error('A lista-mestre das 163 escolas não é única por INEP/SME.');
-  }
-  return parsed.schools;
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {

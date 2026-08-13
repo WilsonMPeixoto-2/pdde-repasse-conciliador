@@ -11,6 +11,33 @@ async function append(store: JsonlEvidenceStore, event: EvidenceEventInput) {
 }
 
 describe('EvidenceHistoryReader', () => {
+  test('projeta uma solicitação durável ainda não reclamada como QUEUED', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pdde-evidence-queued-'));
+    const store = new JsonlEvidenceStore(join(directory, 'events.jsonl'));
+    await append(store, {
+      eventId: 'job-requested:collect-queued',
+      runId: 'collect-queued',
+      type: 'EXECUTION_REQUESTED',
+      occurredAt: '2026-08-13T00:59:00-03:00',
+      source: 'PDDEINFO',
+      fiscalYear: 2026,
+      payload: {
+        jobKind: 'PDDEINFO',
+        idempotencyKey: 'coleta-agosto',
+        requestHash: 'a'.repeat(64),
+      },
+    });
+
+    await expect(new EvidenceHistoryReader(store).getRun('collect-queued')).resolves.toMatchObject({
+      runId: 'collect-queued',
+      source: 'PDDEINFO',
+      status: 'QUEUED',
+      startedAt: null,
+      finishedAt: null,
+      counts: { events: 1 },
+    });
+  });
+
   test('reconstrói resumo da execução e relaciona conciliação à coleta de origem', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pdde-evidence-history-'));
     const store = new JsonlEvidenceStore(join(directory, 'events.jsonl'));

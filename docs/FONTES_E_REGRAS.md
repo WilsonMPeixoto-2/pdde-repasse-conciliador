@@ -6,14 +6,14 @@ Este documento registra o estado operacional das fontes e as regras que afetam c
 
 | Fonte | Finalidade | Estado para o repositório canônico | Observação |
 |---|---|---|---|
-| **PDDEInfo — consulta por escola** | valores previstos/pagos, datas e contas apresentadas pelo sistema | **AUTÔNOMA E VALIDADA** | O v0.3 consulta diretamente por INEP, preserva bytes/HTML e JSON com hashes e validou 163/163 escolas em execução real controlada, sem warnings de normalização. |
+| **PDDEInfo — consulta por escola** | valores previstos/pagos, datas e contas apresentadas pelo sistema | **AUTÔNOMA E VALIDADA** | O v0.4 consulta diretamente por INEP, preserva bytes/HTML e JSON com hashes e validou 163/163 escolas em execução real controlada, sem warnings de normalização. |
 | **SIGEF Liberações** | ordem bancária, data, valor e conta destinatária | **uso por exportação comprovado; coleta autônoma bloqueada por CAPTCHA** | O Assistente de Liberações v0.2.0 organiza e valida os `.xls` obtidos pelo fluxo permitido. |
 | **SIGEF Movimentações** | localizar créditos e demais lançamentos bancários | **leitor comprovado** | O núcleo atual processa CSV nacional em streaming. A cobertura do arquivo deve ser registrada porque pode estar defasada. |
 | **SIGEF Extrato/Conta Corrente via portal** | evidência bancária complementar | **CAPTCHA_REQUIRED / não automatizado** | Protótipos paralelos confirmaram restrição por CAPTCHA. Arquivo/PDF autorizado pode ser estudado separadamente. |
 | **PDDEInfo — saldo das entidades** | saldo/composição por CNPJ, mês e programa | **evidência promissora em referência paralela; ainda não integrada** | Foi comprovada tecnicamente no projeto paralelo Manus, mas só passa a ser capacidade oficial quando incorporada e validada neste repositório. |
 | **Dados Abertos FNDE / Olinda** | controle secundário e cruzamentos | **candidato secundário; ainda não integrado ao canônico** | Pode complementar validações, sem substituir silenciosamente a fonte primária. |
 
-### Evidência de autonomia do PDDEInfo no v0.3
+### Evidência de autonomia do PDDEInfo no v0.4
 
 A validação real controlada da implementação canônica em 12/08/2026 produziu:
 

@@ -1,44 +1,32 @@
 # Arquitetura atual e direção de evolução
 
-## Estado atual — v0.4.0
+## Estado atual — v0.5.0
 
-O repositório já cobre quatro responsabilidades separadas:
+O repositório cobre seis responsabilidades separadas:
 
 1. coleta autônoma e validação do PDDEInfo;
 2. preservação append-only de evidências e artefatos;
 3. conciliação determinística entre fontes;
-4. projeções de leitura por execução e por escola.
+4. projeções de leitura por execução e por escola;
+5. API institucional de consulta e comando;
+6. execução longa por fila Postgres e runner confiável.
 
 A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
 
 ## Fluxo atual
 
-```text
-Lista-mestre 163 escolas
-        │
-        ▼
-PDDEInfo HTTP + parser
-        │
-        ├── HTML/JSON/manifest ───────────────┐
-        │                                      │
-        ▼                                      ▼
-normalização                         trilha append-only
-        │                           evidence/events.jsonl
-        │                                      │
-        ├─────────────┐                        │
-        │             │                        │
-        ▼             ▼                        │
-SIGEF Liberações   SIGEF Movimentações         │
-        │             │                        │
-        └──────┬──────┘                        │
-               ▼                               │
-       conciliação determinística              │
-               │                               │
-               ├── FINDING_RECORDED ──────────┤
-               ├── Excel + SHA-256 ───────────┤
-               ▼                               ▼
-          resultado                     projeções de leitura
-                                   execução / histórico escolar
+```mermaid
+flowchart TD
+    API["API: consulta e comandos"] --> Queue["Fila Postgres + idempotência"]
+    Queue --> Runner["Runner Node 22 + lease"]
+    Runner --> Collect["PDDEInfo: HTTP + parser"]
+    Runner --> Reconcile["Conciliação determinística"]
+    Collect --> Evidence["Eventos append-only"]
+    Reconcile --> Evidence
+    Collect --> Storage["Storage: HTML, JSON e manifest"]
+    Reconcile --> Storage
+    Evidence --> Read["Projeções: escola, execução e achados"]
+    Read --> API
 ```
 
 Observação de fonte e conclusão derivada permanecem separadas. Eventos gerados pelo motor usam origem `CONCILIADOR`; eles não são apresentados como se tivessem sido observados diretamente no PDDEInfo ou SIGEF.
@@ -47,6 +35,7 @@ Observação de fonte e conclusão derivada permanecem separadas. Eventos gerado
 
 `backend/core/evidence.ts` define eventos canônicos:
 
+- `EXECUTION_REQUESTED`;
 - `EXECUTION_STARTED`;
 - `EXECUTION_FINISHED`;
 - `SOURCE_ATTEMPT_RECORDED`;
@@ -85,7 +74,7 @@ O arquivo padrão é:
 
 ### Postgres / Supabase
 
-`supabase/migrations/20260813050000_evidence_events.sql` materializa o mesmo princípio em Postgres:
+As migrations `20260813050000_evidence_events.sql` e `20260813064845_institutional_backend.sql` materializam o backend:
 
 - `pgcrypto` para SHA-256;
 - índices por execução, escola e fonte/exercício;
@@ -94,14 +83,38 @@ O arquivo padrão é:
 - `UPDATE` e `DELETE` bloqueados por trigger;
 - append por função `SECURITY DEFINER` concedida apenas a `service_role`;
 - `pg_advisory_xact_lock` serializa sequência e cadeia de hashes.
+- bucket privado único `pdde-evidence`, limitado a tipos e tamanho conhecidos; comandos e adaptador recusam referências a qualquer outro bucket;
+- `execution_jobs` com idempotência, owner, lease e limite de tentativas;
+- claim/conclusão atômicos com `EXECUTION_STARTED`/`EXECUTION_FINISHED`;
+- projeção `execution_read_models` reconstruída integralmente do log;
+- índices parciais para achados e paginação por cursor.
 
-A migration está versionada, mas ainda **não foi aplicada a um projeto Supabase dedicado**. Os projetos já conectados pertencem a outras aplicações e não serão reutilizados por conveniência.
+`SupabaseEvidenceStore`, `SupabaseArtifactStore`, `SupabaseExecutionQueue` e `SupabaseInstitutionalReadRepository` mantêm o SDK no limite de infraestrutura. Domínio e casos de uso conhecem apenas portas próprias.
+
+As migrations ainda **não foram aplicadas a um projeto Supabase dedicado**. A criação de `pdde-repasse-conciliador` em `sa-east-1`, a custo informado de US$ 0/mês, foi recusada pelo limite de projetos gratuitos ativos. Bancos de outras aplicações não foram reutilizados.
+
+## API e execução assíncrona
+
+`backend/api/institutional-api.ts` implementa o contrato com Web `Request`/`Response`; `backend/runtime/node-api-server.ts` é apenas o adaptador HTTP Node. Essa separação mantém o contrato testável sem depender de um provedor específico.
+
+O health expõe o resultado da auditoria criptográfica integral sem executar uma varredura por GET: verificações simultâneas compartilham a mesma promise e o resultado é reutilizado por 10 segundos. A auditoria permanece completa; apenas seu acionamento no hot path é limitado.
+
+Os `POST` protegidos criam um job e retornam `202 + runId`. O runner:
+
+1. reclama um job usando `FOR UPDATE SKIP LOCKED`;
+2. registra início na mesma transação;
+3. usa workspace isolado por `jobId/tentativa`;
+4. renova o lease por heartbeat;
+5. executa coleta ou conciliação existente;
+6. conclui `COMPLETE`, `PARTIAL` ou `FAILED` e registra o evento terminal atomicamente.
+
+Uma execução abandonada pode ser reclamada. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
 
 ## Coleta PDDEInfo
 
 Principais módulos:
 
-1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry;
+1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry e teto de 10 MB lido em streaming;
 2. `pddeinfo-html.ts` interpreta e valida a identidade retornada;
 3. `pddeinfo-normalizer.ts` converte a resposta em pagamentos esperados;
 4. `collect-pddeinfo.ts` orquestra lotes, preserva artefatos e registra a execução;
@@ -127,7 +140,7 @@ Quando o PDDEInfo veio do layout padrão do coletor, `scripts/reconcile.ts` enco
 
 ## Leitura e projeções
 
-`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”.
+`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”. No Postgres, a view `execution_read_models` executa a mesma projeção no servidor; ela pode ser descartada e reconstruída a qualquer momento.
 
 As projeções já disponíveis incluem:
 
@@ -136,6 +149,8 @@ As projeções já disponíveis incluem:
 - vínculo da conciliação com a coleta anterior;
 - contagem de tentativas, falhas, artefatos, achados e revisões humanas;
 - linha do tempo por INEP.
+- listagem paginada de execuções e achados;
+- referências de artefatos e download curto assinado do relatório.
 
 `scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 
@@ -164,30 +179,18 @@ Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência l
 - 493 eventos append-only;
 - cadeia de integridade validada integralmente.
 
-## Direção da plataforma
+## Limites entre código atual e legado
 
-```text
-Aplicação web operacional
-        │
-        ▼
-API / casos de uso
-        │
-        ├── execução de coletas
-        ├── conciliação
-        ├── projeções de histórico
-        └── gestão de exceções
-        │
-        ▼
-Modelo canônico + trilha de evidências
-        │
-        ├── JSONL operacional/local
-        └── Postgres/Supabase institucional
-        │
-        ▼
-Fontes + motor determinístico
-```
+| Área | Classificação | Regra de evolução |
+|---|---|---|
+| `backend/core`, `backend/adapters`, `backend/application`, `backend/report` | canônico ativo | origem das regras, portas e implementações v0.5 |
+| `backend/api`, `backend/runtime`, `scripts` | canônico ativo | operação institucional e CLI |
+| `supabase/migrations`, testes | canônico ativo | schema, contratos e regressões |
+| `src/` | reaproveitável/transicional | a aplicação Vite ainda compila, mas não é a UI institucional final; nunca recebe `service_role` |
+| `backend/index.ts`, `backend/realtime.ts`, `backend/realtime-subscribers.ts` | legado AppDeploy | permanece como referência; está fora do typecheck canônico e não é importado pelo runtime v0.5 |
+| `SOURCE_MANIFEST.json` | snapshot histórico | não é manifesto dinâmico da v0.5 e não deve dirigir cópia cega de código |
 
-O passo seguinte é materializar o backend institucional sobre o contrato já validado, aplicar a migration em um projeto dedicado e expor as projeções por API para a futura interface web.
+Nenhum arquivo legado foi apagado ou ligado implicitamente ao novo runtime.
 
 ## Direção de UX
 
@@ -198,9 +201,10 @@ As implementações paralelas continuam sendo referência de UX, especialmente p
 ## Limites atuais
 
 - obtenção autônoma do SIGEF continua limitada por CAPTCHA em rotas relevantes;
-- o fluxo principal ainda é CLI;
-- a migration Postgres está pronta, mas não há banco Supabase canônico criado/aplicado;
-- autenticação e interface web ainda não estão integradas;
+- a API/runner estão implementados, mas ainda não possuem plataforma canônica de deploy;
+- as migrations estão prontas, mas o limite da conta impediu criar/aplicar o Supabase exclusivo;
+- o teste live de Storage/fila/cadeia permanece opt-in até existir esse projeto;
+- autenticação de usuário final e interface web institucional ainda não estão integradas;
 - arquivos operacionais grandes permanecem fora do Git quando não agregam valor ao histórico do código.
 
 ## Dependência transitiva

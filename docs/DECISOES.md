@@ -2,6 +2,24 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
+## 2026-08-13 — Supabase dedicado, nunca compartilhado por conveniência
+
+**Decisão:** o backend institucional usará um projeto Supabase exclusivo chamado de forma inequívoca. RADAR PDDE, CTRH, PDDE Online e outros bancos existentes não serão reutilizados. Enquanto o limite da organização impedir a criação, a validação cloud permanece explicitamente bloqueada; não se pausa outro sistema sem autorização própria.
+
+**Motivo:** evitar acoplamento operacional, mistura de migrações e risco de afetar dados ou disponibilidade de aplicações independentes.
+
+## 2026-08-13 — Requisição curta e runner durável são processos separados
+
+**Decisão:** endpoints de comando apenas validam, aplicam idempotência, persistem o pedido e retornam `202 + runId`. Coleta PDDEInfo e conciliação rodam em worker Node 22 com fila Postgres, lease renovável e tentativas. Claim e conclusão do job registram os eventos de ciclo de vida na mesma transação.
+
+**Motivo:** a coleta conservadora das 163 escolas não cabe com segurança em runtimes HTTP curtos. A separação também permite polling, recuperação de crash e evita duplicação acidental.
+
+## 2026-08-13 — Chave administrativa fica exclusivamente no backend
+
+**Decisão:** `service_role`/`sb_secret_` só existe em API e runner confiáveis. O cliente web acessa contratos HTTP; comandos exigem token administrativo próprio. Dados podem ser públicos sem tornar operações de escrita públicas.
+
+**Motivo:** RLS e bucket privado perdem valor se a credencial que ignora políticas for entregue ao navegador.
+
 ## 2026-08-13 — Evidência operacional é append-only
 
 **Decisão:** coletas, artefatos, observações e achados relevantes entram em uma trilha de eventos append-only. Eventos já persistidos não são atualizados nem apagados para representar “estado atual”; projeções de leitura reconstroem execução e histórico escolar a partir da sequência registrada.

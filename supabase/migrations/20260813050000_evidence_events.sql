@@ -1,4 +1,5 @@
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create table public.evidence_events (
   sequence bigint primary key,
@@ -77,10 +78,10 @@ create or replace function public.compute_evidence_event_hash(
 returns text
 language sql
 immutable
-set search_path = public, pg_temp
+set search_path = ''
 as $$
   select encode(
-    digest(
+    extensions.digest(
       convert_to(
         concat_ws(
           E'\x1f',
@@ -129,7 +130,7 @@ create or replace function public.append_evidence_event(
 returns public.evidence_events
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_last_sequence bigint;
@@ -140,7 +141,9 @@ declare
 begin
   -- Serializa exclusivamente a escrita do log para que sequência e cadeia de hashes
   -- permaneçam monotônicas mesmo com várias escolas sendo processadas em paralelo.
-  perform pg_advisory_xact_lock(hashtext('pdde-repasse-conciliador:evidence-events:v1'));
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtext('pdde-repasse-conciliador:evidence-events:v1')
+  );
 
   if exists (select 1 from public.evidence_events where event_id = p_event_id) then
     raise exception 'eventId duplicado: %', p_event_id;
@@ -219,7 +222,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_row public.evidence_events%rowtype;

@@ -60,6 +60,22 @@ A coleta manual das exportações do SIGEF recebeu uma camada operacional que:
 - gera planilha de cobertura e pendências;
 - pode ser executada repetidamente sem destruir estado válido.
 
+### 6. Backend institucional — v0.5.0
+
+O núcleo v0.4 passou a ter uma camada institucional sem alterar as invariantes financeiras:
+
+- persistência Postgres do mesmo log append-only;
+- Storage privado com paths estáveis, SHA-256 e metadata;
+- fila idempotente com lease, tentativas e recuperação de crash;
+- API de escolas, históricos, execuções, achados, artefatos e relatórios;
+- comandos assíncronos protegidos;
+- runner Node 22 separado da janela HTTP;
+- projeções reconstruíveis para a futura interface.
+
+O provisionamento cloud permanece pendente porque a organização Supabase atingiu o limite gratuito de projetos ativos. A regra de banco exclusivo foi preservada; nenhum sistema existente foi usado como atalho.
+
+Na validação v0.5 de 13/08/2026, a integração pública de uma escola foi tentada duas vezes, sempre com quatro tentativas conservadoras do cliente, e o PDDEInfo encerrou ambas em HTTP 502. A indisponibilidade externa não foi convertida em ausência/zero e a execução de escala não foi iniciada; o baseline v0.4 continua sendo a última execução completa comprovada.
+
 ## Experimentos paralelos e aprendizado
 
 Durante a fase exploratória foram usados três ambientes de implementação em paralelo. A experiência foi útil para comparar abordagens, mas a continuidade agora tem uma única regra.
@@ -119,12 +135,11 @@ A inspiração visual não implica copiar runtime, banco, arquitetura ou depend�
 
 A evolução do repositório canônico deve seguir aproximadamente esta ordem:
 
-1. preservar e amadurecer o núcleo determinístico já validado;
-2. incorporar coleta autônoma e resiliente do PDDEInfo para os 163 INEPs;
-3. consolidar um modelo canônico de dados e evidências;
-4. incorporar persistência e histórico sem perder o caráter auditável;
-5. integrar o motor à aplicação web operacional;
-6. transportar seletivamente UX e capacidades comprovadas nos protótipos;
-7. ampliar fontes apenas quando houver rota tecnicamente e operacionalmente válida.
+1. liberar capacidade e criar o Supabase exclusivo;
+2. aplicar e validar as migrations, Storage, RLS e cadeia no Postgres real;
+3. executar integração institucional de 1–3 escolas e depois escala controlada;
+4. integrar a futura interface web aos contratos HTTP da v0.5;
+5. transportar seletivamente UX e capacidades comprovadas nos protótipos;
+6. ampliar fontes apenas quando houver rota tecnicamente e operacionalmente válida.
 
 Essa ordem é orientação, não uma burocracia de fases. Desenvolvimento útil não deve ficar bloqueado porque este documento ainda não refletiu uma alteração secundária.

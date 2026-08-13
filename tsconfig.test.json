@@ -13,6 +13,8 @@
     "backend/adapters/**/*.ts",
     "backend/application/**/*.ts",
     "backend/report/**/*.ts",
+    "backend/api/**/*.ts",
+    "backend/runtime/**/*.ts",
     "scripts/**/*.ts",
     "src/http-api-client.ts",
     "tests/unit/**/*.ts"

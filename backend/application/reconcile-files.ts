@@ -7,6 +7,7 @@ import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import { parseSigefMovementCsv } from '../adapters/sigef-movements-csv';
 import { canonicalCnpj, canonicalProgramCode } from '../core/normalization';
 import type { EvidenceEventInput } from '../core/evidence';
+import type { ArtifactStore } from './artifact-store';
 import {
   buildReconciliationWorkbook,
   validateReconciliationWorkbook,
@@ -59,7 +60,10 @@ const optionsSchema = z.object({
 
 export type ReconcileFilesOptions = z.input<typeof optionsSchema> & {
   evidenceStore?: EvidenceEventWriter;
+  artifactStore?: ArtifactStore;
   reconciliationRunId?: string;
+  manageExecutionLifecycle?: boolean;
+  institutionalPathPrefix?: string;
 };
 
 export interface ReconcileFilesResult {
@@ -142,8 +146,21 @@ async function appendEvidence(
 export async function reconcileFiles(
   rawOptions: ReconcileFilesOptions,
 ): Promise<ReconcileFilesResult> {
-  const { evidenceStore, reconciliationRunId: requestedRunId, ...serializableOptions } = rawOptions;
+  const {
+    evidenceStore,
+    artifactStore,
+    reconciliationRunId: requestedRunId,
+    manageExecutionLifecycle = true,
+    institutionalPathPrefix: rawInstitutionalPathPrefix,
+    ...serializableOptions
+  } = rawOptions;
   const options = optionsSchema.parse(serializableOptions);
+  const institutionalPathPrefix = rawInstitutionalPathPrefix === undefined
+    ? undefined
+    : z.string().min(1).max(300).refine(
+      (value) => value.split('/').every((segment) => /^[A-Za-z0-9._-]+$/.test(segment)),
+      'prefixo institucional inválido',
+    ).parse(rawInstitutionalPathPrefix);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const envelope = pddeInfoEnvelopeSchema.parse(await parseJsonFile(options.pddeInfoPath));
   if (envelope.collectionStatus === 'PARTIAL') {
@@ -159,20 +176,22 @@ export async function reconcileFiles(
 
   const reconciliationRunId = requestedRunId ?? generatedRunId(generatedAt);
   let evidenceRunStarted = false;
-  await appendEvidence(evidenceStore, {
-    runId: reconciliationRunId,
-    type: 'EXECUTION_STARTED',
-    occurredAt: generatedAt,
-    source: 'CONCILIADOR',
-    fiscalYear: options.fiscalYear,
-    payload: {
-      portfolioSize: pddeInfo.payments.length,
-      sourceCollectionRunId: envelope.runId ?? null,
-      requestedThrough: options.requestedThrough,
-      pddeInfoFetchedAt: envelope.fetchedAt,
-    },
-  });
-  evidenceRunStarted = Boolean(evidenceStore);
+  if (manageExecutionLifecycle) {
+    await appendEvidence(evidenceStore, {
+      runId: reconciliationRunId,
+      type: 'EXECUTION_STARTED',
+      occurredAt: generatedAt,
+      source: 'CONCILIADOR',
+      fiscalYear: options.fiscalYear,
+      payload: {
+        portfolioSize: pddeInfo.payments.length,
+        sourceCollectionRunId: envelope.runId ?? null,
+        requestedThrough: options.requestedThrough,
+        pddeInfoFetchedAt: envelope.fetchedAt,
+      },
+    });
+    evidenceRunStarted = Boolean(evidenceStore);
+  }
 
   try {
     const targetCnpjs = [...new Set(pddeInfo.payments.map(
@@ -213,6 +232,22 @@ export async function reconcileFiles(
     const workbookAudit = await validateReconciliationWorkbook(workbook, portfolio);
     const outputPath = resolve(options.outputPath);
     await writeWorkbook(outputPath, workbook, options.overwrite);
+    const institutionalReport = artifactStore
+      ? await artifactStore.preserve({
+        runId: reconciliationRunId,
+        relativePath: institutionalPathPrefix
+          ? `${institutionalPathPrefix}/reports/reconciliation.xlsx`
+          : 'reports/reconciliation.xlsx',
+        kind: 'REPORT',
+        bytes: workbook,
+        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        metadata: {
+          localPath: outputPath,
+          generatedAt,
+          sourceCollectionRunId: envelope.runId ?? null,
+        },
+      })
+      : undefined;
 
     for (const row of portfolio.rows) {
       await appendEvidence(evidenceStore, {
@@ -250,27 +285,35 @@ export async function reconcileFiles(
       fiscalYear: options.fiscalYear,
       payload: {
         kind: 'REPORT',
-        path: outputPath,
-        sha256: artifactSha256(workbook),
-        bytes: workbook.byteLength,
-        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        path: institutionalReport?.path ?? outputPath,
+        sha256: institutionalReport?.sha256 ?? artifactSha256(workbook),
+        bytes: institutionalReport?.bytes ?? workbook.byteLength,
+        mediaType: institutionalReport?.mediaType
+          ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ...(institutionalReport ? {
+          provider: institutionalReport.provider,
+          bucket: institutionalReport.bucket,
+          metadata: institutionalReport.metadata,
+        } : {}),
       },
     });
 
-    await appendEvidence(evidenceStore, {
-      runId: reconciliationRunId,
-      type: 'EXECUTION_FINISHED',
-      occurredAt: generatedAt,
-      source: 'CONCILIADOR',
-      fiscalYear: options.fiscalYear,
-      payload: {
-        status: 'COMPLETE',
-        succeeded: portfolio.rows.length,
-        failed: 0,
-        summary: portfolio.summary,
-        sourceCollectionRunId: envelope.runId ?? null,
-      },
-    });
+    if (manageExecutionLifecycle) {
+      await appendEvidence(evidenceStore, {
+        runId: reconciliationRunId,
+        type: 'EXECUTION_FINISHED',
+        occurredAt: generatedAt,
+        source: 'CONCILIADOR',
+        fiscalYear: options.fiscalYear,
+        payload: {
+          status: 'COMPLETE',
+          succeeded: portfolio.rows.length,
+          failed: 0,
+          summary: portfolio.summary,
+          sourceCollectionRunId: envelope.runId ?? null,
+        },
+      });
+    }
 
     return {
       outputPath,

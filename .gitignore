@@ -23,4 +23,5 @@ data/raw/
 !.env.example
 *.log
 .npm-cache*/
+supabase/.temp/
 .DS_Store

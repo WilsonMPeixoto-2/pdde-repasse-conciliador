@@ -17,6 +17,7 @@ export interface FetchPddeInfoSchoolHtmlOptions extends BuildPddeInfoSchoolUrlOp
   maxAttempts?: number;
   timeoutMs?: number;
   retryBackoffMs?: number;
+  maxResponseBytes?: number;
 }
 
 export interface PddeInfoHttpResult {
@@ -70,6 +71,50 @@ function decodeHtml(bytes: Buffer, contentType: string | null): string {
   return bytes.toString('latin1');
 }
 
+class PddeInfoResponseTooLargeError extends Error {}
+
+function responseTooLarge(maxResponseBytes: number): PddeInfoResponseTooLargeError {
+  return new PddeInfoResponseTooLargeError(
+    `Resposta do PDDEInfo excede o limite de ${maxResponseBytes} bytes.`,
+  );
+}
+
+async function readResponseBytes(response: Response, maxResponseBytes: number): Promise<Buffer> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && /^\d+$/.test(contentLength)) {
+    const declaredBytes = Number(contentLength);
+    if (!Number.isSafeInteger(declaredBytes) || declaredBytes > maxResponseBytes) {
+      await response.body?.cancel().catch(() => undefined);
+      throw responseTooLarge(maxResponseBytes);
+    }
+  }
+
+  if (!response.body) {
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength > maxResponseBytes) throw responseTooLarge(maxResponseBytes);
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxResponseBytes) throw responseTooLarge(maxResponseBytes);
+      chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    }
+  } catch (cause) {
+    await reader.cancel().catch(() => undefined);
+    throw cause;
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, totalBytes);
+}
+
 export async function fetchPddeInfoSchoolHtml(
   options: FetchPddeInfoSchoolHtmlOptions,
 ): Promise<PddeInfoHttpResult> {
@@ -80,12 +125,16 @@ export async function fetchPddeInfoSchoolHtml(
   const maxAttempts = options.maxAttempts ?? 4;
   const timeoutMs = options.timeoutMs ?? 25_000;
   const retryBackoffMs = options.retryBackoffMs ?? 750;
+  const maxResponseBytes = options.maxResponseBytes ?? 10_000_000;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
     throw new Error(`Número de tentativas inválido: ${maxAttempts}.`);
   }
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Timeout do PDDEInfo deve ser positivo.');
   if (!Number.isFinite(retryBackoffMs) || retryBackoffMs < 0) {
     throw new Error('Backoff do PDDEInfo não pode ser negativo.');
+  }
+  if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > 50_000_000) {
+    throw new Error('Limite da resposta PDDEInfo deve estar entre 1 e 50000000 bytes.');
   }
 
   let lastError: Error | null = null;
@@ -94,7 +143,7 @@ export async function fetchPddeInfoSchoolHtml(
       const response = await fetchImpl(sourceUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Collector/0.3)',
+          'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Collector/0.5)',
           Accept: 'text/html,application/xhtml+xml',
           'Accept-Language': 'pt-BR,pt;q=0.9',
         },
@@ -105,12 +154,12 @@ export async function fetchPddeInfoSchoolHtml(
         const error = new Error(`PDDEInfo retornou HTTP ${response.status} para o INEP ${options.inep}.`);
         if (!isTransientStatus(response.status) || attempt === maxAttempts) throw error;
         lastError = error;
-        await response.arrayBuffer().catch(() => undefined);
+        await response.body?.cancel().catch(() => undefined);
         await sleep(retryBackoffMs * attempt);
         continue;
       }
 
-      const bytes = Buffer.from(await response.arrayBuffer());
+      const bytes = await readResponseBytes(response, maxResponseBytes);
       const html = decodeHtml(bytes, response.headers.get('content-type'));
       if (!html.trim()) throw new Error(`PDDEInfo retornou resposta vazia para o INEP ${options.inep}.`);
       return {
@@ -124,6 +173,7 @@ export async function fetchPddeInfoSchoolHtml(
       };
     } catch (cause) {
       const error = cause instanceof Error ? cause : new Error(String(cause));
+      if (error instanceof PddeInfoResponseTooLargeError) throw error;
       const definitiveHttpError = /HTTP \d{3}/.test(error.message)
         && !/HTTP (408|425|429|5\d\d)/.test(error.message);
       if (definitiveHttpError || attempt === maxAttempts) throw error;
