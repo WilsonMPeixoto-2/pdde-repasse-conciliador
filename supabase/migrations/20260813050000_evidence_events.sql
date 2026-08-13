@@ -19,7 +19,8 @@ create table public.evidence_events (
     'SIGEF_MOVIMENTACOES',
     'SIGEF_EXTRATO',
     'DADOS_ABERTOS_FNDE',
-    'EXTRATO_BANCARIO_AUTORIZADO'
+    'EXTRATO_BANCARIO_AUTORIZADO',
+    'CONCILIADOR'
   )),
   fiscal_year smallint not null check (fiscal_year between 2000 and 2100),
   school_inep text null check (school_inep is null or school_inep ~ '^[0-9]{8}$'),
