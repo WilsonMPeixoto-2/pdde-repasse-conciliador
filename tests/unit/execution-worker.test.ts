@@ -137,4 +137,33 @@ describe('ExecutionWorker', () => {
       vi.useRealTimers();
     }
   });
+
+  test('recupera falha transitória de heartbeat sem reclassificar trabalho concluído', async () => {
+    vi.useFakeTimers();
+    try {
+      const { queue } = fixture();
+      vi.mocked(queue.renewLease).mockRejectedValueOnce(new Error('rede indisponível'));
+      let finish: (() => void) | undefined;
+      const execute = vi.fn(() => new Promise<{ status: 'COMPLETE' }>((resolve) => {
+        finish = () => resolve({ status: 'COMPLETE' });
+      }));
+      const worker = new ExecutionWorker(queue, { execute }, {
+        workerId: 'worker-1', leaseSeconds: 60, heartbeatIntervalMs: 20_000,
+      });
+
+      const pending = worker.runOnce();
+      await vi.advanceTimersByTimeAsync(20_000);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(queue.renewLease).toHaveBeenCalledTimes(2);
+      finish?.();
+
+      await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });
+      expect(queue.complete).toHaveBeenCalledTimes(1);
+      expect(queue.complete).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'COMPLETE', attempt: 1,
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

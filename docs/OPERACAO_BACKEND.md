@@ -13,7 +13,7 @@ Para diagnóstico ou execução controlada de um único job:
 npm run worker:once
 ```
 
-`SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Erros da fila ou da RPC de conclusão encerram o processo com falha para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
+`SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Uma falha transitória de heartbeat é tentada novamente no intervalo seguinte; a conclusão cercada no Postgres determina se o lease ainda pertence à tentativa. Erros da fila ou da RPC de conclusão encerram o processo com falha para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
 
 A API também trata `SIGTERM`/`SIGINT`: deixa de aceitar conexões, fecha as conexões ociosas e aguarda respostas ativas por até `PDDE_API_SHUTDOWN_MS` (30 segundos por padrão) antes de encerrar as conexões remanescentes. O listener de erro usado no startup é removido assim que a porta abre; erros posteriores são propagados ao processo em vez de serem consumidos por uma promise já resolvida.
 

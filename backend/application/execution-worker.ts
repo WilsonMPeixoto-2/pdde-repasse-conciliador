@@ -55,11 +55,9 @@ export class ExecutionWorker {
     });
     if (!job) return null;
 
-    let heartbeatError: unknown;
     let renewalChain = Promise.resolve();
     const timer = setInterval(() => {
       renewalChain = renewalChain.then(async () => {
-        if (heartbeatError) return;
         try {
           await this.queue.renewLease({
             jobId: job.jobId,
@@ -67,8 +65,10 @@ export class ExecutionWorker {
             attempt: job.attempts,
             leaseSeconds: this.leaseSeconds,
           });
-        } catch (cause) {
-          heartbeatError = cause;
+        } catch {
+          // Uma falha de transporte não prova perda do lease. O próximo
+          // intervalo tenta novamente; a conclusão terminal, cercada por
+          // worker/tentativa/validade no Postgres, decide a propriedade.
         }
       });
     }, this.heartbeatIntervalMs);
@@ -95,18 +95,6 @@ export class ExecutionWorker {
     }
 
     await stopHeartbeat();
-    if (heartbeatError) {
-      const error = `Falha ao renovar o lease: ${errorMessage(heartbeatError)}`;
-      await this.queue.complete({
-        jobId: job.jobId,
-        workerId: this.workerId,
-        attempt: job.attempts,
-        status: 'FAILED',
-        error,
-      });
-      return { jobId: job.jobId, runId: job.runId, status: 'FAILED', error };
-    }
-
     await this.queue.complete({
       jobId: job.jobId,
       workerId: this.workerId,
