@@ -18,6 +18,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
     "test": "vitest run",
