@@ -20,6 +20,7 @@ import {
   type ReconciliationResult,
   type ReconciliationStatus,
 } from './types';
+import { sumMoneyCents } from './money';
 
 const REASONS: Record<ReconciliationReasonCode, string> = {
   EXACT_MATCH: 'PDDEInfo, liberação e movimentação apresentam correspondência suficiente.',
@@ -59,7 +60,10 @@ function result(
       && status !== 'SEM_PAGAMENTO_REGISTRADO_ATE_A_CONSULTA',
     matchedReleaseId: options.release?.id ?? null,
     matchedMovementIds: movements.map((movement) => movement.id),
-    movementTotalCents: movements.reduce((sum, movement) => sum + movement.amountCents, 0),
+    movementTotalCents: sumMoneyCents(
+      movements.map((movement) => movement.amountCents),
+      'Total dos movimentos',
+    ),
     differences: options.differences ?? [],
   };
 }
@@ -241,7 +245,10 @@ export function reconcileRepasse(rawInput: ReconciliationInput): ReconciliationR
     );
   }
 
-  const movementTotalCents = matches.reduce((sum, movement) => sum + movement.amountCents, 0);
+  const movementTotalCents = sumMoneyCents(
+    matches.map((movement) => movement.amountCents),
+    'Total dos movimentos',
+  );
   if (movementTotalCents !== matchedRelease.amountCents) {
     return result('DIVERGENCIA_REVISAO_NECESSARIA', 'MOVEMENT_AMOUNT_MISMATCH', {
       release: matchedRelease,

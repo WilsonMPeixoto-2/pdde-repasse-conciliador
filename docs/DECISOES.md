@@ -100,7 +100,7 @@ Observações de fontes externas mantêm a origem da própria fonte. Conclusões
 
 ## 2026-08-12 — Dinheiro em centavos inteiros
 
-**Decisão:** cálculos monetários críticos usam inteiros em centavos, evitando dependência de ponto flutuante.
+**Decisão:** cálculos monetários críticos usam inteiros em centavos, evitando dependência de ponto flutuante. Valores individuais e totais agregados precisam permanecer dentro da faixa de inteiros exatos do JavaScript; somas que excedam essa faixa falham explicitamente.
 
 **Motivo:** reduzir erros de arredondamento e facilitar comparação exata.
 

@@ -243,4 +243,18 @@ describe('reconcileRepasse', () => {
       movementTotalCents: 506_500,
     });
   });
+
+  test('rejeita total de movimentos que excede a faixa exata de centavos', async () => {
+    const overflowingMovements = [
+      { ...movement, id: 'movement-a', amountCents: Number.MAX_SAFE_INTEGER },
+      { ...movement, id: 'movement-b', amountCents: 1 },
+    ];
+
+    await expect(reconcile({
+      payment,
+      releases: [release],
+      movements: overflowingMovements,
+      sources,
+    })).rejects.toThrow(/total dos movimentos.*limite seguro/i);
+  });
 });
