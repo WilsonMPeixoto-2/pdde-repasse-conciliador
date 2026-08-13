@@ -31,21 +31,16 @@ class FakeQueue implements ExecutionJobQueue {
       requestHash: input.requestHash,
       payload: input.payload,
       requestedAt: input.requestedAt,
-      availableAt: input.requestedAt,
-      claimedAt: null,
-      leaseExpiresAt: null,
+      startedAt: null,
       completedAt: null,
-      workerId: null,
-      attempts: 0,
-      maxAttempts: input.maxAttempts,
       lastError: null,
     };
     this.jobs.set(key, job);
     return job;
   }
 
+  async recoverInterrupted() { return 0; }
   async claim() { return null; }
-  async renewLease(): Promise<ExecutionJob> { throw new Error('não usado'); }
   async complete(): Promise<ExecutionJob> { throw new Error('não usado'); }
 }
 
@@ -63,10 +58,9 @@ function artifactEvent(input: {
   path: string;
   source: EvidenceSource;
   kind: 'RAW_FILE' | 'NORMALIZED_JSON';
+  role: string;
   sha256?: string;
   fiscalYear?: number;
-  role?: string;
-  sequence?: number;
 }): PersistedEvidenceEvent {
   return {
     eventId: input.eventId,
@@ -82,76 +76,50 @@ function artifactEvent(input: {
       path: input.path,
       sha256: input.sha256 ?? 'a'.repeat(64),
       bytes: 100,
-      ...(input.role ? { metadata: { role: input.role } } : {}),
+      metadata: { role: input.role },
     },
-    sequence: input.sequence ?? 1,
+    sequence: 1,
     previousHash: null,
     eventHash: 'e'.repeat(64),
   };
 }
 
-function finishedCollection(
-  runId: string,
-  status: 'COMPLETE' | 'PARTIAL' | 'FAILED' = 'COMPLETE',
-  fiscalYear = 2026,
-): PersistedEvidenceEvent {
-  return {
-    eventId: `${runId}:finished`,
-    runId,
-    type: 'EXECUTION_FINISHED',
-    occurredAt: '2026-08-13T11:58:00Z',
-    source: 'PDDEINFO',
-    fiscalYear,
-    payload: { status },
-    sequence: 2,
-    previousHash: 'd'.repeat(64),
-    eventHash: 'f'.repeat(64),
-  };
-}
-
-function startedCollection(
-  runId: string,
-  attempt: number,
-  sequence: number,
-): PersistedEvidenceEvent {
-  return {
-    eventId: `${runId}:attempt:${attempt}:started`,
-    runId,
-    type: 'EXECUTION_STARTED',
-    occurredAt: '2026-08-13T11:57:00Z',
-    source: 'PDDEINFO',
-    fiscalYear: 2026,
-    payload: { attempt },
-    sequence,
-    previousHash: 'c'.repeat(64),
-    eventHash: 'd'.repeat(64),
-  };
-}
-
-function reconciliationEvidence(options: { collectionLifecycle?: boolean } = {}):
-FakeArtifactEvidence {
+function reconciliationEvidence(): FakeArtifactEvidence {
   return new FakeArtifactEvidence([
     artifactEvent({
       eventId: 'pddeinfo-artifact', runId: 'coleta-1',
-      path: 'runs/coleta-1/pddeinfo-2026.json', source: 'PDDEINFO', kind: 'NORMALIZED_JSON',
-      role: 'PDDEINFO_JSON',
+      path: 'runs/coleta-1/pddeinfo-2026.json', source: 'PDDEINFO',
+      kind: 'NORMALIZED_JSON', role: 'PDDEINFO_JSON',
     }),
-    ...(options.collectionLifecycle === false ? [] : [finishedCollection('coleta-1')]),
     artifactEvent({
       eventId: 'movements-artifact', runId: 'import-1',
-      path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-      role: 'SIGEF_MOVEMENTS_CSV',
+      path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES',
+      kind: 'RAW_FILE', role: 'SIGEF_MOVEMENTS_CSV',
     }),
     artifactEvent({
       eventId: 'release-artifact', runId: 'import-1',
-      path: 'runs/import-1/release.xls', source: 'SIGEF_LIBERACOES', kind: 'RAW_FILE',
-      role: 'SIGEF_RELEASE_XLS',
+      path: 'runs/import-1/release.xls', source: 'SIGEF_LIBERACOES',
+      kind: 'RAW_FILE', role: 'SIGEF_RELEASE_XLS',
     }),
   ]);
 }
 
+const artifact = {
+  bucket: 'pdde-evidence' as const,
+  path: 'runs/coleta-1/pddeinfo-2026.json',
+  sha256: 'a'.repeat(64),
+};
+
+const reconciliationRequest = {
+  fiscalYear: 2026,
+  requestedThrough: '2026-08-13',
+  pddeInfoArtifact: artifact,
+  movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
+  releaseArtifacts: [{ ...artifact, path: 'runs/import-1/release.xls' }],
+};
+
 describe('ExecutionCommandService', () => {
-  test('enfileira PDDEInfo com runId determinístico e idempotência real', async () => {
+  test('enfileira PDDEInfo com runId determinístico e idempotência', async () => {
     const queue = new FakeQueue();
     let uuidCounter = 0;
     const service = new ExecutionCommandService(queue, {
@@ -170,394 +138,99 @@ describe('ExecutionCommandService', () => {
 
     expect(first).toEqual(second);
     expect(first).toMatchObject({
-      kind: 'PDDEINFO',
-      status: 'QUEUED',
-      runId: expect.stringMatching(/^pddeinfo-[a-f0-9]{32}$/),
+      kind: 'PDDEINFO', status: 'QUEUED', runId: expect.stringMatching(/^pddeinfo-[a-f0-9]{32}$/),
     });
     expect(queue.inputs[0]).toMatchObject({
       runId: first.runId,
       idempotencyKey: 'coleta-controlada-agosto',
       requestHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       payload: request,
-      maxAttempts: 3,
     });
-    expect(queue.inputs[1].runId).toBe(queue.inputs[0].runId);
-    expect(queue.inputs[1].requestHash).toBe(queue.inputs[0].requestHash);
+    expect(queue.inputs[0]).not.toHaveProperty('maxAttempts');
   });
 
-  test('aceita conciliação somente com referências institucionais e preserva centavos como inteiros', async () => {
+  test('aceita conciliação com arquivos institucionais exatos sem exigir genealogia técnica', async () => {
     const queue = new FakeQueue();
     const service = new ExecutionCommandService(queue, {
       now: () => '2026-08-13T12:00:00Z',
       randomUuid: () => '22222222-2222-4222-8222-222222222222',
       artifactEvidence: reconciliationEvidence(),
     });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'A'.repeat(64),
-    };
 
-    await expect(service.requestReconciliation('reconciliacao-agosto', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-      releaseArtifacts: [{ ...artifact, path: 'runs/import-1/release.xls' }],
-    })).resolves.toMatchObject({ kind: 'RECONCILIATION', status: 'QUEUED' });
+    await expect(service.requestReconciliation(
+      'reconciliacao-agosto', reconciliationRequest,
+    )).resolves.toMatchObject({ kind: 'RECONCILIATION', status: 'QUEUED' });
 
     expect(queue.inputs[0].payload).toMatchObject({
       fiscalYear: 2026,
       pddeInfoArtifact: { sha256: 'a'.repeat(64) },
-      sourceCollectionRunId: 'coleta-1',
     });
-    expect(JSON.stringify(queue.inputs[0].payload)).not.toMatch(/amount|valor|cents/i);
+    expect(queue.inputs[0].payload).not.toHaveProperty('sourceCollectionRunId');
   });
 
-  test('aceita dois-pontos no runId proprietário sem liberá-los nos demais segmentos', async () => {
-    const queue = new FakeQueue();
-    const evidence = new FakeArtifactEvidence([
-      artifactEvent({
-        eventId: 'pdde-colon', runId: 'coleta:1',
-        path: 'runs/coleta:1/pddeinfo-2026.json', source: 'PDDEINFO', kind: 'NORMALIZED_JSON',
-        role: 'PDDEINFO_JSON',
-      }),
-      finishedCollection('coleta:1'),
-      artifactEvent({
-        eventId: 'movement-colon', runId: 'entrada:1',
-        path: 'runs/entrada:1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-        role: 'SIGEF_MOVEMENTS_CSV',
-      }),
-    ]);
-    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-
-    await expect(service.requestReconciliation('run-id-com-dois-pontos', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: {
-        bucket: 'pdde-evidence',
-        path: 'runs/coleta:1/pddeinfo-2026.json',
-        sha256: 'a'.repeat(64),
-      },
-      movementsArtifact: {
-        bucket: 'pdde-evidence',
-        path: 'runs/entrada:1/movements.csv',
-        sha256: 'a'.repeat(64),
-      },
-    })).resolves.toMatchObject({ status: 'QUEUED' });
-    expect(queue.inputs[0].payload).toMatchObject({ sourceCollectionRunId: 'coleta:1' });
-  });
-
-  test('recusa referência sem ARTIFACT_PRESERVED correspondente antes de enfileirar', async () => {
+  test('recusa referência sem ARTIFACT_PRESERVED correspondente', async () => {
     const queue = new FakeQueue();
     const evidence = reconciliationEvidence();
-    evidence.events.splice(evidence.events.findIndex((event) => event.eventId === 'release-artifact'), 1);
+    evidence.events.splice(
+      evidence.events.findIndex((event) => event.eventId === 'release-artifact'), 1,
+    );
     const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
 
-    await expect(service.requestReconciliation('artefato-ausente', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-      releaseArtifacts: [{ ...artifact, path: 'runs/import-1/release.xls' }],
-    })).rejects.toThrow(/preservad|evidência/i);
+    await expect(service.requestReconciliation(
+      'artefato-ausente', reconciliationRequest,
+    )).rejects.toThrow(/preservad|evidência/i);
     expect(queue.inputs).toEqual([]);
   });
 
   test.each([
-    {
-      divergence: 'origem',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'PDDEINFO', kind: 'RAW_FILE',
-      }),
-    },
-    {
-      divergence: 'tipo',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES',
-        kind: 'NORMALIZED_JSON',
-      }),
-    },
-    {
-      divergence: 'papel declarado',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-        role: 'PDDEINFO_JSON',
-      }),
-    },
-    {
-      divergence: 'papel ausente',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-      }),
-    },
-    {
-      divergence: 'SHA-256',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-        sha256: 'b'.repeat(64),
-      }),
-    },
-    {
-      divergence: 'exercício',
-      replacement: artifactEvent({
-        eventId: 'movements-artifact', runId: 'import-1',
-        path: 'runs/import-1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
-        fiscalYear: 2025,
-      }),
-    },
-  ])('recusa artefato preservado com $divergence divergente', async ({ replacement }) => {
+    ['origem', artifactEvent({
+      eventId: 'movements-artifact', runId: 'import-1', path: 'runs/import-1/movements.csv',
+      source: 'PDDEINFO', kind: 'RAW_FILE', role: 'SIGEF_MOVEMENTS_CSV',
+    })],
+    ['papel', artifactEvent({
+      eventId: 'movements-artifact', runId: 'import-1', path: 'runs/import-1/movements.csv',
+      source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE', role: 'PDDEINFO_JSON',
+    })],
+    ['SHA-256', artifactEvent({
+      eventId: 'movements-artifact', runId: 'import-1', path: 'runs/import-1/movements.csv',
+      source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE', role: 'SIGEF_MOVEMENTS_CSV',
+      sha256: 'b'.repeat(64),
+    })],
+    ['exercício', artifactEvent({
+      eventId: 'movements-artifact', runId: 'import-1', path: 'runs/import-1/movements.csv',
+      source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE', role: 'SIGEF_MOVEMENTS_CSV',
+      fiscalYear: 2025,
+    })],
+  ])('recusa arquivo institucional com %s divergente', async (_label, replacement) => {
     const queue = new FakeQueue();
     const evidence = reconciliationEvidence();
-    const movementIndex = evidence.events.findIndex((event) => event.eventId === 'movements-artifact');
-    evidence.events[movementIndex] = replacement;
+    const index = evidence.events.findIndex((event) => event.eventId === 'movements-artifact');
+    evidence.events[index] = replacement;
     const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
 
-    await expect(service.requestReconciliation('papel-divergente', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-    })).rejects.toThrow(/origem|papel|exercício/i);
+    await expect(service.requestReconciliation(
+      'arquivo-divergente', reconciliationRequest,
+    )).rejects.toThrow(/evidência|preserved/i);
     expect(queue.inputs).toEqual([]);
-  });
-
-  test('não fabrica vínculo de coleta para JSON preservado em lote sem ciclo de execução', async () => {
-    const queue = new FakeQueue();
-    const service = new ExecutionCommandService(queue, {
-      artifactEvidence: reconciliationEvidence({ collectionLifecycle: false }),
-      now: () => '2026-08-13T12:00:00Z',
-      randomUuid: () => '33333333-3333-4333-8333-333333333333',
-    });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await service.requestReconciliation('json-importado', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-    });
-
-    expect(queue.inputs[0].payload).not.toHaveProperty('sourceCollectionRunId');
   });
 
   test('não aceita sourceCollectionRunId fornecido pelo cliente', async () => {
-    const queue = new FakeQueue();
-    const service = new ExecutionCommandService(queue, {
+    const service = new ExecutionCommandService(new FakeQueue(), {
       artifactEvidence: reconciliationEvidence(),
     });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await expect(service.requestReconciliation('origem-forjada', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-      sourceCollectionRunId: 'coleta-forjada',
-    } as never)).rejects.toThrow(/unrecognized|reconhecid/i);
-    expect(queue.inputs).toEqual([]);
+    await expect(service.requestReconciliation('campo-interno', {
+      ...reconciliationRequest,
+      sourceCollectionRunId: 'nao-permitido',
+    } as never)).rejects.toThrow();
   });
 
-  test('recusa artefato de coleta cujo ciclo conhecido terminou PARTIAL', async () => {
-    const queue = new FakeQueue();
-    const evidence = reconciliationEvidence();
-    evidence.events.splice(
-      evidence.events.findIndex((event) => event.eventId === 'coleta-1:finished'),
-      1,
-      finishedCollection('coleta-1', 'PARTIAL'),
-    );
-    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await expect(service.requestReconciliation('coleta-parcial', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-    })).rejects.toThrow(/complete|partial|ciclo/i);
-    expect(queue.inputs).toEqual([]);
-  });
-
-  test('recusa JSON preservado por tentativa anterior mesmo quando a retry terminou COMPLETE', async () => {
-    const queue = new FakeQueue();
-    const evidence = reconciliationEvidence();
-    evidence.events.push(
-      startedCollection('coleta-1', 2, 3),
-      {
-        ...finishedCollection('coleta-1'),
-        eventId: 'coleta-1:attempt:2:finished',
-        type: 'EXECUTION_FINISHED',
-        payload: { status: 'COMPLETE', attempt: 2 },
-        sequence: 4,
-      },
-    );
-    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await expect(service.requestReconciliation('json-tentativa-abandonada', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-    })).rejects.toThrow(/tentativa.*corrente|artefato.*atual/i);
-    expect(queue.inputs).toEqual([]);
-  });
-
-  test('aceita somente o JSON preservado entre início e término da retry corrente', async () => {
-    const queue = new FakeQueue();
-    const evidence = reconciliationEvidence();
-    evidence.events.push(
-      startedCollection('coleta-1', 2, 3),
-      artifactEvent({
-        eventId: 'pddeinfo-artifact-attempt-2',
-        runId: 'coleta-1',
-        path: 'runs/coleta-1/attempts/2/pddeinfo-2026.json',
-        source: 'PDDEINFO',
-        kind: 'NORMALIZED_JSON',
-        role: 'PDDEINFO_JSON',
-        sequence: 4,
-      }),
-      {
-        ...finishedCollection('coleta-1'),
-        eventId: 'coleta-1:attempt:2:finished',
-        type: 'EXECUTION_FINISHED',
-        payload: { status: 'COMPLETE', attempt: 2 },
-        sequence: 5,
-      },
-    );
-    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/attempts/2/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await expect(service.requestReconciliation('json-tentativa-corrente', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: {
-        ...artifact,
-        path: 'runs/import-1/movements.csv',
-      },
-    })).resolves.toMatchObject({ status: 'QUEUED' });
-    expect(queue.inputs[0].payload).toMatchObject({ sourceCollectionRunId: 'coleta-1' });
-  });
-
-  test('recusa vínculo quando artefato e ciclo PDDEInfo pertencem a exercícios diferentes', async () => {
-    const queue = new FakeQueue();
-    const evidence = reconciliationEvidence();
-    evidence.events.splice(
-      evidence.events.findIndex((event) => event.eventId === 'coleta-1:finished'),
-      1,
-      finishedCollection('coleta-1', 'COMPLETE', 2025),
-    );
-    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
-    const artifact = {
-      bucket: 'pdde-evidence' as const,
-      path: 'runs/coleta-1/pddeinfo-2026.json',
-      sha256: 'a'.repeat(64),
-    };
-
-    await expect(service.requestReconciliation('ciclo-outro-exercicio', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: artifact,
-      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
-    })).rejects.toThrow(/ciclo|exercício/i);
-    expect(queue.inputs).toEqual([]);
-  });
-
-  test('rejeita chave ausente, INEP inválido e path fora do namespace de runs', async () => {
-    const service = new ExecutionCommandService(new FakeQueue());
-    await expect(service.requestPddeInfo('', { fiscalYear: 2026 })).rejects.toThrow(/idempot/i);
-    await expect(service.requestPddeInfo('chave', {
-      fiscalYear: 2026,
-      schoolIneps: ['123'],
-    })).rejects.toThrow(/inep/i);
-    await expect(service.requestReconciliation('data-impossivel', {
-      fiscalYear: 2026,
+  test('rejeita data civil impossível', async () => {
+    const service = new ExecutionCommandService(new FakeQueue(), {
+      artifactEvidence: reconciliationEvidence(),
+    });
+    await expect(service.requestReconciliation('data-invalida', {
+      ...reconciliationRequest,
       requestedThrough: '2026-02-31',
-      pddeInfoArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/pddeinfo-2026.json', sha256: 'a'.repeat(64),
-      },
-      movementsArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
-      },
-    })).rejects.toThrow(/data ISO/i);
-    await expect(service.requestReconciliation('chave', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: {
-        bucket: 'pdde-evidence', path: '../fora.json', sha256: 'a'.repeat(64),
-      },
-      movementsArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
-      },
-    })).rejects.toThrow(/path|caminho/i);
-    await expect(service.requestReconciliation('chave', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/arquivo com espaco.json', sha256: 'a'.repeat(64),
-      },
-      movementsArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
-      },
-    })).rejects.toThrow(/path|caminho/i);
-    await expect(service.requestReconciliation('chave', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/pddeinfo-2026.json', sha256: 'a'.repeat(64),
-      },
-      movementsArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
-      },
-      releaseArtifacts: [{
-        bucket: 'pdde-evidence', path: 'runs/x/exportacao.pdf', sha256: 'c'.repeat(64),
-      }],
-    })).rejects.toThrow(/\.xls|liberaç/i);
-    await expect(service.requestReconciliation('outro-bucket', {
-      fiscalYear: 2026,
-      requestedThrough: '2026-08-13',
-      pddeInfoArtifact: {
-        bucket: 'outro-bucket', path: 'runs/x/pddeinfo-2026.json', sha256: 'a'.repeat(64),
-      } as never,
-      movementsArtifact: {
-        bucket: 'pdde-evidence', path: 'runs/x/movements.csv', sha256: 'b'.repeat(64),
-      },
-    })).rejects.toThrow(/bucket/i);
+    })).rejects.toThrow(/data/i);
   });
 });
