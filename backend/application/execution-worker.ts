@@ -77,18 +77,9 @@ export class ExecutionWorker {
       await renewalChain;
     };
 
+    let result: ExecutionJobResult;
     try {
-      const result = await this.executor.execute(job);
-      await stopHeartbeat();
-      if (heartbeatError) {
-        throw new Error(`Falha ao renovar o lease: ${errorMessage(heartbeatError)}`);
-      }
-      await this.queue.complete({
-        jobId: job.jobId,
-        workerId: this.workerId,
-        status: result.status,
-      });
-      return { jobId: job.jobId, runId: job.runId, status: result.status };
+      result = await this.executor.execute(job);
     } catch (cause) {
       await stopHeartbeat();
       const error = errorMessage(cause);
@@ -100,5 +91,24 @@ export class ExecutionWorker {
       });
       return { jobId: job.jobId, runId: job.runId, status: 'FAILED', error };
     }
+
+    await stopHeartbeat();
+    if (heartbeatError) {
+      const error = `Falha ao renovar o lease: ${errorMessage(heartbeatError)}`;
+      await this.queue.complete({
+        jobId: job.jobId,
+        workerId: this.workerId,
+        status: 'FAILED',
+        error,
+      });
+      return { jobId: job.jobId, runId: job.runId, status: 'FAILED', error };
+    }
+
+    await this.queue.complete({
+      jobId: job.jobId,
+      workerId: this.workerId,
+      status: result.status,
+    });
+    return { jobId: job.jobId, runId: job.runId, status: result.status };
   }
 }

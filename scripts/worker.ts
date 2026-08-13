@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { ExecutionWorkerResult } from '../backend/application/execution-worker';
 import { createInstitutionalWorkerRuntime } from '../backend/runtime/institutional-runtime';
 
 function pollMilliseconds(raw: string | undefined): number {
@@ -11,8 +12,40 @@ function pollMilliseconds(raw: string | undefined): number {
   return value;
 }
 
-function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+interface WorkerLoop {
+  runOnce(): Promise<ExecutionWorkerResult | null>;
+}
+
+interface WorkerLoopOptions {
+  pollMs: number;
+  once?: boolean;
+  signal?: AbortSignal;
+  onResult?: (result: ExecutionWorkerResult) => void;
+}
+
+function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolveDelay) => {
+    const finish = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', finish);
+      resolveDelay();
+    };
+    const timer = setTimeout(finish, milliseconds);
+    signal?.addEventListener('abort', finish, { once: true });
+  });
+}
+
+export async function runWorkerLoop(
+  worker: WorkerLoop,
+  options: WorkerLoopOptions,
+): Promise<void> {
+  while (!options.signal?.aborted) {
+    const result = await worker.runOnce();
+    if (result) options.onResult?.(result);
+    if (options.once || options.signal?.aborted) return;
+    if (!result) await sleep(options.pollMs, options.signal);
+  }
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
@@ -20,14 +53,23 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   if (unknown.length > 0) throw new Error(`Argumento desconhecido: ${unknown[0]}.`);
   const once = args.includes('--once');
   const pollMs = pollMilliseconds(process.env.PDDE_WORKER_POLL_MS);
-  const { worker, workerId } = await createInstitutionalWorkerRuntime();
+  const shutdown = new AbortController();
+  const requestShutdown = (): void => shutdown.abort();
+  process.once('SIGTERM', requestShutdown);
+  process.once('SIGINT', requestShutdown);
 
-  do {
-    const result = await worker.runOnce();
-    if (result) process.stdout.write(`${JSON.stringify({ workerId, ...result })}\n`);
-    if (once) return;
-    if (!result) await sleep(pollMs);
-  } while (true);
+  try {
+    const { worker, workerId } = await createInstitutionalWorkerRuntime();
+    await runWorkerLoop(worker, {
+      pollMs,
+      once,
+      signal: shutdown.signal,
+      onResult: (result) => process.stdout.write(`${JSON.stringify({ workerId, ...result })}\n`),
+    });
+  } finally {
+    process.off('SIGTERM', requestShutdown);
+    process.off('SIGINT', requestShutdown);
+  }
 }
 
 const isDirectExecution = process.argv[1]

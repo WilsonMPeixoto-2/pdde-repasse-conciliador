@@ -13,6 +13,8 @@ Para diagnóstico ou execução controlada de um único job:
 npm run worker:once
 ```
 
+`SIGTERM` e `SIGINT` interrompem imediatamente uma espera ociosa. Se já houver um job reclamado, o runner deixa esse job terminar e só então encerra, preservando heartbeat e conclusão terminal. Erros da fila ou da RPC de conclusão encerram o processo com falha para supervisão externa; uma falha ao gravar `COMPLETE`/`PARTIAL` nunca é convertida em um segundo pedido `FAILED`.
+
 A escolha é deliberada. O repositório não contém hoje uma plataforma canônica de deploy. Além disso, os limites oficiais atuais de wall-clock das Supabase Edge Functions são de 150 segundos no plano Free e 400 segundos nos planos pagos; uma coleta conservadora das 163 escolas não deve depender dessa janela. Consulte [Supabase Edge Functions — Limits](https://supabase.com/docs/guides/functions/limits).
 
 ## Variáveis de ambiente

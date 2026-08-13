@@ -113,6 +113,8 @@ Os `POST` protegidos criam um job e retornam `202 + runId`. O runner:
 
 Uma execução abandonada pode ser reclamada. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
 
+O processo aceita `SIGTERM`/`SIGINT` de forma graciosa: cancela a espera ociosa, mas não abandona um job já reclamado. Falhas de infraestrutura no claim, heartbeat ou fechamento propagam-se ao supervisor. Em particular, uma falha ao chamar a RPC terminal após o executor produzir `COMPLETE`/`PARTIAL` não dispara uma segunda conclusão `FAILED`, pois o primeiro resultado pode já ter sido confirmado no Postgres apesar da perda da resposta.
+
 Arquivos operacionais entram por um fluxo administrativo separado: a API autoriza um path estável com `upsert: false`, o cliente envia os bytes diretamente ao Storage com ticket de duas horas e a confirmação protegida produz o evento append-only. A chave administrativa da API e a credencial `service_role` nunca são entregues ao cliente.
 
 Ao receber `POST /api/reconciliations`, `ExecutionCommandService` não trata as referências do cliente como prova. Para PDDEInfo, Movimentações e cada Liberação, ele consulta o log pelo proprietário de `runs/<runId>/...` e exige um `ARTIFACT_PRESERVED` institucional que coincida exatamente em bucket, path, SHA-256, exercício, origem e tipo/papel. A ausência ou divergência encerra o comando com conflito antes do enqueue.

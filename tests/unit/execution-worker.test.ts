@@ -71,6 +71,24 @@ describe('ExecutionWorker', () => {
     });
   });
 
+  test('propaga falha da conclusão terminal sem tentar reclassificar o job como FAILED', async () => {
+    const { queue } = fixture();
+    vi.mocked(queue.complete).mockRejectedValueOnce(new Error('RPC de conclusão indisponível'));
+    const worker = new ExecutionWorker(queue, {
+      execute: async () => ({ status: 'COMPLETE' as const }),
+    }, {
+      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
+    });
+
+    await expect(worker.runOnce()).rejects.toThrow('RPC de conclusão indisponível');
+    expect(queue.complete).toHaveBeenCalledTimes(1);
+    expect(queue.complete).toHaveBeenCalledWith({
+      jobId: runningJob.jobId,
+      workerId: 'worker-1',
+      status: 'COMPLETE',
+    });
+  });
+
   test('persiste FAILED com mensagem clara quando o executor falha', async () => {
     const { queue } = fixture();
     const worker = new ExecutionWorker(queue, {
