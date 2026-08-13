@@ -106,7 +106,7 @@ Observações de fontes externas mantêm a origem da própria fonte. Conclusões
 
 ## 2026-08-12 — Evidência forte exige chave forte
 
-**Decisão:** valor parecido não basta para ligar pagamento, OB e crédito. A conciliação considera, conforme disponibilidade, CNPJ, exercício, programa, ação, parcela, valor, data, documento/OB e conta.
+**Decisão:** valor parecido não basta para ligar pagamento, OB e crédito. A conciliação considera, conforme disponibilidade, CNPJ, exercício, programa, ação, parcela, valor, data, documento/OB e conta. Documento presente e divergente não pode ser descartado em favor de fallback por data; esse fallback só é permitido quando o movimento não informa documento.
 
 **Motivo:** créditos fracionados, múltiplas ordens, aplicações, estornos e outros lançamentos tornam correspondência por valor isolado insegura.
 

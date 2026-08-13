@@ -102,7 +102,10 @@ function linkedMovements(release: SigefRelease, movements: SigefMovement[]): Sig
     : [];
 
   if (documentMatches.length > 0) return documentMatches;
-  return identityMatches.filter((movement) => movement.movementDate === release.paymentDate);
+  return identityMatches.filter((movement) => (
+    !canonicalDocument(movement.document)
+    && movement.movementDate === release.paymentDate
+  ));
 }
 
 function inconclusiveForSource(

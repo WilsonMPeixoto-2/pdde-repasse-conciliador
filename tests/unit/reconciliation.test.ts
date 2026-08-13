@@ -244,6 +244,36 @@ describe('reconcileRepasse', () => {
     });
   });
 
+  test('não ignora documento divergente para confirmar por data, conta e valor', async () => {
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [{ ...movement, document: 'OUTRA-ORDEM-999' }],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'ORDEM_BANCARIA_CONFIRMADA_CREDITO_NAO_LOCALIZADO',
+      reasonCode: 'MOVEMENT_NOT_FOUND',
+      matchedMovementIds: [],
+    });
+  });
+
+  test('usa data como fallback somente quando o movimento não traz documento', async () => {
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [{ ...movement, document: '' }],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'REPASSE_CONFIRMADO',
+      reasonCode: 'EXACT_MATCH',
+      matchedMovementIds: [movement.id],
+    });
+  });
+
   test('rejeita total de movimentos que excede a faixa exata de centavos', async () => {
     const overflowingMovements = [
       { ...movement, id: 'movement-a', amountCents: Number.MAX_SAFE_INTEGER },

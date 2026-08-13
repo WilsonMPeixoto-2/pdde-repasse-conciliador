@@ -111,6 +111,7 @@ Uma conciliação deve usar a combinação mais forte disponível de:
 ### Proibições
 
 - não confirmar por valor semelhante isoladamente;
+- não ignorar documento/OB divergente para fazer fallback por data; o fallback temporal só é admissível quando o movimento não traz documento;
 - não escolher arbitrariamente entre múltiplas contas;
 - não promover referência histórica a dado corrente sem confirmação;
 - não considerar cobertura incompleta como prova de ausência;
