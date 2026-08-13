@@ -21,6 +21,8 @@ export interface FetchPddeInfoSchoolHtmlOptions extends BuildPddeInfoSchoolUrlOp
 
 export interface PddeInfoHttpResult {
   html: string;
+  /** Bytes exatos recebidos do endpoint, antes de qualquer decodificação. */
+  rawBytes?: Buffer;
   sourceUrl: string;
   queriedAt: string;
   attempts: number;
@@ -113,6 +115,7 @@ export async function fetchPddeInfoSchoolHtml(
       if (!html.trim()) throw new Error(`PDDEInfo retornou resposta vazia para o INEP ${options.inep}.`);
       return {
         html,
+        rawBytes: bytes,
         sourceUrl,
         queriedAt: now(),
         attempts: attempt,
