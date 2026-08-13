@@ -4,6 +4,12 @@ import type { InstitutionalApiHandler } from '../api/institutional-api';
 
 class BodyTooLargeError extends Error {}
 
+function bodyTooLarge(maxBodyBytes: number): BodyTooLargeError {
+  return new BodyTooLargeError(
+    `Corpo da requisição excede o limite de ${maxBodyBytes} bytes.`,
+  );
+}
+
 interface NodeApiServerOptions {
   maxBodyBytes?: number;
   onError?: (cause: unknown) => void;
@@ -21,19 +27,20 @@ async function requestBody(message: IncomingMessage, maxBodyBytes: number): Prom
   const declared = Number(message.headers['content-length'] ?? 0);
   if (Number.isFinite(declared) && declared > maxBodyBytes) {
     message.resume();
-    throw new BodyTooLargeError('Corpo da requisição excede o limite de 1 MB.');
+    throw bodyTooLarge(maxBodyBytes);
   }
 
   const chunks: Buffer[] = [];
   let bytes = 0;
-  let exceeded = false;
-  for await (const rawChunk of message) {
+  for await (const rawChunk of message.iterator({ destroyOnReturn: false })) {
     const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
     bytes += chunk.byteLength;
-    if (bytes > maxBodyBytes) exceeded = true;
-    if (!exceeded) chunks.push(chunk);
+    if (bytes > maxBodyBytes) {
+      message.resume();
+      throw bodyTooLarge(maxBodyBytes);
+    }
+    chunks.push(chunk);
   }
-  if (exceeded) throw new BodyTooLargeError('Corpo da requisição excede o limite de 1 MB.');
   return Buffer.concat(chunks, bytes).toString('utf8');
 }
 
