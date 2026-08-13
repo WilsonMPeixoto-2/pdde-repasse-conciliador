@@ -298,6 +298,31 @@ describe('reconcileRepasse', () => {
     });
   });
 
+  test('não mantém confirmação positiva quando há estorno ligado à mesma OB', async () => {
+    const reversal = {
+      ...movement,
+      id: 'movement-reversal-1',
+      operation: 'debit',
+      movementDate: '2026-08-06',
+      history: 'ESTORNO DE ORDEM BANCARIA',
+    };
+
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [movement, reversal],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'DIVERGENCIA_REVISAO_NECESSARIA',
+      reasonCode: 'MOVEMENT_REVERSAL_FOUND',
+      matchedMovementIds: [movement.id, reversal.id],
+      movementTotalCents: movement.amountCents,
+      requiresHumanReview: true,
+    });
+  });
+
   test('rejeita total de movimentos que excede a faixa exata de centavos', async () => {
     const overflowingMovements = [
       { ...movement, id: 'movement-a', amountCents: Number.MAX_SAFE_INTEGER },

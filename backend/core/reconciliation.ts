@@ -28,6 +28,7 @@ const REASONS: Record<ReconciliationReasonCode, string> = {
   MOVEMENT_SOURCE_UNAVAILABLE: 'A fonte de movimentações não respondeu de forma utilizável.',
   MOVEMENT_SOURCE_OUT_OF_COVERAGE: 'A fonte de movimentações ainda não cobre a data da liberação.',
   MOVEMENT_AMOUNT_MISMATCH: 'Os movimentos vinculados não totalizam o valor da liberação.',
+  MOVEMENT_REVERSAL_FOUND: 'Há estorno ou devolução documentalmente vinculado à ordem bancária.',
   PDDEINFO_SOURCE_UNAVAILABLE: 'O PDDEInfo não respondeu de forma utilizável; ausência de pagamento não pode ser concluída.',
   RELEASE_NOT_FOUND: 'O pagamento consta no PDDEInfo, mas nenhuma liberação correspondente foi localizada em uma consulta com cobertura suficiente.',
   RELEASE_SOURCE_UNAVAILABLE: 'A fonte de liberações não respondeu de forma utilizável.',
@@ -62,7 +63,8 @@ function result(
     matchedReleaseId: options.release?.id ?? null,
     matchedMovementIds: movements.map((movement) => movement.id),
     movementTotalCents: sumMoneyCents(
-      movements.map((movement) => movement.amountCents),
+      movements.filter((movement) => movement.operation === 'credit')
+        .map((movement) => movement.amountCents),
       'Total dos movimentos',
     ),
     differences: options.differences ?? [],
@@ -87,11 +89,15 @@ function releaseMatchesIdentity(payment: PddePayment, release: SigefRelease): bo
     && (payment.installmentCode === null || payment.installmentCode === release.installmentCode);
 }
 
+function movementMatchesAccountIdentity(release: SigefRelease, movement: SigefMovement): boolean {
+  return canonicalCnpj(movement.schoolCnpj) === canonicalCnpj(release.schoolCnpj)
+    && canonicalProgramCode(movement.programCode) === canonicalProgramCode(release.programCode)
+    && sameAccount(movement.account, release.destinationAccount);
+}
+
 function movementMatchesIdentity(release: SigefRelease, movement: SigefMovement): boolean {
   return movement.operation === 'credit'
-    && canonicalCnpj(movement.schoolCnpj) === canonicalCnpj(release.schoolCnpj)
-    && canonicalProgramCode(movement.programCode) === canonicalProgramCode(release.programCode)
-    && sameAccount(movement.account, release.destinationAccount)
+    && movementMatchesAccountIdentity(release, movement)
     && canonicalText(movement.history).includes('ORDEM BANCARIA');
 }
 
@@ -107,6 +113,18 @@ function linkedMovements(release: SigefRelease, movements: SigefMovement[]): Sig
     !canonicalDocument(movement.document)
     && movement.movementDate === release.paymentDate
   ));
+}
+
+function linkedReversals(release: SigefRelease, movements: SigefMovement[]): SigefMovement[] {
+  const releaseDocument = canonicalDocument(release.orderBank);
+  if (!releaseDocument) return [];
+  return movements.filter((movement) => {
+    const history = canonicalText(movement.history);
+    return movement.operation === 'debit'
+      && movementMatchesAccountIdentity(release, movement)
+      && canonicalDocument(movement.document) === releaseDocument
+      && (history.includes('ESTORNO') || history.includes('DEVOLUCAO'));
+  });
 }
 
 function inconclusiveForSource(
@@ -243,6 +261,19 @@ export function reconcileRepasse(rawInput: ReconciliationInput): ReconciliationR
   if (movementSourceIssue) return movementSourceIssue;
 
   const matches = linkedMovements(matchedRelease, movements);
+  const reversals = linkedReversals(matchedRelease, movements);
+  if (reversals.length > 0) {
+    return result('DIVERGENCIA_REVISAO_NECESSARIA', 'MOVEMENT_REVERSAL_FOUND', {
+      release: matchedRelease,
+      movements: [...matches, ...reversals],
+      differences: [{
+        field: 'record-count',
+        pddeInfo: null,
+        sigef: reversals.length,
+        detail: 'Créditos e estornos/devoluções vinculados permanecem fatos distintos.',
+      }],
+    });
+  }
   if (matches.length === 0) {
     return result(
       'ORDEM_BANCARIA_CONFIRMADA_CREDITO_NAO_LOCALIZADO',

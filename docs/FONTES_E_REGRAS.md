@@ -78,6 +78,7 @@ Quando houver extrato bancário direto ou outra evidência autorizada adequada, 
 ### Estorno ou devolução
 
 Crédito inicialmente identificado não deve permanecer apresentado como situação final positiva se existir evidência correspondente de estorno/devolução.
+O conciliador liga esse fato negativo apenas com chave forte: débito no mesmo CNPJ, programa e conta, documento igual à OB e histórico explícito de estorno ou devolução. Quando isso ocorre, crédito e débito permanecem listados separadamente e o estado exige revisão humana (`MOVEMENT_REVERSAL_FOUND`).
 
 ### Consulta inconclusiva
 
