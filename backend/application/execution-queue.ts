@@ -21,11 +21,13 @@ export interface ExecutionJobQueue {
   renewLease(input: {
     jobId: string;
     workerId: string;
+    attempt: number;
     leaseSeconds: number;
   }): Promise<ExecutionJob>;
   complete(input: {
     jobId: string;
     workerId: string;
+    attempt: number;
     status: 'COMPLETE' | 'PARTIAL' | 'FAILED';
     error?: string;
   }): Promise<ExecutionJob>;

@@ -67,6 +67,7 @@ describe('ExecutionWorker', () => {
     expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
       workerId: 'worker-1',
+      attempt: 1,
       status: 'PARTIAL',
     });
   });
@@ -85,6 +86,7 @@ describe('ExecutionWorker', () => {
     expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
       workerId: 'worker-1',
+      attempt: 1,
       status: 'COMPLETE',
     });
   });
@@ -106,6 +108,7 @@ describe('ExecutionWorker', () => {
     expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
       workerId: 'worker-1',
+      attempt: 1,
       status: 'FAILED',
       error: 'fonte indisponível',
     });
@@ -126,7 +129,7 @@ describe('ExecutionWorker', () => {
       const pending = worker.runOnce();
       await vi.advanceTimersByTimeAsync(20_000);
       expect(queue.renewLease).toHaveBeenCalledWith({
-        jobId: runningJob.jobId, workerId: 'worker-1', leaseSeconds: 60,
+        jobId: runningJob.jobId, workerId: 'worker-1', attempt: 1, leaseSeconds: 60,
       });
       finish?.();
       await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });

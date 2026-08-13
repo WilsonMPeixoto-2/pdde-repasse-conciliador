@@ -113,7 +113,7 @@ Os `POST` protegidos criam um job e retornam `202 + runId`. O runner:
 5. executa coleta ou conciliação existente;
 6. conclui `COMPLETE`, `PARTIAL` ou `FAILED` e registra o evento terminal atomicamente.
 
-Uma execução abandonada pode ser reclamada. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
+Uma execução abandonada pode ser reclamada. Heartbeat e conclusão carregam também o número da tentativa como token de fencing: uma tentativa antiga não pode renovar nem encerrar o lease novo, mesmo se duas instâncias tiverem reutilizado o mesmo `workerId`. Ao alcançar `max_attempts`, o próximo ciclo fecha o job como falha explícita. Paths de Storage são imutáveis; uma repetição só é aceita se o conteúdo possuir o mesmo SHA-256.
 
 O processo aceita `SIGTERM`/`SIGINT` de forma graciosa: cancela a espera ociosa, mas não abandona um job já reclamado. Falhas de infraestrutura no claim, heartbeat ou fechamento propagam-se ao supervisor. Em particular, uma falha ao chamar a RPC terminal após o executor produzir `COMPLETE`/`PARTIAL` não dispara uma segunda conclusão `FAILED`, pois o primeiro resultado pode já ter sido confirmado no Postgres apesar da perda da resposta.
 

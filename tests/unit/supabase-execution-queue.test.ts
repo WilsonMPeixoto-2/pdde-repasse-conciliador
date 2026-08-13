@@ -81,11 +81,13 @@ describe('SupabaseExecutionQueue', () => {
     await expect(queue.renewLease({
       jobId: row.job_id,
       workerId: 'worker-1',
+      attempt: 1,
       leaseSeconds: 120,
     })).resolves.toMatchObject({ status: 'RUNNING' });
     await expect(queue.complete({
       jobId: row.job_id,
       workerId: 'worker-1',
+      attempt: 1,
       status: 'COMPLETE',
     })).resolves.toMatchObject({ status: 'COMPLETE' });
 
@@ -94,6 +96,8 @@ describe('SupabaseExecutionQueue', () => {
       'renew_execution_job_lease',
       'complete_execution_job',
     ]);
+    expect(client.calls[1].parameters).toMatchObject({ p_attempt: 1 });
+    expect(client.calls[2].parameters).toMatchObject({ p_attempt: 1 });
   });
 
   test('retorna null quando a fila está vazia e propaga erro de banco com clareza', async () => {

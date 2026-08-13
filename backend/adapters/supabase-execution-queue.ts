@@ -99,11 +99,13 @@ export class SupabaseExecutionQueue implements ExecutionJobQueue {
   async renewLease(input: {
     jobId: string;
     workerId: string;
+    attempt: number;
     leaseSeconds: number;
   }): Promise<ExecutionJob> {
     const result = await rpcJob(this.client, 'renew_execution_job_lease', {
       p_job_id: input.jobId,
       p_worker_id: input.workerId,
+      p_attempt: input.attempt,
       p_lease_seconds: input.leaseSeconds,
     });
     if (!result) throw new Error('Fila de execuções: renovação não retornou o job.');
@@ -113,12 +115,14 @@ export class SupabaseExecutionQueue implements ExecutionJobQueue {
   async complete(input: {
     jobId: string;
     workerId: string;
+    attempt: number;
     status: 'COMPLETE' | 'PARTIAL' | 'FAILED';
     error?: string;
   }): Promise<ExecutionJob> {
     const result = await rpcJob(this.client, 'complete_execution_job', {
       p_job_id: input.jobId,
       p_worker_id: input.workerId,
+      p_attempt: input.attempt,
       p_status: input.status,
       p_error: input.error ?? null,
     });

@@ -140,6 +140,7 @@ Ao executar uma conciliação, o runner não confia no nome original de uma Libe
 - `evidence_events` é append-only e permanece a fonte de verdade;
 - `execution_jobs` é transporte operacional com idempotência, tentativas, owner e lease;
 - claim e conclusão registram `EXECUTION_STARTED`/`EXECUTION_FINISHED` na mesma transação do job;
+- heartbeat e conclusão exigem o número da tentativa reclamada, impedindo um processo antigo de atuar sobre um lease novo mesmo com `workerId` reutilizado;
 - um lease expirado pode ser reclamado até `max_attempts`;
 - ao esgotar tentativas, o próximo ciclo fecha o job como `FAILED` e registra o evento terminal;
 - cada tentativa usa diretório próprio, evitando colisão de arquivos após crash;

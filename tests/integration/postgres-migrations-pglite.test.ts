@@ -106,6 +106,7 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
         select * from public.renew_execution_job_lease(
           '11111111-1111-4111-8111-111111111111'::uuid,
           'pglite-worker-1',
+          1,
           60
         )
       `);
@@ -113,6 +114,7 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
         select * from public.complete_execution_job(
           '11111111-1111-4111-8111-111111111111'::uuid,
           'pglite-worker-1',
+          1,
           'PARTIAL',
           null
         )
@@ -171,6 +173,7 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
         select * from public.complete_execution_job(
           '33333333-3333-4333-8333-333333333333'::uuid,
           'pglite-worker-1',
+          1,
           'COMPLETE',
           null
         )
@@ -275,6 +278,73 @@ describe('migrations institucionais em PostgreSQL embutido', () => {
         'select valid from public.verify_evidence_chain()',
       );
       expect(integrity.rows).toEqual([{ valid: true }]);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
+  test('impede tentativa antiga de renovar ou concluir lease reclamado pelo mesmo workerId', async () => {
+    await database.exec('set role service_role');
+    try {
+      await database.query(`
+        select * from public.enqueue_execution_job(
+          '55555555-5555-4555-8555-555555555555'::uuid,
+          'pglite-fenced-run-1'::text,
+          'PDDEINFO'::text,
+          'pglite-fenced-contract-1'::text,
+          2026::smallint,
+          '${'e'.repeat(64)}'::text,
+          '{"fiscalYear": 2026, "schoolIneps": ["33069247"]}'::jsonb,
+          '2000-01-01T00:03:00Z'::timestamptz,
+          3::integer
+        )
+      `);
+      const firstClaim = await database.query<{ attempts: number }>(`
+        select attempts from public.claim_execution_job('pglite-reused-worker', 30)
+      `);
+      expect(firstClaim.rows).toEqual([{ attempts: 1 }]);
+
+      await database.exec('reset role');
+      await database.query(`
+        update public.execution_jobs
+        set lease_expires_at = pg_catalog.clock_timestamp() - interval '1 second'
+        where job_id = '55555555-5555-4555-8555-555555555555'::uuid
+      `);
+      await database.exec('set role service_role');
+
+      const secondClaim = await database.query<{ attempts: number }>(`
+        select attempts from public.claim_execution_job('pglite-reused-worker', 30)
+      `);
+      expect(secondClaim.rows).toEqual([{ attempts: 2 }]);
+
+      await expect(database.query(`
+        select * from public.renew_execution_job_lease(
+          '55555555-5555-4555-8555-555555555555'::uuid,
+          'pglite-reused-worker',
+          1,
+          30
+        )
+      `)).rejects.toThrow(/tentativa.*não pertence|lease expirou/i);
+      await expect(database.query(`
+        select * from public.complete_execution_job(
+          '55555555-5555-4555-8555-555555555555'::uuid,
+          'pglite-reused-worker',
+          1,
+          'COMPLETE',
+          null
+        )
+      `)).rejects.toThrow(/tentativa.*não pertence|não está running/i);
+
+      const completed = await database.query<{ status: string; attempts: number }>(`
+        select status, attempts from public.complete_execution_job(
+          '55555555-5555-4555-8555-555555555555'::uuid,
+          'pglite-reused-worker',
+          2,
+          'COMPLETE',
+          null
+        )
+      `);
+      expect(completed.rows).toEqual([{ status: 'COMPLETE', attempts: 2 }]);
     } finally {
       await database.exec('reset role');
     }

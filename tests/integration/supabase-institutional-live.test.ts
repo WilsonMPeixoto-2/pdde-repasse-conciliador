@@ -84,11 +84,12 @@ describe.runIf(enabled)('backend institucional no Supabase real', () => {
     const claimed = await queue.claim({ workerId, leaseSeconds: 60 });
     expect(claimed).toMatchObject({ jobId: receipt.jobId, runId: receipt.runId, attempts: 1 });
     await expect(queue.renewLease({
-      jobId: receipt.jobId, workerId, leaseSeconds: 60,
+      jobId: receipt.jobId, workerId, attempt: 1, leaseSeconds: 60,
     })).resolves.toMatchObject({ status: 'RUNNING' });
     await expect(queue.complete({
       jobId: receipt.jobId,
       workerId,
+      attempt: 1,
       status: 'FAILED',
       error: 'Teste live do transporte; nenhuma coleta foi executada.',
     })).resolves.toMatchObject({ status: 'FAILED' });

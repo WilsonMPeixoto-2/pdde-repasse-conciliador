@@ -64,6 +64,7 @@ export class ExecutionWorker {
           await this.queue.renewLease({
             jobId: job.jobId,
             workerId: this.workerId,
+            attempt: job.attempts,
             leaseSeconds: this.leaseSeconds,
           });
         } catch (cause) {
@@ -86,6 +87,7 @@ export class ExecutionWorker {
       await this.queue.complete({
         jobId: job.jobId,
         workerId: this.workerId,
+        attempt: job.attempts,
         status: 'FAILED',
         error,
       });
@@ -98,6 +100,7 @@ export class ExecutionWorker {
       await this.queue.complete({
         jobId: job.jobId,
         workerId: this.workerId,
+        attempt: job.attempts,
         status: 'FAILED',
         error,
       });
@@ -107,6 +110,7 @@ export class ExecutionWorker {
     await this.queue.complete({
       jobId: job.jobId,
       workerId: this.workerId,
+      attempt: job.attempts,
       status: result.status,
     });
     return { jobId: job.jobId, runId: job.runId, status: result.status };

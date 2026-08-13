@@ -327,6 +327,7 @@ $$;
 create or replace function public.renew_execution_job_lease(
   p_job_id uuid,
   p_worker_id text,
+  p_attempt integer,
   p_lease_seconds integer default 300
 )
 returns public.execution_jobs
@@ -340,6 +341,9 @@ begin
   if p_lease_seconds < 30 or p_lease_seconds > 3600 then
     raise exception 'lease_seconds deve estar entre 30 e 3600';
   end if;
+  if p_attempt < 1 then
+    raise exception 'attempt deve ser positivo';
+  end if;
 
   update public.execution_jobs
   set lease_expires_at = pg_catalog.clock_timestamp()
@@ -347,11 +351,12 @@ begin
   where job_id = p_job_id
     and status = 'RUNNING'
     and worker_id = p_worker_id
+    and attempts = p_attempt
     and lease_expires_at > pg_catalog.clock_timestamp()
   returning * into v_job;
 
   if not found then
-    raise exception 'job não pertence ao worker ou o lease expirou: %', p_job_id;
+    raise exception 'tentativa não pertence ao worker ou o lease expirou: %/%', p_job_id, p_attempt;
   end if;
   return v_job;
 end;
@@ -360,6 +365,7 @@ $$;
 create or replace function public.complete_execution_job(
   p_job_id uuid,
   p_worker_id text,
+  p_attempt integer,
   p_status text,
   p_error text default null
 )
@@ -375,6 +381,9 @@ begin
   if p_status not in ('COMPLETE', 'PARTIAL', 'FAILED') then
     raise exception 'status terminal inválido: %', p_status;
   end if;
+  if p_attempt < 1 then
+    raise exception 'attempt deve ser positivo';
+  end if;
 
   update public.execution_jobs
   set status = p_status,
@@ -384,11 +393,12 @@ begin
   where job_id = p_job_id
     and status = 'RUNNING'
     and worker_id = p_worker_id
+    and attempts = p_attempt
     and lease_expires_at > pg_catalog.clock_timestamp()
   returning * into v_job;
 
   if not found then
-    raise exception 'job não está RUNNING para o worker informado: %', p_job_id;
+    raise exception 'tentativa não está RUNNING para o worker informado: %/%', p_job_id, p_attempt;
   end if;
 
   v_source := case when v_job.job_kind = 'PDDEINFO'
@@ -480,14 +490,14 @@ revoke all on function public.enqueue_execution_job(
 ) from public, anon, authenticated;
 revoke all on function public.claim_execution_job(text, integer)
   from public, anon, authenticated;
-revoke all on function public.renew_execution_job_lease(uuid, text, integer)
+revoke all on function public.renew_execution_job_lease(uuid, text, integer, integer)
   from public, anon, authenticated;
-revoke all on function public.complete_execution_job(uuid, text, text, text)
+revoke all on function public.complete_execution_job(uuid, text, integer, text, text)
   from public, anon, authenticated;
 
 grant execute on function public.enqueue_execution_job(
   uuid, text, text, text, smallint, text, jsonb, timestamptz, integer
 ) to service_role;
 grant execute on function public.claim_execution_job(text, integer) to service_role;
-grant execute on function public.renew_execution_job_lease(uuid, text, integer) to service_role;
-grant execute on function public.complete_execution_job(uuid, text, text, text) to service_role;
+grant execute on function public.renew_execution_job_lease(uuid, text, integer, integer) to service_role;
+grant execute on function public.complete_execution_job(uuid, text, integer, text, text) to service_role;
