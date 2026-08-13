@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { mkdtemp } from 'node:fs/promises';
+import { readFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
@@ -7,9 +6,7 @@ import { collectPddeInfo } from '../../backend/application/collect-pddeinfo';
 import { normalizePddeInfoSchools } from '../../backend/adapters/pddeinfo-normalizer';
 import { loadMasterSchools } from '../../scripts/collect-pddeinfo';
 
-// Habilitado no CI apenas durante a validação do marco v0.3.
-// Depois desta rodada, permanece disponível somente com PDDEINFO_FULL_LIVE=1.
-const live = process.env.PDDEINFO_FULL_LIVE === '1' || process.env.CI === 'true';
+const live = process.env.PDDEINFO_FULL_LIVE === '1';
 const liveTest = live ? test : test.skip;
 
 describe('PDDEInfo público — coleta completa opt-in', () => {
