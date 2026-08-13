@@ -43,8 +43,8 @@ describe('CLI collect-pddeinfo', () => {
     const loadMasterSchools = subject.loadMasterSchools as () => Promise<Array<{ inep: string; sme: string; nome: string }>>;
     const schools = await loadMasterSchools();
     expect(schools).toHaveLength(163);
-    expect(new Set(schools.map((school) => school.inep))).toHaveLength(163);
-    expect(new Set(schools.map((school) => school.sme))).toHaveLength(163);
+    expect(new Set(schools.map((school) => school.inep)).size).toBe(163);
+    expect(new Set(schools.map((school) => school.sme)).size).toBe(163);
     expect(schools[0]).toMatchObject({
       inep: expect.stringMatching(/^\d{8}$/),
       sme: expect.stringMatching(/^\d{7}$/),
