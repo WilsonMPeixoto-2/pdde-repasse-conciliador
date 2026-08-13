@@ -9,7 +9,10 @@ import { SupabaseArtifactStore } from '../adapters/supabase-artifact-store';
 import { SupabaseEvidenceStore } from '../adapters/supabase-evidence-store';
 import { SupabaseExecutionQueue } from '../adapters/supabase-execution-queue';
 import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';
-import { createInstitutionalApi } from '../api/institutional-api';
+import {
+  administrativeCommandTokenSchema,
+  createInstitutionalApi,
+} from '../api/institutional-api';
 import { ExecutionCommandService } from '../application/execution-command-service';
 import { ArtifactIntakeService } from '../application/artifact-intake-service';
 import { ExecutionWorker } from '../application/execution-worker';
@@ -68,8 +71,9 @@ export async function createInstitutionalApiRuntime(
   clientOverride?: unknown,
 ) {
   const services = await dataServices(environment, clientOverride);
-  const commandToken = z.string().min(16, 'PDDE_API_COMMAND_TOKEN deve ter ao menos 16 caracteres.')
-    .parse(environment.PDDE_API_COMMAND_TOKEN);
+  const commandToken = administrativeCommandTokenSchema.parse(
+    environment.PDDE_API_COMMAND_TOKEN,
+  );
   const api = createInstitutionalApi({
     readService: services.readService,
     commandService: services.commandService,

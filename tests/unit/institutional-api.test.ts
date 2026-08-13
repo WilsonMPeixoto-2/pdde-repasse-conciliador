@@ -8,6 +8,7 @@ import {
 import { ReconciliationArtifactEvidenceError } from '../../backend/application/execution-command-service';
 
 const school = { inep: '33069247', sme: '0410001', nome: 'EM EMA NEGRAO DE LIMA' };
+const COMMAND_TOKEN = 'pdde-admin-test-token-2026-08-13-abcdef';
 const execution = {
   runId: 'run-1', source: 'PDDEINFO', fiscalYear: 2026, requestedAt: null,
   startedAt: '2026-08-13T12:00:00Z', finishedAt: null, status: 'RUNNING',
@@ -81,7 +82,7 @@ function fixture() {
     commandService,
     artifactStore,
     artifactIntakeService,
-    commandToken: 'segredo-administrativo',
+    commandToken: COMMAND_TOKEN,
     verifyEvidence: async () => ({ valid: true, events: 8 }),
     version: '0.5.0',
   });
@@ -93,6 +94,27 @@ async function json(response: Response): Promise<Record<string, any>> {
 }
 
 describe('API institucional', () => {
+  test('recusa token administrativo curto ou com whitespace', () => {
+    const base = fixture();
+    const dependencies = {
+      readService: base.readService,
+      commandService: base.commandService,
+      artifactStore: base.artifactStore,
+      artifactIntakeService: base.artifactIntakeService,
+      verifyEvidence: async () => ({ valid: true, events: 0 }),
+      version: '0.5.0',
+    };
+
+    expect(() => createInstitutionalApi({
+      ...dependencies,
+      commandToken: 'a'.repeat(31),
+    })).toThrow(/32 caracteres/i);
+    expect(() => createInstitutionalApi({
+      ...dependencies,
+      commandToken: ' '.repeat(32),
+    })).toThrow(/visíveis|whitespace|espaço/i);
+  });
+
   test('expõe health, meta e catálogo/histórico das escolas', async () => {
     const { api, readService } = fixture();
     const health = await api(new Request('http://localhost/api/health'));
@@ -125,7 +147,7 @@ describe('API institucional', () => {
       commandService: base.commandService,
       artifactStore: base.artifactStore,
       artifactIntakeService: base.artifactIntakeService,
-      commandToken: 'segredo-administrativo',
+      commandToken: COMMAND_TOKEN,
       verifyEvidence,
       evidenceCacheTtlMs: 5_000,
       now: () => now,
@@ -178,14 +200,14 @@ describe('API institucional', () => {
     }))).status).toBe(401);
     expect((await api(new Request(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer segredo-administrativo' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}` },
       body,
     }))).status).toBe(400);
 
     const accepted = await api(new Request(url, {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'coleta-agosto',
       },
       body,
@@ -197,7 +219,7 @@ describe('API institucional', () => {
     const reconciliation = await api(new Request('http://localhost/api/reconciliations', {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'reconcile-agosto',
       },
       body: JSON.stringify({ fiscalYear: 2026 }),
@@ -213,7 +235,7 @@ describe('API institucional', () => {
     const request = new Request('http://localhost/api/executions/pddeinfo', {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'corpo-grande-sem-header',
       },
       body: JSON.stringify({ padding: 'x'.repeat(1_000_000) }),
@@ -234,7 +256,7 @@ describe('API institucional', () => {
       {
         method: 'POST',
         headers: {
-          'content-type': 'application/jsonp', authorization: 'Bearer segredo-administrativo',
+          'content-type': 'application/jsonp', authorization: `Bearer ${COMMAND_TOKEN}`,
           'idempotency-key': 'media-type-falso',
         },
         body: JSON.stringify({ fiscalYear: 2026 }),
@@ -250,7 +272,7 @@ describe('API institucional', () => {
         method: 'POST',
         headers: {
           'content-type': 'application/json; charset=utf-8',
-          authorization: 'Bearer segredo-administrativo',
+          authorization: `Bearer ${COMMAND_TOKEN}`,
           'idempotency-key': 'media-type-json',
         },
         body: JSON.stringify({ fiscalYear: 2026 }),
@@ -277,7 +299,7 @@ describe('API institucional', () => {
     const requested = await api(new Request(requestUrl, {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'movimentacoes-agosto',
       },
       body: JSON.stringify(requestBody),
@@ -296,7 +318,7 @@ describe('API institucional', () => {
       {
         method: 'POST',
         headers: {
-          'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+          'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         },
         body: JSON.stringify({ runId: 'inputs-2026-08-13' }),
       },
@@ -318,7 +340,7 @@ describe('API institucional', () => {
     const response = await api(new Request('http://localhost/api/executions/pddeinfo', {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'mesma-chave-outro-pedido',
       },
       body: JSON.stringify({ fiscalYear: 2026 }),
@@ -339,7 +361,7 @@ describe('API institucional', () => {
     const response = await api(new Request('http://localhost/api/reconciliations', {
       method: 'POST',
       headers: {
-        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
         'idempotency-key': 'artefato-nao-confirmado',
       },
       body: JSON.stringify({ fiscalYear: 2026 }),
@@ -353,7 +375,7 @@ describe('API institucional', () => {
   test('traduz falhas esperadas da ingestão sem expor erro interno', async () => {
     const { api, artifactIntakeService } = fixture();
     const headers = {
-      'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+      'content-type': 'application/json', authorization: `Bearer ${COMMAND_TOKEN}`,
       'idempotency-key': 'upload-repetido',
     };
     artifactIntakeService.requestUpload.mockRejectedValueOnce(

@@ -71,6 +71,11 @@ export interface InstitutionalApiDependencies {
 
 export type InstitutionalApiHandler = (request: Request) => Promise<Response>;
 
+export const administrativeCommandTokenSchema = z.string()
+  .min(32, 'PDDE_API_COMMAND_TOKEN deve ter ao menos 32 caracteres.')
+  .max(512, 'PDDE_API_COMMAND_TOKEN excede 512 caracteres.')
+  .regex(/^[\x21-\x7e]+$/, 'PDDE_API_COMMAND_TOKEN deve usar somente caracteres ASCII visíveis, sem espaços.');
+
 const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
@@ -173,8 +178,7 @@ function methodNotAllowed(allowed: string): Response {
 export function createInstitutionalApi(
   dependencies: InstitutionalApiDependencies,
 ): InstitutionalApiHandler {
-  const commandToken = z.string().min(16, 'PDDE_API_COMMAND_TOKEN deve ter ao menos 16 caracteres.')
-    .parse(dependencies.commandToken);
+  const commandToken = administrativeCommandTokenSchema.parse(dependencies.commandToken);
   z.string().min(1).parse(dependencies.version);
   const evidenceCacheTtlMs = z.number().int().min(100).max(300_000)
     .parse(dependencies.evidenceCacheTtlMs ?? 10_000);

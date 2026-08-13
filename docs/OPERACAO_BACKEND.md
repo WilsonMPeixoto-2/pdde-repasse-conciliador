@@ -30,6 +30,8 @@ Use `.env.example` como referência. As obrigatórias são:
 
 `PDDE_API_SHUTDOWN_MS` é opcional e aceita de 1.000 a 120.000 milissegundos.
 
+`PDDE_API_COMMAND_TOKEN` deve ser um segredo opaco com 32 a 512 caracteres ASCII visíveis e sem espaços. Gere um valor aleatório (por exemplo, `openssl rand -base64 32`) e injete-o apenas no processo da API; não use texto memorizável nem variável `VITE_*`.
+
 A chave administrativa é validada no startup e nunca pertence ao bundle Vite. Chaves `sb_publishable_` e JWT com role `anon` são recusadas pelo adaptador de backend.
 
 ## Contrato HTTP
