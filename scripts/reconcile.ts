@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { JsonlEvidenceStore } from '../backend/adapters/jsonl-evidence-store';
 import { reconcileFiles, type ReconcileFilesOptions } from '../backend/application/reconcile-files';
 
 const HELP = `
@@ -14,9 +15,18 @@ Uso:
     [--release-manifest /caminho/liberacoes.json] \\
     [--releases-dir /caminho/exportacoes] \\
     [--releases-source-url https://www.fnde.gov.br/sigefweb/index.php/liberacoes] \\
+    [--evidence-store /caminho/evidence/events.jsonl] \\
     [--generated-at 2026-08-11T23:59:00-03:00] \\
     [--title "Conciliação PDDE — 4ª CRE"] \\
     [--overwrite]
+
+Se --pdde-info apontar para o layout padrão produzido por pddeinfo:collect:
+  <workspace>/runs/<run-id>/pddeinfo-<ano>.json
+
+a conciliação reutiliza automaticamente:
+  <workspace>/evidence/events.jsonl
+
+--evidence-store permite informar explicitamente a trilha em outros layouts.
 
 Manifesto opcional de Liberações (JSON):
 [
@@ -70,10 +80,23 @@ function required(values: Map<string, string>, name: string): string {
   return value;
 }
 
+export function evidenceStorePathFromArguments(parsed: ParsedArguments): string | undefined {
+  const explicit = parsed.values.get('--evidence-store');
+  if (explicit) return resolve(explicit);
+
+  const pddeInfoPath = parsed.values.get('--pdde-info');
+  if (!pddeInfoPath) return undefined;
+  const absolutePddeInfoPath = resolve(pddeInfoPath);
+  const runDirectory = dirname(absolutePddeInfoPath);
+  const runsDirectory = dirname(runDirectory);
+  if (basename(runsDirectory) !== 'runs') return undefined;
+  return join(dirname(runsDirectory), 'evidence', 'events.jsonl');
+}
+
 export function optionsFromArguments(parsed: ParsedArguments): ReconcileFilesOptions {
   const known = new Set([
     '--pdde-info', '--movements', '--output', '--year', '--requested-through',
-    '--release-manifest', '--releases-dir', '--releases-source-url',
+    '--release-manifest', '--releases-dir', '--releases-source-url', '--evidence-store',
     '--generated-at', '--title',
   ]);
   for (const name of parsed.values.keys()) {
@@ -113,8 +136,28 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     process.stdout.write(HELP);
     return;
   }
-  const result = await reconcileFiles(optionsFromArguments(parsed));
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+
+  const evidencePath = evidenceStorePathFromArguments(parsed);
+  const evidenceStore = evidencePath ? new JsonlEvidenceStore(evidencePath) : undefined;
+  const result = await reconcileFiles({
+    ...optionsFromArguments(parsed),
+    ...(evidenceStore ? { evidenceStore } : {}),
+  });
+
+  let evidenceEvents: number | undefined;
+  if (evidenceStore) {
+    const integrity = await evidenceStore.verifyIntegrity();
+    if (!integrity.valid) {
+      throw new Error(`A trilha de evidências falhou na verificação de integridade: ${integrity.reason ?? 'motivo não informado'}.`);
+    }
+    evidenceEvents = integrity.events;
+  }
+
+  process.stdout.write(`${JSON.stringify({
+    ...result,
+    ...(evidencePath ? { evidenceStorePath: evidencePath } : {}),
+    ...(evidenceEvents !== undefined ? { evidenceEvents } : {}),
+  }, null, 2)}\n`);
 }
 
 const isDirectExecution = process.argv[1]
