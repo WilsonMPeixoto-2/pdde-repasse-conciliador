@@ -205,15 +205,18 @@ export class ExecutionCommandService {
 
     let pddeInfoRunId: string | undefined;
     let pddeInfoEvents: PersistedEvidenceEvent[] = [];
+    let pddeInfoArtifactEvent: PersistedEvidenceEvent | undefined;
     for (const requirement of requirements) {
       const ownerRunId = requirement.reference.path.split('/')[1];
       const events = await loadEvents(ownerRunId);
-      const preserved = events.find((event) => this.matchesArtifactEvidence(
-        event,
-        ownerRunId,
-        request.fiscalYear,
-        requirement,
-      ));
+      const preserved = events
+        .filter((event) => this.matchesArtifactEvidence(
+          event,
+          ownerRunId,
+          request.fiscalYear,
+          requirement,
+        ))
+        .sort((left, right) => right.sequence - left.sequence)[0];
       if (!preserved) {
         throw new ReconciliationArtifactEvidenceError(
           `${requirement.label}: não há evidência ARTIFACT_PRESERVED exata com origem, papel, SHA-256 e exercício correspondentes.`,
@@ -222,6 +225,7 @@ export class ExecutionCommandService {
       if (requirement.source === 'PDDEINFO') {
         pddeInfoRunId = ownerRunId;
         pddeInfoEvents = events;
+        pddeInfoArtifactEvent = preserved;
       }
     }
 
@@ -244,6 +248,18 @@ export class ExecutionCommandService {
         : latest.type.replace('EXECUTION_', '');
       throw new ReconciliationArtifactEvidenceError(
         `PDDEInfo: o ciclo conhecido da coleta ${pddeInfoRunId} não terminou COMPLETE (estado ${status}).`,
+      );
+    }
+    const currentStart = [...lifecycle]
+      .reverse()
+      .find((event) => event.type === 'EXECUTION_STARTED');
+    if (currentStart && (
+      !pddeInfoArtifactEvent
+      || pddeInfoArtifactEvent.sequence <= currentStart.sequence
+      || pddeInfoArtifactEvent.sequence >= latest.sequence
+    )) {
+      throw new ReconciliationArtifactEvidenceError(
+        `PDDEInfo: o artefato informado não pertence à tentativa corrente concluída da coleta ${pddeInfoRunId}.`,
       );
     }
     return pddeInfoRunId;

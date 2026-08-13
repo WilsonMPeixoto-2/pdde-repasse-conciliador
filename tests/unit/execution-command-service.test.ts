@@ -66,6 +66,7 @@ function artifactEvent(input: {
   sha256?: string;
   fiscalYear?: number;
   role?: string;
+  sequence?: number;
 }): PersistedEvidenceEvent {
   return {
     eventId: input.eventId,
@@ -83,7 +84,7 @@ function artifactEvent(input: {
       bytes: 100,
       ...(input.role ? { metadata: { role: input.role } } : {}),
     },
-    sequence: 1,
+    sequence: input.sequence ?? 1,
     previousHash: null,
     eventHash: 'e'.repeat(64),
   };
@@ -105,6 +106,25 @@ function finishedCollection(
     sequence: 2,
     previousHash: 'd'.repeat(64),
     eventHash: 'f'.repeat(64),
+  };
+}
+
+function startedCollection(
+  runId: string,
+  attempt: number,
+  sequence: number,
+): PersistedEvidenceEvent {
+  return {
+    eventId: `${runId}:attempt:${attempt}:started`,
+    runId,
+    type: 'EXECUTION_STARTED',
+    occurredAt: '2026-08-13T11:57:00Z',
+    source: 'PDDEINFO',
+    fiscalYear: 2026,
+    payload: { attempt },
+    sequence,
+    previousHash: 'c'.repeat(64),
+    eventHash: 'd'.repeat(64),
   };
 }
 
@@ -383,6 +403,76 @@ describe('ExecutionCommandService', () => {
       movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
     })).rejects.toThrow(/complete|partial|ciclo/i);
     expect(queue.inputs).toEqual([]);
+  });
+
+  test('recusa JSON preservado por tentativa anterior mesmo quando a retry terminou COMPLETE', async () => {
+    const queue = new FakeQueue();
+    const evidence = reconciliationEvidence();
+    evidence.events.push(
+      startedCollection('coleta-1', 2, 3),
+      {
+        ...finishedCollection('coleta-1'),
+        eventId: 'coleta-1:attempt:2:finished',
+        type: 'EXECUTION_FINISHED',
+        payload: { status: 'COMPLETE', attempt: 2 },
+        sequence: 4,
+      },
+    );
+    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
+    const artifact = {
+      bucket: 'pdde-evidence' as const,
+      path: 'runs/coleta-1/pddeinfo-2026.json',
+      sha256: 'a'.repeat(64),
+    };
+
+    await expect(service.requestReconciliation('json-tentativa-abandonada', {
+      fiscalYear: 2026,
+      requestedThrough: '2026-08-13',
+      pddeInfoArtifact: artifact,
+      movementsArtifact: { ...artifact, path: 'runs/import-1/movements.csv' },
+    })).rejects.toThrow(/tentativa.*corrente|artefato.*atual/i);
+    expect(queue.inputs).toEqual([]);
+  });
+
+  test('aceita somente o JSON preservado entre início e término da retry corrente', async () => {
+    const queue = new FakeQueue();
+    const evidence = reconciliationEvidence();
+    evidence.events.push(
+      startedCollection('coleta-1', 2, 3),
+      artifactEvent({
+        eventId: 'pddeinfo-artifact-attempt-2',
+        runId: 'coleta-1',
+        path: 'runs/coleta-1/attempts/2/pddeinfo-2026.json',
+        source: 'PDDEINFO',
+        kind: 'NORMALIZED_JSON',
+        role: 'PDDEINFO_JSON',
+        sequence: 4,
+      }),
+      {
+        ...finishedCollection('coleta-1'),
+        eventId: 'coleta-1:attempt:2:finished',
+        type: 'EXECUTION_FINISHED',
+        payload: { status: 'COMPLETE', attempt: 2 },
+        sequence: 5,
+      },
+    );
+    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
+    const artifact = {
+      bucket: 'pdde-evidence' as const,
+      path: 'runs/coleta-1/attempts/2/pddeinfo-2026.json',
+      sha256: 'a'.repeat(64),
+    };
+
+    await expect(service.requestReconciliation('json-tentativa-corrente', {
+      fiscalYear: 2026,
+      requestedThrough: '2026-08-13',
+      pddeInfoArtifact: artifact,
+      movementsArtifact: {
+        ...artifact,
+        path: 'runs/import-1/movements.csv',
+      },
+    })).resolves.toMatchObject({ status: 'QUEUED' });
+    expect(queue.inputs[0].payload).toMatchObject({ sourceCollectionRunId: 'coleta-1' });
   });
 
   test('recusa vínculo quando artefato e ciclo PDDEInfo pertencem a exercícios diferentes', async () => {
