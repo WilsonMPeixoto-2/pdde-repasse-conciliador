@@ -1,59 +1,105 @@
-# Arquitetura do Conciliador de Repasses PDDE
+# Arquitetura atual e direção de evolução
 
-## Objetivo
+## Estado atual — v0.2.0
 
-Materializar, por UEx, programa, ação e parcela, a correspondência entre três evidências oficiais:
+O núcleo atual materializa, por UEx, programa, ação e parcela, a correspondência entre três evidências oficiais:
 
 1. pagamento informado no PDDEInfo;
 2. ordem bancária e conta destinatária do SIGEF Liberações;
 3. crédito correspondente no SIGEF Movimentações.
 
-O sistema não transforma ausência de arquivo, indisponibilidade de fonte ou defasagem de cobertura em conclusão negativa.
+A arquitetura é deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
 
-## Fluxo de dados
+## Fluxo atual
+
+```text
+PDDEInfo JSON ───────────────┐
+                            │
+SIGEF Liberações XLS ───────┼─> normalização/validação ─> conciliação ─> Excel auditável
+                            │
+SIGEF Movimentações CSV ────┘
+```
+
+Principais módulos:
 
 1. `pddeinfo-normalizer.ts` converte o retorno do PDDEInfo em pagamentos esperados.
-2. `load-sigef-release-exports.ts` incorpora exportações de Liberações por manifesto ou pasta.
-3. `sigef-releases-html.ts` interpreta o `.xls`, que fisicamente é HTML em Windows-1252.
-4. `sigef-movements-csv.ts` lê o CSV nacional em fluxo e retém somente os CNPJs e programas da carteira.
-5. `reconciliation-pipeline.ts` valida unicidade, exercício e procedência das três fontes.
-6. `portfolio-reconciliation.ts` isola cada ação e parcela e resolve a conta bancária de modo explícito.
-7. `reconciliation.ts` aplica os seis estados gerenciais e seus códigos de razão.
-8. `reconciliation-workbook.ts` gera e relê o Excel auditável antes da gravação.
+2. `sigef-release-inspector.ts` identifica CNPJ, exercício, programa e data da consulta nas exportações do SIGEF.
+3. `load-sigef-release-exports.ts` incorpora a pasta canônica ou manifesto de Liberações.
+4. `sigef-releases-html.ts` interpreta o `.xls`, fisicamente HTML em Windows-1252.
+5. `sigef-movements-csv.ts` lê o CSV nacional em fluxo e filtra a carteira relevante.
+6. `reconciliation-pipeline.ts` valida procedência e cobertura das fontes.
+7. `portfolio-reconciliation.ts` isola cada ação/parcela e resolve candidatos sem inferência silenciosa.
+8. `reconciliation.ts` aplica estados gerenciais e códigos de razão.
+9. `reconciliation-workbook.ts` gera, relê e audita o Excel antes da gravação.
+10. o Assistente de Liberações prepara as exportações de forma incremental e idempotente antes da conciliação.
 
 ## Invariantes
 
-- Dinheiro é comparado em centavos inteiros.
-- CNPJ, banco, agência, conta, INEP, código SME e ordem bancária permanecem texto.
-- Uma liberação só participa da linha compatível em CNPJ, exercício, programa, ação e parcela.
-- Um movimento só participa depois que uma liberação candidata fornece contexto à parcela.
-- Conta divergente entre PDDEInfo e SIGEF nunca é escolhida automaticamente.
-- Conta ausente no PDDEInfo só pode ser completada por uma liberação confiável.
-- Arquivo de Liberações duplicado para o mesmo CNPJ/programa interrompe a execução.
-- Cabeçalho ou destinação desconhecidos interrompem a execução em vez de desaparecer do resultado.
-- Fórmulas provenientes de fontes externas são neutralizadas e fórmulas no relatório final são proibidas.
-- O relatório só é gravado depois de ser relido e auditado.
+- dinheiro é comparado em centavos inteiros;
+- CNPJ, banco, agência, conta, INEP, código SME e OB permanecem texto;
+- fonte ausente ou cobertura insuficiente nunca vira confirmação nem ausência definitiva;
+- uma liberação só participa da linha compatível em CNPJ, exercício, programa, ação e parcela;
+- um movimento bancário só participa quando existe contexto documental suficiente;
+- conta divergente entre fontes nunca é escolhida automaticamente;
+- conta ausente no PDDEInfo não é inferida a partir de histórico ou programa diferente;
+- cabeçalho, destinação ou estrutura desconhecida geram erro explícito;
+- conteúdo externo capaz de virar fórmula no Excel é neutralizado;
+- relatórios financeiros não dependem de fórmulas ocultas para provar seus resultados;
+- o workbook final é relido e validado antes de ser considerado concluído.
 
-## Importação em lote de Liberações
+## Direção da plataforma
 
-A pasta usa o contrato `CNPJ__PROGRAMA.xls`, por exemplo:
+O produto final deve evoluir sem substituir o núcleo determinístico por lógica de interface:
 
 ```text
-12345678000190__02.xls
-12345678000190__0B.xls
+Aplicação web operacional
+        │
+        ▼
+Orquestrador de coletas e execuções
+        │
+        ├── PDDEInfo
+        ├── SIGEF Liberações
+        ├── SIGEF Movimentações/Extratos
+        └── fontes complementares
+        │
+        ▼
+Modelo canônico de dados + evidências
+        │
+        ▼
+Motor determinístico de conciliação
+        │
+        ├── resultado operacional
+        ├── exceções/revisão
+        ├── rastreabilidade
+        └── Excel profissional
 ```
 
-O carregador valida o par declarado no nome, o CNPJ interno do arquivo, sua pertinência à carteira e a ausência de duplicidade. O resultado informa pares esperados, importados e faltantes.
+Persistência, histórico de execuções, evidências brutas, autenticação e interface web ainda não são considerados parte consolidada do repositório apenas porque existam em protótipos paralelos. Eles entram na plataforma somente quando forem incorporados e validados aqui.
 
-O manifesto permanece disponível quando for necessário preservar a URL específica de cada exportação.
+## Direção de UX
 
-## Limites do marco v0.1.0
+As implementações paralelas demonstraram uma direção de interface que vale preservar como referência, sem herdar seus runtimes:
 
-- A obtenção do CAPTCHA continua sob intervenção humana.
-- O núcleo é executável por CLI; a interface web ainda não aciona a conciliação completa.
-- Persistência de histórico, autenticação e implantação pertencem aos próximos marcos.
-- Os arquivos nacionais e relatórios gerados podem ser públicos, mas ficam fora do Git por tamanho e reprodutibilidade.
+- aparência institucional sóbria e alta densidade útil de informação;
+- execução e situação da carteira visíveis antes dos detalhes técnicos;
+- lista de escolas e resumo financeiro como foco da auditoria;
+- rastreabilidade, hashes, URLs e artefatos em camada secundária sob demanda;
+- estados financeiros em linguagem clara e com cores semânticas;
+- tooltips para explicar estados de evidência;
+- foco por teclado e modo de alto contraste;
+- comportamento responsivo para desktop e celular;
+- evitar painéis e notificações que ocupem espaço sem apoiar decisão operacional.
 
-## Dependência transitiva corrigida
+O repositório `EXTRATOR-PDDE-MANUS` é uma referência de leitura para essa direção visual, não uma dependência de código ou runtime.
 
-O ExcelJS 4.4.0 ainda declara `uuid ^8.3.0`. O projeto força `uuid 11.1.1`, primeira versão corrigida da linha 11 para o CVE-2026-41907. A chamada utilizada pelo ExcelJS é `v4()`, preservada nessa versão. A geração, serialização e releitura do workbook permanecem cobertas por testes. O override deve ser removido quando uma futura versão do ExcelJS atualizar sua dependência nativa.
+## Limites atuais
+
+- obtenção autônoma do SIGEF continua limitada por CAPTCHA em rotas relevantes;
+- o fluxo principal ainda é executado por CLI;
+- a interface web definitiva ainda não está integrada ao motor de conciliação;
+- persistência institucional, autenticação e armazenamento de evidências serão incorporados em etapas posteriores;
+- arquivos operacionais grandes permanecem fora do Git quando não agregam valor ao histórico do código.
+
+## Dependência transitiva
+
+O ExcelJS 4.4.0 ainda declara `uuid ^8.3.0`. O projeto força `uuid 11.1.1`, versão corrigida para a vulnerabilidade transitiva monitorada. A chamada utilizada pelo ExcelJS é `v4()`, preservada nessa versão. Geração, serialização e releitura do workbook permanecem cobertas por testes. O override deve ser removido quando uma futura versão do ExcelJS atualizar sua dependência nativa.
