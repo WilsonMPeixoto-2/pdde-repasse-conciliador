@@ -77,6 +77,8 @@ Papéis aceitos:
 
 O arquivo pode ter no máximo 50 MiB. O cliente calcula SHA-256 e tamanho antes de pedir o ticket:
 
+O `runId` aceita de 1 a 160 caracteres alfanuméricos, ponto, sublinhado, hífen, dois-pontos. `.` e `..` isolados são recusados. Nos demais segmentos do path derivado, dois-pontos não são aceitos; o cliente nunca fornece o path diretamente.
+
 ```bash
 curl -X POST http://localhost:3000/api/artifacts/uploads \
   -H "Authorization: Bearer $PDDE_API_COMMAND_TOKEN" \

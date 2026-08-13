@@ -160,6 +160,21 @@ describe('SupabaseArtifactStore', () => {
     }]);
   });
 
+  test('aceita dois-pontos somente no segmento de runId do path institucional', async () => {
+    const client = new FakeStorageClient();
+    const store = new SupabaseArtifactStore(client);
+    const path = 'runs/input:2026-08-13/inputs/sigef-movimentacoes/upload-1.csv';
+
+    await expect(store.createSignedUpload({
+      bucket: 'pdde-evidence',
+      path,
+    })).resolves.toMatchObject({ path });
+    await expect(store.createSignedUpload({
+      bucket: 'pdde-evidence',
+      path: 'runs/input-2026/inputs:externos/upload-1.csv',
+    })).rejects.toThrow(/caminho.*inválido/i);
+  });
+
   test('rejeita ticket assinado quando o Storage devolve outro path', async () => {
     const client = new FakeStorageClient();
     client.bucket.signedUploadPathOverride = 'runs/outro-run/objeto.csv';

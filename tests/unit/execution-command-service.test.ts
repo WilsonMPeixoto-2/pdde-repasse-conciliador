@@ -192,6 +192,38 @@ describe('ExecutionCommandService', () => {
     expect(JSON.stringify(queue.inputs[0].payload)).not.toMatch(/amount|valor|cents/i);
   });
 
+  test('aceita dois-pontos no runId proprietário sem liberá-los nos demais segmentos', async () => {
+    const queue = new FakeQueue();
+    const evidence = new FakeArtifactEvidence([
+      artifactEvent({
+        eventId: 'pdde-colon', runId: 'coleta:1',
+        path: 'runs/coleta:1/pddeinfo-2026.json', source: 'PDDEINFO', kind: 'NORMALIZED_JSON',
+      }),
+      finishedCollection('coleta:1'),
+      artifactEvent({
+        eventId: 'movement-colon', runId: 'entrada:1',
+        path: 'runs/entrada:1/movements.csv', source: 'SIGEF_MOVIMENTACOES', kind: 'RAW_FILE',
+      }),
+    ]);
+    const service = new ExecutionCommandService(queue, { artifactEvidence: evidence });
+
+    await expect(service.requestReconciliation('run-id-com-dois-pontos', {
+      fiscalYear: 2026,
+      requestedThrough: '2026-08-13',
+      pddeInfoArtifact: {
+        bucket: 'pdde-evidence',
+        path: 'runs/coleta:1/pddeinfo-2026.json',
+        sha256: 'a'.repeat(64),
+      },
+      movementsArtifact: {
+        bucket: 'pdde-evidence',
+        path: 'runs/entrada:1/movements.csv',
+        sha256: 'a'.repeat(64),
+      },
+    })).resolves.toMatchObject({ status: 'QUEUED' });
+    expect(queue.inputs[0].payload).toMatchObject({ sourceCollectionRunId: 'coleta:1' });
+  });
+
   test('recusa referência sem ARTIFACT_PRESERVED correspondente antes de enfileirar', async () => {
     const queue = new FakeQueue();
     const evidence = reconciliationEvidence();

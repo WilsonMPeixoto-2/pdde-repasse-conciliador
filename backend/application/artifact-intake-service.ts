@@ -7,12 +7,15 @@ import type {
   PreservedArtifact,
   SignedArtifactUploadStore,
 } from './artifact-store';
-import { INSTITUTIONAL_ARTIFACT_BUCKET } from './artifact-store';
+import {
+  INSTITUTIONAL_ARTIFACT_BUCKET,
+  isInstitutionalArtifactRunId,
+} from './artifact-store';
 import type { EvidenceEventStore } from './evidence-store';
 
 const MAX_ARTIFACT_BYTES = 52_428_800;
-const identifierSchema = z.string().min(1).max(160).regex(
-  /^[A-Za-z0-9._:-]+$/,
+const identifierSchema = z.string().refine(
+  isInstitutionalArtifactRunId,
   'identificador contém caracteres inválidos',
 );
 const idempotencyKeySchema = z.string().trim().min(1).max(200)

@@ -153,6 +153,10 @@ describe('ArtifactIntakeService', () => {
       ...request,
       runId: '../outro-run',
     })).rejects.toThrow(/identificador/i);
+    await expect(service.requestUpload('segmento-pai', {
+      ...request,
+      runId: '..',
+    })).rejects.toThrow(/identificador/i);
     await expect(service.requestUpload('nome-invalido', {
       ...request,
       originalName: '../movimentacoes.csv',

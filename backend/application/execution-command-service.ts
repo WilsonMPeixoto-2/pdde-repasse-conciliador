@@ -6,7 +6,10 @@ import type {
 } from '../core/evidence';
 import type { ExecutionJobKind } from '../core/execution-job';
 import type { ArtifactKind } from './artifact-store';
-import { INSTITUTIONAL_ARTIFACT_BUCKET } from './artifact-store';
+import {
+  INSTITUTIONAL_ARTIFACT_BUCKET,
+  isInstitutionalArtifactPath,
+} from './artifact-store';
 import type { EvidenceEventStore } from './evidence-store';
 import type { ExecutionJobQueue } from './execution-queue';
 
@@ -24,14 +27,10 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
   (value) => Number.isFinite(Date.parse(`${value}T00:00:00Z`)),
   'data ISO inválida',
 );
-const storagePathSchema = z.string().min(1).max(900).refine((value) => {
-  const segments = value.split('/');
-  return segments.length >= 3
-    && segments[0] === 'runs'
-    && identifierSchema.safeParse(segments[1]).success
-    && !value.includes('\\')
-    && segments.every((segment) => /^[A-Za-z0-9._-]+$/.test(segment));
-}, 'caminho/path institucional inválido');
+const storagePathSchema = z.string().refine(
+  isInstitutionalArtifactPath,
+  'caminho/path institucional inválido',
+);
 const artifactReferenceSchema = z.object({
   bucket: z.literal(INSTITUTIONAL_ARTIFACT_BUCKET),
   path: storagePathSchema,

@@ -8,11 +8,19 @@ import type {
   SignedArtifactDownload,
   SignedArtifactUpload,
 } from '../application/artifact-store';
-import { INSTITUTIONAL_ARTIFACT_BUCKET } from '../application/artifact-store';
+import {
+  INSTITUTIONAL_ARTIFACT_BUCKET,
+  isInstitutionalArtifactPath,
+  isInstitutionalArtifactRunId,
+} from '../application/artifact-store';
 
 const identifierSchema = z.string().min(1).max(160).regex(
   /^[A-Za-z0-9._:-]+$/,
   'identificador contém caracteres inválidos',
+);
+const runIdSchema = z.string().refine(
+  isInstitutionalArtifactRunId,
+  'runId institucional inválido',
 );
 const relativePathSchema = z.string().min(1).max(900).superRefine((value, context) => {
   const segments = value.split('/');
@@ -95,8 +103,7 @@ async function dataToBytes(data: unknown): Promise<Uint8Array> {
 }
 
 function validateStoragePath(path: string): string {
-  relativePathSchema.parse(path);
-  if (!path.startsWith('runs/')) {
+  if (!isInstitutionalArtifactPath(path)) {
     throw new Error(`SupabaseArtifactStore: caminho institucional inválido: ${path}.`);
   }
   return path;
@@ -115,7 +122,7 @@ export class SupabaseArtifactStore implements ArtifactStore {
   }
 
   async preserve(rawInput: PreserveArtifactInput): Promise<PreservedArtifact> {
-    const runId = identifierSchema.parse(rawInput.runId);
+    const runId = runIdSchema.parse(rawInput.runId);
     const relativePath = relativePathSchema.parse(rawInput.relativePath);
     const kind = artifactKindSchema.parse(rawInput.kind);
     const mediaType = mediaTypeSchema.parse(rawInput.mediaType);
