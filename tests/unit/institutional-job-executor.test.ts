@@ -146,7 +146,6 @@ describe('InstitutionalJobExecutor', () => {
       releaseDirectoryPath: join(run, 'inputs', 'releases'),
       outputPath: join(run, 'reports', 'reconciliation.xlsx'),
       reconciliationRunId: 'reconciliation-run-1',
-      sourceCollectionRunId: null,
       fiscalYear: 2026,
       requestedThrough: '2026-08-13',
       title: 'Relatório institucional',
