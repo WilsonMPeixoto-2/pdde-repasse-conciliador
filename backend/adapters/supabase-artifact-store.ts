@@ -53,6 +53,7 @@ interface StorageResult {
 interface StorageBucketClient {
   upload(path: string, body: Uint8Array, options: Record<string, unknown>): PromiseLike<StorageResult>;
   download(path: string): PromiseLike<StorageResult>;
+  info(path: string): PromiseLike<StorageResult>;
   createSignedUrl(
     path: string,
     expiresIn: number,
@@ -90,6 +91,24 @@ function isDuplicate(error: unknown): boolean {
 
 function hash(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, canonicalize(item)]),
+    );
+  }
+  return value;
+}
+
+function identityHash(value: Record<string, unknown>): string {
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalize(value)), 'utf8')
+    .digest('hex');
 }
 
 async function dataToBytes(data: unknown): Promise<Uint8Array> {
@@ -137,6 +156,15 @@ export class SupabaseArtifactStore implements ArtifactStore {
     const sha256 = hash(rawInput.bytes);
     const metadata = { ...(rawInput.metadata ?? {}) };
     const storageContentType = mediaType.split(';', 1)[0].trim();
+    const institutionalIdentity = {
+      ...metadata,
+      runId,
+      kind,
+      sha256,
+      mediaType,
+      ...(rawInput.schoolInep ? { schoolInep: rawInput.schoolInep } : {}),
+    };
+    const institutionalIdentitySha256 = identityHash(institutionalIdentity);
     const bucketClient = this.client.storage.from(this.bucket);
     const { error } = await bucketClient.upload(path, rawInput.bytes, {
       cacheControl: '31536000',
@@ -149,6 +177,8 @@ export class SupabaseArtifactStore implements ArtifactStore {
         runId,
         kind,
         sha256,
+        mediaType,
+        institutionalIdentitySha256,
         ...(rawInput.schoolInep ? { schoolInep: rawInput.schoolInep } : {}),
       },
     });
@@ -160,6 +190,22 @@ export class SupabaseArtifactStore implements ArtifactStore {
       const existing = await this.download({ bucket: this.bucket, path });
       if (hash(existing) !== sha256) {
         throw new Error(`SupabaseArtifactStore: conflito de SHA-256 no caminho imutável ${path}.`);
+      }
+      const { data: info, error: infoError } = await bucketClient.info(path);
+      if (infoError) {
+        throw new Error(
+          `SupabaseArtifactStore: falha ao validar metadados de ${path}: ${message(infoError)}.`,
+        );
+      }
+      const storedMetadata = info && typeof info === 'object'
+        && 'metadata' in info && info.metadata
+        && typeof info.metadata === 'object' && !Array.isArray(info.metadata)
+        ? info.metadata as Record<string, unknown>
+        : {};
+      if (storedMetadata.institutionalIdentitySha256 !== institutionalIdentitySha256) {
+        throw new Error(
+          `SupabaseArtifactStore: conflito de metadados/identidade no caminho imutável ${path}.`,
+        );
       }
     }
 

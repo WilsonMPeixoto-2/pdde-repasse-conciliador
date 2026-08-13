@@ -131,6 +131,8 @@ curl -X POST \
 
 A confirmação baixa o objeto pelo backend, recalcula tamanho e SHA-256 e só então anexa `ARTIFACT_PRESERVED`. Divergência ou conflito de idempotência retorna `409`; solicitação desconhecida retorna `404`. Repetir a mesma solicitação ou confirmação não duplica eventos. O ticket autoriza somente o path derivado de `runId`, papel e chave de idempotência; `upsert` fica desativado.
 
+Para artefatos produzidos pelo runner, encontrar o mesmo path com os mesmos bytes não basta para considerar a operação idempotente: tipo, MIME, escola e metadados também precisam coincidir com o digest de identidade já armazenado. Reclassificação semântica do mesmo objeto é tratada como conflito.
+
 Um `runId` usado apenas para agrupar uploads permanece consultável no log e nos artefatos, mas não aparece como falsa execução `UNKNOWN`. A projeção de execuções exige ao menos um evento de solicitação, início ou término da execução.
 
 Uma conciliação só é aceita depois que **todas** as referências informadas encontram eventos `ARTIFACT_PRESERVED` exatos: mesmo bucket, path, SHA-256, exercício, origem e papel/tipo. O papel é obrigatório; ausência de `metadata.role` não equivale a compatibilidade. Referência ainda não confirmada, hash divergente ou arquivo preservado para outro papel retorna `409` sem criar job. O corpo público não aceita `sourceCollectionRunId`; o backend vincula a conciliação a uma coleta somente quando o JSON PDDEInfo pertence a um ciclo encerrado como `COMPLETE`. JSON recebido por lote sem ciclo pode ser usado, mas permanece corretamente sem vínculo de coleta. Ciclo conhecido ainda em andamento, `PARTIAL` ou `FAILED` precisa ser resolvido antes da conciliação.

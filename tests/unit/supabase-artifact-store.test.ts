@@ -6,15 +6,16 @@ class FakeBucket {
   readonly uploads: Array<{ path: string; body: Uint8Array; options: Record<string, unknown> }> = [];
   readonly signedUploads: Array<{ path: string; options: Record<string, unknown> }> = [];
   readonly objects = new Map<string, Uint8Array>();
-  duplicate = false;
+  readonly objectMetadata = new Map<string, Record<string, unknown>>();
   signedUploadPathOverride: string | null = null;
 
   async upload(path: string, body: Uint8Array, options: Record<string, unknown>) {
     this.uploads.push({ path, body, options });
-    if (this.duplicate || this.objects.has(path)) {
+    if (this.objects.has(path)) {
       return { data: null, error: { message: 'The resource already exists', statusCode: 409 } };
     }
     this.objects.set(path, body);
+    this.objectMetadata.set(path, options.metadata as Record<string, unknown>);
     return { data: { path }, error: null };
   }
 
@@ -22,6 +23,12 @@ class FakeBucket {
     const bytes = this.objects.get(path);
     if (!bytes) return { data: null, error: { message: 'Object not found', statusCode: 404 } };
     return { data: new Blob([Uint8Array.from(bytes).buffer as ArrayBuffer]), error: null };
+  }
+
+  async info(path: string) {
+    const metadata = this.objectMetadata.get(path);
+    if (!metadata) return { data: null, error: { message: 'Object not found', statusCode: 404 } };
+    return { data: { metadata }, error: null };
   }
 
   async createSignedUrl(path: string, expiresIn: number, options?: Record<string, unknown>) {
@@ -92,6 +99,8 @@ describe('SupabaseArtifactStore', () => {
             runId: 'run-2026-08-13',
             kind: 'RAW_HTML',
             sha256: artifact.sha256,
+            mediaType: 'text/html; charset=utf-8',
+            institutionalIdentitySha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             schoolInep: '33069247',
           }),
         }),
@@ -110,13 +119,31 @@ describe('SupabaseArtifactStore', () => {
       mediaType: 'application/json',
     };
     const expectedPath = 'runs/run-idempotente/manifest.json';
-    client.bucket.objects.set(expectedPath, bytes);
-    client.bucket.duplicate = true;
-
+    await store.preserve(input);
     await expect(store.preserve(input)).resolves.toMatchObject({ path: expectedPath });
 
     client.bucket.objects.set(expectedPath, new TextEncoder().encode('conteúdo diferente'));
     await expect(store.preserve(input)).rejects.toThrow(/conflito.*sha-256/i);
+  });
+
+  test('bloqueia reclassificação semântica mesmo quando os bytes são idênticos', async () => {
+    const client = new FakeStorageClient();
+    const store = new SupabaseArtifactStore(client);
+    const input = {
+      runId: 'run-semantica',
+      relativePath: 'objeto.json',
+      kind: 'MANIFEST' as const,
+      bytes,
+      mediaType: 'application/json',
+      metadata: { role: 'MANIFEST_ORIGINAL' },
+    };
+    await store.preserve(input);
+
+    await expect(store.preserve({
+      ...input,
+      kind: 'NORMALIZED_JSON',
+      metadata: { role: 'PDDEINFO_JSON' },
+    })).rejects.toThrow(/metadados|semântic|identidade/i);
   });
 
   test('gera download assinado curto e rejeita path traversal', async () => {
