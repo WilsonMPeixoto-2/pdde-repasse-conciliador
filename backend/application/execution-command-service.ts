@@ -6,6 +6,7 @@ import type {
 } from '../core/evidence';
 import type { ExecutionJobKind } from '../core/execution-job';
 import { isoDateSchema } from '../core/schemas';
+import { isoTimestampSchema } from '../core/time';
 import type { ArtifactKind } from './artifact-store';
 import {
   INSTITUTIONAL_ARTIFACT_BUCKET,
@@ -14,10 +15,6 @@ import {
 import type { EvidenceEventStore } from './evidence-store';
 import type { ExecutionJobQueue } from './execution-queue';
 
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
 const idempotencyKeySchema = z.string().trim().min(1, 'chave de idempotência obrigatória').max(200)
   .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'chave de idempotência inválida');
 const identifierSchema = z.string().min(1).max(160).regex(
@@ -280,7 +277,7 @@ export class ExecutionCommandService {
     payload: Record<string, unknown>,
   ): Promise<ExecutionCommandReceipt> {
     const idempotencyKey = idempotencyKeySchema.parse(rawIdempotencyKey);
-    const requestedAt = timestampSchema.parse(this.now());
+    const requestedAt = isoTimestampSchema.parse(this.now());
     const job = await this.queue.enqueue({
       jobId: z.string().uuid().parse(this.randomUuid()),
       runId: deterministicRunId(kind, idempotencyKey),

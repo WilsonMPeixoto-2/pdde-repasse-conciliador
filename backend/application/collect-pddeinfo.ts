@@ -16,17 +16,13 @@ import {
 } from '../adapters/pddeinfo-http';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import type { EvidenceEventInput } from '../core/evidence';
+import { isoTimestampSchema } from '../core/time';
 import type {
   ArtifactStore,
   PreserveArtifactInput,
   PreservedArtifact,
 } from './artifact-store';
 import type { EvidenceEventWriter } from './evidence-store';
-
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
 
 const schoolSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
@@ -39,7 +35,7 @@ const baseOptionsSchema = z.object({
   workspacePath: z.string().min(1),
   fiscalYear: z.number().int().min(2000).max(2100),
   runId: z.string().regex(/^[A-Za-z0-9._-]+$/).optional(),
-  startedAt: timestampSchema.optional(),
+  startedAt: isoTimestampSchema.optional(),
   batchSize: z.number().int().min(1).max(20).default(3),
   batchDelayMs: z.number().int().min(0).max(60_000).default(1_500),
   institutionalPathPrefix: z.string().min(1).max(300).refine(
@@ -458,7 +454,7 @@ export async function collectPddeInfo(
   });
 
   const completedAt = rawOptions.completedAt?.() ?? new Date().toISOString();
-  timestampSchema.parse(completedAt);
+  isoTimestampSchema.parse(completedAt);
   const succeeded = orderedEntries.filter((entry) => entry.status === 'SUCCESS').length;
   const failed = orderedEntries.length - succeeded;
   const status: CollectionStatus = failed === 0 ? 'COMPLETE' : 'PARTIAL';

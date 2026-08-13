@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isoTimestampSchema } from './time';
 
 export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const [year, month, day] = value.split('-').map(Number);
@@ -7,11 +8,6 @@ export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((val
     && date.getUTCMonth() === month - 1
     && date.getUTCDate() === day;
 }, 'data ISO inválida');
-
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora da consulta inválidas',
-);
 
 export const bankAccountSchema = z.object({
   bank: z.string().min(1),
@@ -22,7 +18,7 @@ export const bankAccountSchema = z.object({
 export const sourceSnapshotSchema = z.object({
   source: z.enum(['PDDEINFO', 'SIGEF_LIBERACOES', 'SIGEF_MOVIMENTACOES']),
   status: z.enum(['available', 'partial', 'unavailable']),
-  queriedAt: timestampSchema,
+  queriedAt: isoTimestampSchema,
   coverageThrough: isoDateSchema.optional(),
   detail: z.string().min(1).optional(),
 }).strict();

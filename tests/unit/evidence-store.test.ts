@@ -38,6 +38,18 @@ describe('evidenceEventInputSchema', () => {
       },
     })).toThrow(/sha-256/i);
   });
+
+  test('rejeita timestamp ambíguo ou com data civil impossível', () => {
+    expect(() => evidenceEventInputSchema.parse({
+      ...baseEvent,
+      occurredAt: '2026-08-13',
+    })).toThrow(/data e hora/i);
+
+    expect(() => evidenceEventInputSchema.parse({
+      ...baseEvent,
+      occurredAt: '2026-02-31T01:55:00-03:00',
+    })).toThrow(/data e hora/i);
+  });
 });
 
 describe('JsonlEvidenceStore', () => {

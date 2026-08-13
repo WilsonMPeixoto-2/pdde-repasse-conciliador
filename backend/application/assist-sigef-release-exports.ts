@@ -8,20 +8,17 @@ import {
 } from '../adapters/sigef-release-inspector';
 import { parseSigefReleaseHtml } from '../adapters/sigef-releases-html';
 import { canonicalCnpj, canonicalText } from '../core/normalization';
+import { isoTimestampSchema } from '../core/time';
 import { DEFAULT_SIGEF_RELEASE_SOURCE_URL } from './load-sigef-release-exports';
 
 const SUPPORTED_PROGRAMS = ['02', '0A', '0B', 'Z9'] as const;
 const GENERATED_DIRECTORIES = new Set(['originais', 'liberacoes', 'controle']);
 
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
 const optionsSchema = z.object({
   pddeInfoPath: z.string().min(1),
   workspacePath: z.string().min(1),
   fiscalYear: z.number().int().min(2000).max(2100),
-  generatedAt: timestampSchema.optional(),
+  generatedAt: isoTimestampSchema.optional(),
 }).strict();
 
 const pddeInfoEnvelopeSchema = z.object({

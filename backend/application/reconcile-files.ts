@@ -8,6 +8,7 @@ import { parseSigefMovementCsv } from '../adapters/sigef-movements-csv';
 import { canonicalCnpj, canonicalProgramCode } from '../core/normalization';
 import type { EvidenceEventInput } from '../core/evidence';
 import { isoDateSchema } from '../core/schemas';
+import { isoTimestampSchema } from '../core/time';
 import type { ArtifactStore } from './artifact-store';
 import {
   buildReconciliationWorkbook,
@@ -18,16 +19,12 @@ import type { EvidenceEventWriter } from './evidence-store';
 import { loadSigefReleaseExports } from './load-sigef-release-exports';
 import { assembleReconciliationPortfolio } from './reconciliation-pipeline';
 
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
 const identifierSchema = z.string().min(1).max(160).regex(
   /^[A-Za-z0-9._:-]+$/,
   'identificador contém caracteres inválidos',
 );
 const pddeInfoEnvelopeSchema = z.object({
-  fetchedAt: timestampSchema,
+  fetchedAt: isoTimestampSchema,
   collectionStatus: z.enum(['COMPLETE', 'PARTIAL']).optional(),
   runId: z.string().min(1).optional(),
   schools: z.array(z.unknown()),
@@ -41,7 +38,7 @@ const optionsSchema = z.object({
   releaseDirectorySourceUrl: z.string().url().optional(),
   fiscalYear: z.number().int().min(2000).max(2100),
   requestedThrough: isoDateSchema,
-  generatedAt: timestampSchema.optional(),
+  generatedAt: isoTimestampSchema.optional(),
   title: z.string().min(1).optional(),
   overwrite: z.boolean().default(false),
 }).strict().superRefine((value, context) => {

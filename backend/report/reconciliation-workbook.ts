@@ -3,6 +3,7 @@ import type {
   PortfolioReconciliationResult,
   PortfolioRow,
 } from '../core/portfolio-reconciliation';
+import { isoTimestampSchema } from '../core/time';
 import { RECONCILIATION_STATUS_LABELS, type ReconciliationStatus } from '../core/types';
 
 export interface ReconciliationWorkbookInput {
@@ -389,7 +390,7 @@ function validateInput(input: ReconciliationWorkbookInput): void {
   if (!input || !input.portfolio || !Array.isArray(input.portfolio.rows)) {
     throw new Error('Carteira de conciliação ausente ou inválida.');
   }
-  if (!Number.isFinite(Date.parse(input.generatedAt))) {
+  if (!isoTimestampSchema.safeParse(input.generatedAt).success) {
     throw new Error('Data e hora de geração inválidas.');
   }
   if (input.portfolio.summary.total !== input.portfolio.rows.length) {

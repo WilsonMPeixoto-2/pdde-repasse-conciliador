@@ -9,6 +9,7 @@ import {
   type SigefMovement,
   type SourceSnapshot,
 } from '../core/schemas';
+import { isoTimestampSchema } from '../core/time';
 
 const REQUIRED_HEADERS = [
   'OPERACAO',
@@ -29,7 +30,7 @@ const REQUIRED_HEADERS = [
 const optionsSchema = z.object({
   targetCnpjs: z.array(z.string().min(1)).min(1),
   programCodes: z.array(z.string().min(1)).optional(),
-  queriedAt: z.string().refine((value) => Number.isFinite(Date.parse(value))),
+  queriedAt: isoTimestampSchema,
   requestedThrough: isoDateSchema,
 }).strict();
 

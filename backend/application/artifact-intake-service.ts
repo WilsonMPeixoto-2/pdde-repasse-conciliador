@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { EvidenceSource } from '../core/evidence';
+import { isoTimestampSchema } from '../core/time';
 import type {
   ArtifactKind,
   ArtifactReference,
@@ -173,8 +174,7 @@ export class ArtifactIntakeService {
       );
     }
     const uploadId = deterministicUploadId(request.runId, idempotencyKey);
-    const occurredAt = z.string().refine((value) => Number.isFinite(Date.parse(value)))
-      .parse(this.now());
+    const occurredAt = isoTimestampSchema.parse(this.now());
     const path = `runs/${request.runId}/inputs/${descriptor.directory}/${uploadId}.${descriptor.extension}`;
     const requestHash = digest(request);
     const eventId = `artifact-upload:${uploadId}:requested`;
@@ -290,7 +290,7 @@ export class ArtifactIntakeService {
         eventId: preservedEventId,
         runId,
         type: 'ARTIFACT_PRESERVED',
-        occurredAt: z.string().refine((value) => Number.isFinite(Date.parse(value))).parse(this.now()),
+        occurredAt: isoTimestampSchema.parse(this.now()),
         source: requestedEvent.source,
         fiscalYear: requestedEvent.fiscalYear,
         payload: artifact,

@@ -1,9 +1,5 @@
 import { z } from 'zod';
-
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
+import { isoTimestampSchema } from './time';
 const identifierSchema = z.string().min(1).max(160).regex(
   /^[A-Za-z0-9._:-]+$/,
   'identificador contém caracteres inválidos',
@@ -26,11 +22,11 @@ export const executionJobSchema = z.object({
   idempotencyKey: z.string().min(1).max(200),
   requestHash: z.string().regex(/^[a-f0-9]{64}$/i, 'sha-256 inválido'),
   payload: z.record(z.string(), z.unknown()),
-  requestedAt: timestampSchema,
-  availableAt: timestampSchema,
-  claimedAt: timestampSchema.nullable(),
-  leaseExpiresAt: timestampSchema.nullable(),
-  completedAt: timestampSchema.nullable(),
+  requestedAt: isoTimestampSchema,
+  availableAt: isoTimestampSchema,
+  claimedAt: isoTimestampSchema.nullable(),
+  leaseExpiresAt: isoTimestampSchema.nullable(),
+  completedAt: isoTimestampSchema.nullable(),
   workerId: identifierSchema.nullable(),
   attempts: z.number().int().nonnegative(),
   maxAttempts: z.number().int().positive().max(20),

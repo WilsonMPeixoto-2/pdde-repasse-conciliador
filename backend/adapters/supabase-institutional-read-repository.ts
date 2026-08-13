@@ -15,6 +15,7 @@ import {
   evidenceIdentifierSchema,
   evidenceSourceSchema,
 } from '../core/evidence';
+import { isoTimestampSchema } from '../core/time';
 import { mapSupabaseEvidenceEvent } from './supabase-evidence-store';
 
 const EVENT_COLUMNS = [
@@ -71,7 +72,7 @@ function integer(raw: unknown, name: string): number {
 
 function nullableTimestamp(raw: unknown): string | null {
   if (raw === null || raw === undefined) return null;
-  return z.string().refine((value) => Number.isFinite(Date.parse(value))).parse(raw);
+  return isoTimestampSchema.parse(raw);
 }
 
 function executionProjection(raw: unknown): { projection: EvidenceRunProjection; anchor: number } {

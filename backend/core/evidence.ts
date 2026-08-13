@@ -1,9 +1,5 @@
 import { z } from 'zod';
-
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
+import { isoTimestampSchema } from './time';
 
 export const evidenceIdentifierSchema = z.string()
   .min(1, 'identificador obrigatório')
@@ -36,7 +32,7 @@ export const evidenceEventTypeSchema = z.enum([
 const commonFields = {
   eventId: evidenceIdentifierSchema,
   runId: evidenceIdentifierSchema,
-  occurredAt: timestampSchema,
+  occurredAt: isoTimestampSchema,
   source: evidenceSourceSchema,
   fiscalYear: z.number().int().min(2000).max(2100),
   schoolInep: z.string().regex(/^\d{8}$/).optional(),
@@ -109,7 +105,7 @@ const observationSchema = z.object({
   type: z.literal('OBSERVATION_RECORDED'),
   payload: z.object({
     observationKind: z.string().min(1),
-    observedAt: timestampSchema.optional(),
+    observedAt: isoTimestampSchema.optional(),
     data: z.record(z.string(), z.unknown()),
   }).strict(),
 }).strict();
