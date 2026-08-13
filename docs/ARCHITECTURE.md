@@ -166,6 +166,8 @@ As projeções já disponíveis incluem:
 
 Lotes usados somente para ingestão continuam integralmente no log e na consulta de artefatos, mas não entram em `execution_read_models` sem ao menos um evento de ciclo de vida (`EXECUTION_REQUESTED`, `EXECUTION_STARTED` ou `EXECUTION_FINISHED`). Isso evita apresentar uma entrada operacional como execução `UNKNOWN`.
 
+O histórico escolar primeiro obtém os eventos diretamente associados ao INEP e depois busca somente as execuções relacionadas. Os `runId` são deduplicados e consultados em lotes conservadores de 40, com paginação interna e ordenação global por sequência; assim, o endpoint não volta a varrer o log inteiro e também não falha quando uma escola ultrapassa 500 execuções históricas.
+
 `scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
 
 ## Invariantes

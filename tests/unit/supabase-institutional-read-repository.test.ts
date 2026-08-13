@@ -60,6 +60,7 @@ class FakeQuery implements PromiseLike<{ data: Row[]; error: null; count: number
     return this;
   }
   in(column: string, values: unknown[]) {
+    if (values.length > 40) throw new Error('lote de IN excede 40 valores');
     this.filters.push((row) => values.includes(row[column]));
     return this;
   }
@@ -127,6 +128,20 @@ describe('SupabaseInstitutionalReadRepository', () => {
     await expect(repository.listEventsByRuns(['run-b'])).resolves.toEqual([
       expect.objectContaining({ eventId: 'start-b', runId: 'run-b' }),
       expect.objectContaining({ eventId: 'finding-b', runId: 'run-b' }),
+    ]);
+  });
+
+  test('divide históricos com mais de 500 execuções sem duplicar ou perder ordem', async () => {
+    const repository = new SupabaseInstitutionalReadRepository(new FakeClient());
+    const runIds = [
+      'run-b',
+      ...Array.from({ length: 500 }, (_, index) => `history-${index}`),
+      'run-b',
+    ];
+
+    await expect(repository.listEventsByRuns(runIds)).resolves.toEqual([
+      expect.objectContaining({ sequence: 6, eventId: 'start-b' }),
+      expect.objectContaining({ sequence: 7, eventId: 'finding-b' }),
     ]);
   });
 });

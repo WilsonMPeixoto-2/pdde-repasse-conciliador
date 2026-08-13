@@ -10,8 +10,11 @@ import {
   type FindingReadQuery,
   type InstitutionalReadRepository,
 } from '../application/institutional-read-repository';
-import type { PersistedEvidenceEvent } from '../core/evidence';
-import { evidenceSourceSchema } from '../core/evidence';
+import {
+  evidenceIdentifierSchema,
+  evidenceSourceSchema,
+  type PersistedEvidenceEvent,
+} from '../core/evidence';
 import { mapSupabaseEvidenceEvent } from './supabase-evidence-store';
 
 const EVENT_COLUMNS = [
@@ -25,6 +28,9 @@ const EXECUTION_COLUMNS = [
   'anchor_sequence',
 ].join(',');
 const PAGE_SIZE = 1_000;
+// Mantém a query `in(...)` abaixo de limites usuais de URL mesmo quando cada
+// identificador ocupa os 160 caracteres permitidos pelo contrato.
+const RUN_ID_BATCH_SIZE = 40;
 const projectedStatusSchema = z.enum(['QUEUED', 'RUNNING', 'COMPLETE', 'PARTIAL', 'FAILED', 'UNKNOWN']);
 
 interface SupabaseResult {
@@ -162,25 +168,29 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
   }
 
   async listEventsByRuns(runIds: string[]): Promise<PersistedEvidenceEvent[]> {
-    const validated = z.array(z.string().min(1).max(160)).min(1).max(500).parse(runIds);
+    const validated = z.array(evidenceIdentifierSchema).min(1).max(10_000)
+      .parse([...new Set(runIds)]);
     const events: PersistedEvidenceEvent[] = [];
-    let cursor = 0;
-    while (true) {
-      const { data, error } = await this.client.from('evidence_events')
-        .select(EVENT_COLUMNS)
-        .in('run_id', validated)
-        .gt('sequence', cursor)
-        .order('sequence', { ascending: true })
-        .limit(PAGE_SIZE);
-      if (error) throw new Error(`Read models do histórico escolar: ${message(error)}.`);
-      if (!Array.isArray(data)) throw new Error('Histórico escolar retornou formato inválido.');
-      const page = data.map(mapSupabaseEvidenceEvent);
-      events.push(...page);
-      if (page.length < PAGE_SIZE) break;
-      const next = page.at(-1)?.sequence;
-      if (!next || next <= cursor) throw new Error('Cursor do histórico escolar não avançou.');
-      cursor = next;
+    for (let offset = 0; offset < validated.length; offset += RUN_ID_BATCH_SIZE) {
+      const batch = validated.slice(offset, offset + RUN_ID_BATCH_SIZE);
+      let cursor = 0;
+      while (true) {
+        const { data, error } = await this.client.from('evidence_events')
+          .select(EVENT_COLUMNS)
+          .in('run_id', batch)
+          .gt('sequence', cursor)
+          .order('sequence', { ascending: true })
+          .limit(PAGE_SIZE);
+        if (error) throw new Error(`Read models do histórico escolar: ${message(error)}.`);
+        if (!Array.isArray(data)) throw new Error('Histórico escolar retornou formato inválido.');
+        const page = data.map(mapSupabaseEvidenceEvent);
+        events.push(...page);
+        if (page.length < PAGE_SIZE) break;
+        const next = page.at(-1)?.sequence;
+        if (!next || next <= cursor) throw new Error('Cursor do histórico escolar não avançou.');
+        cursor = next;
+      }
     }
-    return events;
+    return events.sort((left, right) => left.sequence - right.sequence);
   }
 }
