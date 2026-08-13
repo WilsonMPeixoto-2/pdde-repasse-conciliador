@@ -1,9 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { ExecutionWorker } from '../../backend/application/execution-worker';
-import {
-  ExecutionLeaseLostError,
-  type ExecutionJobQueue,
-} from '../../backend/application/execution-queue';
+import type { ExecutionJobQueue } from '../../backend/application/execution-queue';
 import type { ExecutionJob } from '../../backend/core/execution-job';
 
 const runningJob: ExecutionJob = {
@@ -15,26 +12,20 @@ const runningJob: ExecutionJob = {
   requestHash: 'a'.repeat(64),
   payload: { fiscalYear: 2026 },
   requestedAt: '2026-08-13T12:00:00Z',
-  availableAt: '2026-08-13T12:00:00Z',
-  claimedAt: '2026-08-13T12:01:00Z',
-  leaseExpiresAt: '2026-08-13T12:06:00Z',
+  startedAt: '2026-08-13T12:01:00Z',
   completedAt: null,
-  workerId: 'worker-1',
-  attempts: 1,
-  maxAttempts: 3,
   lastError: null,
 };
 
 function fixture(job: ExecutionJob | null = runningJob) {
   const queue: ExecutionJobQueue = {
     enqueue: vi.fn(),
+    recoverInterrupted: vi.fn(async () => 0),
     claim: vi.fn(async () => job),
-    renewLease: vi.fn(async () => runningJob),
     complete: vi.fn(async (input) => ({
       ...runningJob,
       status: input.status,
       completedAt: '2026-08-13T12:02:00Z',
-      leaseExpiresAt: null,
       lastError: input.error ?? null,
     })),
   };
@@ -42,191 +33,57 @@ function fixture(job: ExecutionJob | null = runningJob) {
 }
 
 describe('ExecutionWorker', () => {
-  test('retorna idle quando não há job e não chama o executor', async () => {
+  test('retorna idle quando não há trabalho', async () => {
     const { queue } = fixture(null);
     const execute = vi.fn();
-    const worker = new ExecutionWorker(queue, { execute }, {
-      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
-    });
-
+    const worker = new ExecutionWorker(queue, { execute });
     await expect(worker.runOnce()).resolves.toBeNull();
     expect(execute).not.toHaveBeenCalled();
-    expect(queue.complete).not.toHaveBeenCalled();
   });
 
-  test('conclui COMPLETE ou PARTIAL pelo worker proprietário', async () => {
+  test('conclui com o estado retornado pelo trabalho', async () => {
     const { queue } = fixture();
-    const execute = vi.fn(async () => ({ status: 'PARTIAL' as const }));
-    const worker = new ExecutionWorker(queue, { execute }, {
-      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
+    const worker = new ExecutionWorker(queue, {
+      execute: vi.fn(async () => ({ status: 'PARTIAL' as const })),
     });
-
-    await expect(worker.runOnce()).resolves.toEqual({
+    await expect(worker.runOnce()).resolves.toMatchObject({ status: 'PARTIAL' });
+    expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
-      runId: runningJob.runId,
       status: 'PARTIAL',
     });
-    expect(execute).toHaveBeenCalledWith(runningJob, {
-      signal: expect.any(AbortSignal),
+  });
+
+  test('marca FAILED quando o trabalho falha', async () => {
+    const { queue } = fixture();
+    const worker = new ExecutionWorker(queue, {
+      execute: async () => { throw new Error('fonte indisponível'); },
+    });
+    await expect(worker.runOnce()).resolves.toMatchObject({
+      status: 'FAILED', error: 'fonte indisponível',
     });
     expect(queue.complete).toHaveBeenCalledWith({
       jobId: runningJob.jobId,
-      workerId: 'worker-1',
-      attempt: 1,
-      status: 'PARTIAL',
+      status: 'FAILED',
+      error: 'fonte indisponível',
     });
   });
 
-  test('propaga falha da conclusão terminal sem tentar reclassificar o job como FAILED', async () => {
+  test('trata falha de persistência da conclusão de forma conservadora', async () => {
     const { queue } = fixture();
     vi.mocked(queue.complete).mockRejectedValueOnce(new Error('RPC de conclusão indisponível'));
     const worker = new ExecutionWorker(queue, {
       execute: async () => ({ status: 'COMPLETE' as const }),
-    }, {
-      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
     });
-
-    await expect(worker.runOnce()).rejects.toThrow('RPC de conclusão indisponível');
-    expect(queue.complete).toHaveBeenCalledTimes(1);
-    expect(queue.complete).toHaveBeenCalledWith({
-      jobId: runningJob.jobId,
-      workerId: 'worker-1',
-      attempt: 1,
-      status: 'COMPLETE',
+    await expect(worker.runOnce()).resolves.toMatchObject({
+      status: 'FAILED', error: 'RPC de conclusão indisponível',
     });
+    expect(queue.complete).toHaveBeenCalledTimes(2);
   });
 
-  test('não reclassifica como falha quando a conclusão confirma que o lease já foi perdido', async () => {
-    const { queue } = fixture();
-    vi.mocked(queue.complete).mockRejectedValueOnce(new ExecutionLeaseLostError(
-      'tentativa não está RUNNING para o worker informado',
-    ));
-    const worker = new ExecutionWorker(queue, {
-      execute: async () => ({ status: 'COMPLETE' as const }),
-    }, {
-      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
-    });
-
-    await expect(worker.runOnce()).resolves.toEqual({
-      jobId: runningJob.jobId,
-      runId: runningJob.runId,
-      status: 'LEASE_LOST',
-      error: 'tentativa não está RUNNING para o worker informado',
-    });
-    expect(queue.complete).toHaveBeenCalledTimes(1);
-  });
-
-  test('persiste FAILED com mensagem clara quando o executor falha', async () => {
-    const { queue } = fixture();
-    const worker = new ExecutionWorker(queue, {
-      execute: async () => { throw new Error('fonte indisponível'); },
-    }, {
-      workerId: 'worker-1', leaseSeconds: 120, heartbeatIntervalMs: 30_000,
-    });
-
-    await expect(worker.runOnce()).resolves.toEqual({
-      jobId: runningJob.jobId,
-      runId: runningJob.runId,
-      status: 'FAILED',
-      error: 'fonte indisponível',
-    });
-    expect(queue.complete).toHaveBeenCalledWith({
-      jobId: runningJob.jobId,
-      workerId: 'worker-1',
-      attempt: 1,
-      status: 'FAILED',
-      error: 'fonte indisponível',
-    });
-  });
-
-  test('renova lease durante execução demorada', async () => {
-    vi.useFakeTimers();
-    try {
-      const { queue } = fixture();
-      let finish: (() => void) | undefined;
-      const execute = vi.fn(() => new Promise<{ status: 'COMPLETE' }>((resolve) => {
-        finish = () => resolve({ status: 'COMPLETE' });
-      }));
-      const worker = new ExecutionWorker(queue, { execute }, {
-        workerId: 'worker-1', leaseSeconds: 60, heartbeatIntervalMs: 20_000,
-      });
-
-      const pending = worker.runOnce();
-      await vi.advanceTimersByTimeAsync(20_000);
-      expect(queue.renewLease).toHaveBeenCalledWith({
-        jobId: runningJob.jobId, workerId: 'worker-1', attempt: 1, leaseSeconds: 60,
-      });
-      finish?.();
-      await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  test('recupera falha transitória de heartbeat sem reclassificar trabalho concluído', async () => {
-    vi.useFakeTimers();
-    try {
-      const { queue } = fixture();
-      vi.mocked(queue.renewLease).mockRejectedValueOnce(new Error('rede indisponível'));
-      let finish: (() => void) | undefined;
-      const execute = vi.fn(() => new Promise<{ status: 'COMPLETE' }>((resolve) => {
-        finish = () => resolve({ status: 'COMPLETE' });
-      }));
-      const worker = new ExecutionWorker(queue, { execute }, {
-        workerId: 'worker-1', leaseSeconds: 60, heartbeatIntervalMs: 20_000,
-      });
-
-      const pending = worker.runOnce();
-      await vi.advanceTimersByTimeAsync(20_000);
-      await vi.advanceTimersByTimeAsync(20_000);
-      expect(queue.renewLease).toHaveBeenCalledTimes(2);
-      finish?.();
-
-      await expect(pending).resolves.toMatchObject({ status: 'COMPLETE' });
-      expect(queue.complete).toHaveBeenCalledTimes(1);
-      expect(queue.complete).toHaveBeenCalledWith(expect.objectContaining({
-        status: 'COMPLETE', attempt: 1,
-      }));
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  test('aborta a tentativa antiga e não a conclui depois da perda definitiva do lease', async () => {
-    vi.useFakeTimers();
-    try {
-      const { queue } = fixture();
-      vi.mocked(queue.renewLease).mockRejectedValueOnce(new ExecutionLeaseLostError(
-        'Fila de execuções (renew_execution_job_lease): tentativa não pertence ao worker ou o lease expirou.',
-      ));
-      let finish: (() => void) | undefined;
-      let executionSignal: AbortSignal | undefined;
-      const execute = vi.fn((
-        _job: ExecutionJob,
-        context?: { signal: AbortSignal },
-      ) => new Promise<{ status: 'COMPLETE' }>((resolve) => {
-        executionSignal = context?.signal;
-        finish = () => resolve({ status: 'COMPLETE' });
-        context?.signal.addEventListener('abort', finish, { once: true });
-      }));
-      const worker = new ExecutionWorker(queue, { execute }, {
-        workerId: 'worker-1', leaseSeconds: 60, heartbeatIntervalMs: 20_000,
-      });
-
-      const pending = worker.runOnce();
-      await vi.advanceTimersByTimeAsync(20_000);
-      finish?.();
-
-      await expect(pending).resolves.toEqual({
-        jobId: runningJob.jobId,
-        runId: runningJob.runId,
-        status: 'LEASE_LOST',
-        error: expect.stringMatching(/lease expirou/i),
-      });
-      expect(executionSignal?.aborted).toBe(true);
-      expect(queue.complete).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+  test('expõe recuperação manual de uma execução interrompida', async () => {
+    const { queue } = fixture(null);
+    vi.mocked(queue.recoverInterrupted).mockResolvedValueOnce(1);
+    const worker = new ExecutionWorker(queue, { execute: vi.fn() });
+    await expect(worker.recoverInterrupted()).resolves.toBe(1);
   });
 });
