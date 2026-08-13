@@ -1,6 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { z } from 'zod';
-import type { InstitutionalApiHandler } from '../api/institutional-api';
+import {
+  MAX_INSTITUTIONAL_JSON_BODY_BYTES,
+  type InstitutionalApiHandler,
+} from '../api/institutional-api';
 
 class BodyTooLargeError extends Error {}
 
@@ -80,7 +83,7 @@ export function createNodeApiServer(
   options: NodeApiServerOptions = {},
 ): Server {
   const maxBodyBytes = z.number().int().min(1).max(10_000_000)
-    .parse(options.maxBodyBytes ?? 1_000_000);
+    .parse(options.maxBodyBytes ?? MAX_INSTITUTIONAL_JSON_BODY_BYTES);
   return createServer(async (input, output) => {
     try {
       await writeWebResponse(await handler(await toWebRequest(input, maxBodyBytes)), output);

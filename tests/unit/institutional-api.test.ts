@@ -208,6 +208,25 @@ describe('API institucional', () => {
     );
   });
 
+  test('limita os bytes reais do corpo mesmo sem Content-Length confiável', async () => {
+    const { api, commandService } = fixture();
+    const request = new Request('http://localhost/api/executions/pddeinfo', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json', authorization: 'Bearer segredo-administrativo',
+        'idempotency-key': 'corpo-grande-sem-header',
+      },
+      body: JSON.stringify({ padding: 'x'.repeat(1_000_000) }),
+    });
+    expect(request.headers.get('content-length')).toBeNull();
+
+    const response = await api(request);
+
+    expect(response.status).toBe(413);
+    await expect(json(response)).resolves.toMatchObject({ error: expect.stringMatching(/corpo|limite/i) });
+    expect(commandService.requestPddeInfo).not.toHaveBeenCalled();
+  });
+
   test('emite e confirma upload institucional somente para comando autenticado', async () => {
     const { api, artifactIntakeService } = fixture();
     const requestBody = {

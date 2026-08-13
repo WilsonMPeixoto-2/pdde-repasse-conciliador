@@ -76,6 +76,9 @@ const JSON_HEADERS = {
   'cache-control': 'no-store',
   'x-content-type-options': 'nosniff',
 };
+export const MAX_INSTITUTIONAL_JSON_BODY_BYTES = 1_000_000;
+
+class RequestBodyTooLargeError extends Error {}
 
 function json(value: unknown, status = 200, extraHeaders?: HeadersInit): Response {
   return new Response(JSON.stringify(value), {
@@ -125,12 +128,40 @@ async function requestJson(request: Request): Promise<unknown> {
   if (!contentType.toLowerCase().startsWith('application/json')) {
     throw new Error('Content-Type application/json é obrigatório.');
   }
-  const contentLength = Number(request.headers.get('content-length') ?? 0);
-  if (contentLength > 1_000_000) throw new Error('Corpo da requisição excede 1 MB.');
+  const declaredLength = request.headers.get('content-length');
+  if (declaredLength !== null) {
+    if (!/^\d+$/.test(declaredLength)) throw new Error('Content-Length inválido.');
+    if (Number(declaredLength) > MAX_INSTITUTIONAL_JSON_BODY_BYTES) {
+      throw new RequestBodyTooLargeError('Corpo da requisição excede 1.000.000 bytes.');
+    }
+  }
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error('JSON inválido no corpo da requisição.');
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
   try {
-    return await request.json();
-  } catch {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_INSTITUTIONAL_JSON_BODY_BYTES) {
+        try { await reader.cancel(); } catch { /* resposta 413 prevalece */ }
+        throw new RequestBodyTooLargeError('Corpo da requisição excede 1.000.000 bytes.');
+      }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)) as unknown;
+  } catch (cause) {
+    if (cause instanceof RequestBodyTooLargeError) throw cause;
     throw new Error('JSON inválido no corpo da requisição.');
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -331,6 +362,9 @@ export function createInstitutionalApi(
         })));
       }
       if (cause instanceof URIError) return errorResponse(400, 'Caminho de URL inválido.');
+      if (cause instanceof RequestBodyTooLargeError) {
+        return errorResponse(413, cause.message);
+      }
       if (cause instanceof ArtifactUploadNotFoundError) {
         return errorResponse(404, cause.message);
       }
