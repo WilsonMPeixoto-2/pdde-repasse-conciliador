@@ -25,7 +25,7 @@ describe('cliente HTTP do PDDEInfo', () => {
     expect(url).toBe('https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar/ano/2026/co_escola/33069247/cnpj//co_esfera_adm/2/sg_uf/RJ/co_municipio_fnde/330455/consultar/Consultar/page/1');
   });
 
-  test('repete falhas transitórias e retorna a resposta bem-sucedida sem reiniciar a operação', async () => {
+  test('repete falhas transitórias e preserva os bytes recebidos na resposta bem-sucedida', async () => {
     const subject = await loadSubject();
     expect(subject, 'o cliente HTTP do PDDEInfo ainda não foi implementado').not.toBeNull();
     if (!subject) return;
@@ -58,6 +58,7 @@ describe('cliente HTTP do PDDEInfo', () => {
       queriedAt: '2026-08-12T22:50:00-03:00',
       sourceUrl: expect.stringContaining('/ano/2026/co_escola/33069247/'),
     });
+    expect(result.rawBytes).toEqual(Buffer.from('<html>ok</html>', 'utf8'));
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledTimes(2);
   });
