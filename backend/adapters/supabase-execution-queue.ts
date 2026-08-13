@@ -83,15 +83,16 @@ export class SupabaseExecutionQueue implements ExecutionJobQueue {
     return result;
   }
 
-  recoverInterrupted(): Promise<number> {
-    return this.client.rpc('recover_interrupted_execution_jobs').then(({ data, error }) => {
-      if (error) throw new Error(`Fila de execuções (recover_interrupted_execution_jobs): ${message(error)}.`);
-      const value = Number(Array.isArray(data) ? data[0] : data);
-      if (!Number.isSafeInteger(value) || value < 0) {
-        throw new Error('Fila de execuções: recuperação retornou contagem inválida.');
-      }
-      return value;
-    });
+  async recoverInterrupted(): Promise<number> {
+    const { data, error } = await this.client.rpc('recover_interrupted_execution_jobs');
+    if (error) {
+      throw new Error(`Fila de execuções (recover_interrupted_execution_jobs): ${message(error)}.`);
+    }
+    const value = Number(Array.isArray(data) ? data[0] : data);
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new Error('Fila de execuções: recuperação retornou contagem inválida.');
+    }
+    return value;
   }
 
   claim(): Promise<ExecutionJob | null> {
