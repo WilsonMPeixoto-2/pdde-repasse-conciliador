@@ -1,8 +1,8 @@
 {
   "name": "pdde-repasse-conciliador",
   "private": true,
-  "version": "0.3.0",
-  "description": "Coleta e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
+  "version": "0.4.0",
+  "description": "Coleta, evidência e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -21,6 +21,7 @@
     "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
+    "evidence:inspect": "node --import tsx scripts/inspect-evidence.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
