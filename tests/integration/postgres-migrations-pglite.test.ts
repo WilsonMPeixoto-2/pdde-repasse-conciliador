@@ -26,8 +26,12 @@ beforeAll(async () => {
   const institutionalSql = await readFile(new URL(
     '../../supabase/migrations/20260813064845_institutional_backend.sql', import.meta.url,
   ), 'utf8');
+  const monitoringSql = await readFile(new URL(
+    '../../supabase/migrations/20260814225500_monitoring_job_kind.sql', import.meta.url,
+  ), 'utf8');
   await database.exec(evidenceSql);
   await database.exec(institutionalSql);
+  await database.exec(monitoringSql);
 });
 
 afterAll(async () => { await database.close(); });
