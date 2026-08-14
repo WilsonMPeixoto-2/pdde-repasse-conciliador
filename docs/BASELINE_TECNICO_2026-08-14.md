@@ -182,7 +182,20 @@ Hoje, porém, o backend institucional reconhece como jobs principais apenas `PDD
 
 O melhor fluxo financeiro atual ainda é orquestrado pelos scripts de monitoramento. A próxima mudança estrutural é torná-lo um job institucional `MONITORING`.
 
-## 9. Próxima sequência técnica aprovada
+## 9. CI e validações: o que elas provam hoje
+
+O workflow geral `ci.yml` executa testes, typecheck e build e é uma proteção importante contra regressões de código.
+
+Ainda assim, **CI verde não significa que a plataforma institucional esteja integrada ou publicada**. Neste baseline:
+
+- o frontend legado e o backend institucional são testados/compilados em contratos diferentes;
+- ainda não existe teste ponta a ponta de um frontend fiscal novo usando um backend implantado e um Supabase dedicado;
+- os workflows de validação integral do monitoramento nasceram em feature branches específicas e precisam ser consolidados como política durável quando `MONITORING` virar capacidade institucional;
+- validações live contra fontes externas continuam sendo tratadas separadamente do CI determinístico, para que indisponibilidade do FNDE não seja confundida com regressão do código.
+
+Portanto, ao avaliar o estado do projeto, conferir **qual camada foi validada** e não transformar “build passou” em “produto implantado”.
+
+## 10. Próxima sequência técnica aprovada
 
 1. **Consolidação documental e baseline técnico**.
 2. **`MONITORING` institucional**: PDDEInfo → SIGEF → operacional → fiscal → artefatos.
@@ -191,7 +204,7 @@ O melhor fluxo financeiro atual ainda é orquestrado pelos scripts de monitorame
 5. **Frontend novo + publicação**, somente depois de haver contrato de leitura adequado.
 6. **Ampliação de fontes e fechamento de lacunas**, seguida de limpeza do legado.
 
-## 10. Regra para retomar o projeto em outro chat
+## 11. Regra para retomar o projeto em outro chat
 
 Antes de alterar código, um novo chat deve:
 
