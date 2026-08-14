@@ -1,0 +1,37 @@
+name: Monitoring Operational Full Validation
+on:
+  push:
+    branches:
+      - feat/monitoring-operational-view
+    paths:
+      - '.github/workflows/monitoring-operational-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-operational:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Coletar as 163 UEs em fontes reais
+        run: node --import tsx scripts/monitor-all-163.ts
+      - name: Gerar visão operacional
+        run: npm run monitor:operational -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-operational-2026.json
+      - name: Preservar resultado integral
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-operational-163-2026
+          path: |
+            artifacts/monitor-all-163-2026.json
+            artifacts/monitor-operational-2026.json
+            .tmp/monitor-all-163/pddeinfo/**/*.html
+            .tmp/monitor-all-163/sigef/**/*.html
+          if-no-files-found: warn
+          retention-days: 7
