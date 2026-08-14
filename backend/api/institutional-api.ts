@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { EvidenceIntegrityResult } from '../core/evidence';
 import type {
+  MonitoringJobRequest,
   PddeInfoJobRequest,
   ReconciliationJobRequest,
 } from '../application/execution-command-service';
@@ -48,6 +49,7 @@ interface ReadServiceApi {
 
 interface CommandServiceApi {
   requestPddeInfo(idempotencyKey: string, body: PddeInfoJobRequest): Promise<unknown>;
+  requestMonitoring?(idempotencyKey: string, body: MonitoringJobRequest): Promise<unknown>;
   requestReconciliation(idempotencyKey: string, body: ReconciliationJobRequest): Promise<unknown>;
 }
 
@@ -285,6 +287,21 @@ export function createInstitutionalApi(
           const receipt = await dependencies.commandService.requestPddeInfo(
             idempotencyKey,
             await requestJson(request) as PddeInfoJobRequest,
+          );
+          return json(receipt, 202);
+        }
+
+        if (segments.length === 3 && segments[2] === 'monitoring') {
+          if (request.method !== 'POST') return methodNotAllowed('POST');
+          if (!authorized(request, commandToken)) return errorResponse(401, 'Comando não autorizado.');
+          const idempotencyKey = request.headers.get('idempotency-key')?.trim();
+          if (!idempotencyKey) return errorResponse(400, 'Idempotency-Key é obrigatório.');
+          if (!dependencies.commandService.requestMonitoring) {
+            return errorResponse(503, 'Capacidade MONITORING não configurada neste runtime.');
+          }
+          const receipt = await dependencies.commandService.requestMonitoring(
+            idempotencyKey,
+            await requestJson(request) as MonitoringJobRequest,
           );
           return json(receipt, 202);
         }

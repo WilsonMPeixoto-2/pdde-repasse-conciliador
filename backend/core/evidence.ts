@@ -42,7 +42,7 @@ const executionRequestedSchema = z.object({
   ...commonFields,
   type: z.literal('EXECUTION_REQUESTED'),
   payload: z.object({
-    jobKind: z.enum(['PDDEINFO', 'RECONCILIATION']),
+    jobKind: z.enum(['PDDEINFO', 'MONITORING', 'RECONCILIATION']),
     idempotencyKey: z.string().min(1).max(200),
     requestHash: z.string().regex(/^[a-f0-9]{64}$/i, 'sha-256 inválido'),
   }).passthrough(),

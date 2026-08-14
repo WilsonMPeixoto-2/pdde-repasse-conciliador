@@ -26,8 +26,12 @@ beforeAll(async () => {
   const institutionalSql = await readFile(new URL(
     '../../supabase/migrations/20260813064845_institutional_backend.sql', import.meta.url,
   ), 'utf8');
+  const monitoringSql = await readFile(new URL(
+    '../../supabase/migrations/20260814225500_monitoring_job_kind.sql', import.meta.url,
+  ), 'utf8');
   await database.exec(evidenceSql);
   await database.exec(institutionalSql);
+  await database.exec(monitoringSql);
 });
 
 afterAll(async () => { await database.close(); });
@@ -35,7 +39,7 @@ afterAll(async () => { await database.close(); });
 async function enqueue(
   jobId: string,
   runId: string,
-  kind: 'PDDEINFO' | 'RECONCILIATION',
+  kind: 'PDDEINFO' | 'MONITORING' | 'RECONCILIATION',
   key: string,
   hash = 'a'.repeat(64),
 ) {
@@ -48,6 +52,24 @@ async function enqueue(
 }
 
 describe('migrations institucionais em PostgreSQL embutido', () => {
+  test('aceita MONITORING como tipo institucional de execução', async () => {
+    await database.exec('set role service_role');
+    try {
+      const inserted = await enqueue(
+        '44444444-4444-4444-8444-444444444444',
+        'monitoring-db',
+        'MONITORING',
+        'monitoring-key',
+        'd'.repeat(64),
+      );
+      expect(inserted.rows).toEqual([
+        expect.objectContaining({ run_id: 'monitoring-db', job_kind: 'MONITORING', status: 'QUEUED' }),
+      ]);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
   test('mantém Storage privado e somente uma execução ativa', async () => {
     const bucket = await database.query<{ public: boolean }>(
       "select public from storage.buckets where id = 'pdde-evidence'",

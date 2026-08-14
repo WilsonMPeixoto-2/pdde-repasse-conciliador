@@ -10,6 +10,7 @@ import {
 } from './collect-pddeinfo';
 import type { EvidenceEventStore } from './evidence-store';
 import {
+  monitoringJobRequestSchema,
   pddeInfoJobRequestSchema,
   reconciliationJobPayloadSchema,
 } from './execution-command-service';
@@ -18,14 +19,22 @@ import {
   reconcileFiles,
   type ReconcileFilesOptions,
 } from './reconcile-files';
+import {
+  runMonitoring,
+  type RunMonitoringOptions,
+} from './run-monitoring';
 
 const schoolSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
   sme: z.string().regex(/^\d{7}$/),
   nome: z.string().min(1),
 }).strict();
+type School = z.infer<typeof schoolSchema>;
 type CollectionRunner = (
   options: CollectPddeInfoOptions,
+) => Promise<{ status: 'COMPLETE' | 'PARTIAL' }>;
+type MonitoringRunner = (
+  options: RunMonitoringOptions,
 ) => Promise<{ status: 'COMPLETE' | 'PARTIAL' }>;
 type ReconciliationRunner = (options: ReconcileFilesOptions) => Promise<unknown>;
 
@@ -35,6 +44,7 @@ interface InstitutionalJobExecutorDependencies {
   evidenceStore: EvidenceEventStore;
   artifactStore: ArtifactStore;
   collectPddeInfo?: CollectionRunner;
+  runMonitoring?: MonitoringRunner;
   reconcileFiles?: ReconciliationRunner;
 }
 
@@ -52,9 +62,10 @@ async function stageArtifact(
 
 export class InstitutionalJobExecutor implements ExecutionJobExecutor {
   private readonly workspacePath: string;
-  private readonly schools: Array<{ inep: string; sme: string; nome: string }>;
-  private readonly schoolByInep: Map<string, { inep: string; sme: string; nome: string }>;
+  private readonly schools: School[];
+  private readonly schoolByInep: Map<string, School>;
   private readonly collect: CollectionRunner;
+  private readonly monitor: MonitoringRunner;
   private readonly reconcile: ReconciliationRunner;
 
   constructor(private readonly dependencies: InstitutionalJobExecutorDependencies) {
@@ -65,17 +76,30 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       throw new Error('A lista institucional contém INEP duplicado.');
     }
     this.collect = dependencies.collectPddeInfo ?? collectPddeInfo;
+    this.monitor = dependencies.runMonitoring ?? runMonitoring;
     this.reconcile = dependencies.reconcileFiles ?? reconcileFiles;
   }
 
   execute(job: ExecutionJob, context: { signal: AbortSignal }): Promise<ExecutionJobResult> {
     context.signal.throwIfAborted();
     if (job.kind === 'PDDEINFO') return this.executePddeInfo(job, context.signal);
+    if (job.kind === 'MONITORING') return this.executeMonitoring(job, context.signal);
     return this.executeReconciliation(job, context.signal);
   }
 
   private runPath(job: ExecutionJob): string {
     return resolve(this.workspacePath, 'jobs', job.jobId, 'run');
+  }
+
+  private selectSchools(ineps: string[] | undefined): School[] {
+    const selected = ineps
+      ? new Set(ineps)
+      : new Set(this.schools.map((school) => school.inep));
+    const unknown = [...selected].filter((inep) => !this.schoolByInep.has(inep));
+    if (unknown.length > 0) {
+      throw new Error(`INEP fora da lista institucional: ${unknown.join(', ')}.`);
+    }
+    return this.schools.filter((school) => selected.has(school.inep));
   }
 
   private async executePddeInfo(
@@ -84,14 +108,7 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
   ): Promise<ExecutionJobResult> {
     signal?.throwIfAborted();
     const request = pddeInfoJobRequestSchema.parse(job.payload);
-    const selected = request.schoolIneps
-      ? new Set(request.schoolIneps)
-      : new Set(this.schools.map((school) => school.inep));
-    const unknown = [...selected].filter((inep) => !this.schoolByInep.has(inep));
-    if (unknown.length > 0) {
-      throw new Error(`INEP fora da lista institucional: ${unknown.join(', ')}.`);
-    }
-    const schools = this.schools.filter((school) => selected.has(school.inep));
+    const schools = this.selectSchools(request.schoolIneps);
     const result = await this.collect({
       schools,
       workspacePath: this.runPath(job),
@@ -99,6 +116,27 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       runId: job.runId,
       batchSize: request.batchSize,
       batchDelayMs: request.batchDelayMs,
+      evidenceStore: this.dependencies.evidenceStore,
+      artifactStore: this.dependencies.artifactStore,
+      ...(signal ? { signal } : {}),
+      manageExecutionLifecycle: false,
+      institutionalPathPrefix: 'run',
+    });
+    return { status: result.status };
+  }
+
+  private async executeMonitoring(
+    job: ExecutionJob,
+    signal?: AbortSignal,
+  ): Promise<ExecutionJobResult> {
+    signal?.throwIfAborted();
+    const request = monitoringJobRequestSchema.parse(job.payload);
+    const schools = this.selectSchools(request.schoolIneps);
+    const result = await this.monitor({
+      schools,
+      workspacePath: this.runPath(job),
+      fiscalYear: request.fiscalYear,
+      runId: job.runId,
       evidenceStore: this.dependencies.evidenceStore,
       artifactStore: this.dependencies.artifactStore,
       ...(signal ? { signal } : {}),

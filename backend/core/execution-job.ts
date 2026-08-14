@@ -6,7 +6,7 @@ const identifierSchema = z.string().min(1).max(160).regex(
   'identificador contém caracteres inválidos',
 );
 
-export const executionJobKindSchema = z.enum(['PDDEINFO', 'RECONCILIATION']);
+export const executionJobKindSchema = z.enum(['PDDEINFO', 'MONITORING', 'RECONCILIATION']);
 export const executionJobStatusSchema = z.enum([
   'QUEUED',
   'RUNNING',
