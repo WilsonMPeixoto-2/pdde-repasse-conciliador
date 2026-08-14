@@ -25,5 +25,22 @@ jobs:
       - name: Instalar dependências imutáveis
         run: npm ci
 
-      - name: Verificar o projeto
-        run: npm run check
+      - name: Executar testes
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee test-output.txt
+
+      - name: Preservar diagnóstico dos testes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.txt
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Gerar build
+        run: npm run build

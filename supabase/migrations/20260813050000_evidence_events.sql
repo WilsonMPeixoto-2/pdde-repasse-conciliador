@@ -1,9 +1,16 @@
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create table public.evidence_events (
   sequence bigint primary key,
-  event_id text not null unique,
-  run_id text not null,
+  event_id text not null unique check (
+    char_length(event_id) between 1 and 160
+    and event_id ~ '^[A-Za-z0-9._:-]+$'
+  ),
+  run_id text not null check (
+    char_length(run_id) between 1 and 160
+    and run_id ~ '^[A-Za-z0-9._:-]+$'
+  ),
   event_type text not null check (event_type in (
     'EXECUTION_STARTED',
     'EXECUTION_FINISHED',
@@ -62,6 +69,10 @@ create trigger prevent_evidence_event_mutation
 before update or delete on public.evidence_events
 for each row execute function public.prevent_evidence_event_mutation();
 
+create trigger prevent_evidence_event_truncate
+before truncate on public.evidence_events
+for each statement execute function public.prevent_evidence_event_mutation();
+
 create or replace function public.compute_evidence_event_hash(
   p_sequence bigint,
   p_event_id text,
@@ -77,10 +88,10 @@ create or replace function public.compute_evidence_event_hash(
 returns text
 language sql
 immutable
-set search_path = public, pg_temp
+set search_path = ''
 as $$
   select encode(
-    digest(
+    extensions.digest(
       convert_to(
         concat_ws(
           E'\x1f',
@@ -129,7 +140,7 @@ create or replace function public.append_evidence_event(
 returns public.evidence_events
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_last_sequence bigint;
@@ -140,7 +151,9 @@ declare
 begin
   -- Serializa exclusivamente a escrita do log para que sequência e cadeia de hashes
   -- permaneçam monotônicas mesmo com várias escolas sendo processadas em paralelo.
-  perform pg_advisory_xact_lock(hashtext('pdde-repasse-conciliador:evidence-events:v1'));
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtext('pdde-repasse-conciliador:evidence-events:v1')
+  );
 
   if exists (select 1 from public.evidence_events where event_id = p_event_id) then
     raise exception 'eventId duplicado: %', p_event_id;
@@ -219,7 +232,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_row public.evidence_events%rowtype;

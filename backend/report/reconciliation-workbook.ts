@@ -3,6 +3,7 @@ import type {
   PortfolioReconciliationResult,
   PortfolioRow,
 } from '../core/portfolio-reconciliation';
+import { isoTimestampSchema } from '../core/time';
 import { RECONCILIATION_STATUS_LABELS, type ReconciliationStatus } from '../core/types';
 
 export interface ReconciliationWorkbookInput {
@@ -46,11 +47,12 @@ const COLUMNS: ReportColumn[] = [
   { key: 'releaseAgency', header: 'Agência liberação SIGEF', width: 22, kind: 'identifier' },
   { key: 'releaseAccount', header: 'Conta liberação SIGEF', width: 23, kind: 'identifier' },
   { key: 'rawSigefProgram', header: 'Programa bruto SIGEF', width: 42, kind: 'long-text' },
-  { key: 'movementCount', header: 'Qtd. créditos localizados', width: 23 },
+  { key: 'movementCount', header: 'Qtd. movimentos vinculados', width: 23 },
+  { key: 'movementOperations', header: 'Operações dos movimentos', width: 25 },
   { key: 'movementTotal', header: 'Valor créditos localizados', width: 23, kind: 'currency' },
-  { key: 'movementDates', header: 'Datas dos créditos', width: 24, kind: 'long-text' },
-  { key: 'movementDocuments', header: 'Documentos dos créditos', width: 28, kind: 'long-text' },
-  { key: 'movementHistories', header: 'Históricos dos créditos', width: 34, kind: 'long-text' },
+  { key: 'movementDates', header: 'Datas dos movimentos', width: 24, kind: 'long-text' },
+  { key: 'movementDocuments', header: 'Documentos dos movimentos', width: 28, kind: 'long-text' },
+  { key: 'movementHistories', header: 'Históricos dos movimentos', width: 34, kind: 'long-text' },
   { key: 'effectiveBank', header: 'Banco efetivo', width: 15, kind: 'identifier' },
   { key: 'effectiveAgency', header: 'Agência efetiva', width: 16, kind: 'identifier' },
   { key: 'effectiveAccount', header: 'Conta efetiva', width: 19, kind: 'identifier' },
@@ -155,6 +157,9 @@ function reportRecord(row: PortfolioRow): CellRecord {
     releaseAccount: safeText(matchedRelease?.destinationAccount.number),
     rawSigefProgram: safeText(matchedRelease?.sourceReference.rawProgram),
     movementCount: matchedMovements.length,
+    movementOperations: joined(matchedMovements.map((movement) => (
+      movement.operation === 'credit' ? 'CRÉDITO' : 'DÉBITO'
+    ))),
     movementTotal: money(reconciliation.movementTotalCents),
     movementDates: joined(matchedMovements.map((movement) => movement.movementDate)),
     movementDocuments: joined(matchedMovements.map((movement) => movement.document)),
@@ -389,7 +394,7 @@ function validateInput(input: ReconciliationWorkbookInput): void {
   if (!input || !input.portfolio || !Array.isArray(input.portfolio.rows)) {
     throw new Error('Carteira de conciliação ausente ou inválida.');
   }
-  if (!Number.isFinite(Date.parse(input.generatedAt))) {
+  if (!isoTimestampSchema.safeParse(input.generatedAt).success) {
     throw new Error('Data e hora de geração inválidas.');
   }
   if (input.portfolio.summary.total !== input.portfolio.rows.length) {

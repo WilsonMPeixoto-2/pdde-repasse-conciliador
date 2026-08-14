@@ -3,7 +3,13 @@ import { pipeline } from 'node:stream/promises';
 import { parse } from 'csv-parse';
 import { z } from 'zod';
 import { canonicalCnpj, canonicalProgramCode } from '../core/normalization';
-import { sigefMovementSchema, type SigefMovement, type SourceSnapshot } from '../core/schemas';
+import {
+  isoDateSchema,
+  sigefMovementSchema,
+  type SigefMovement,
+  type SourceSnapshot,
+} from '../core/schemas';
+import { isoTimestampSchema } from '../core/time';
 
 const REQUIRED_HEADERS = [
   'OPERACAO',
@@ -21,16 +27,11 @@ const REQUIRED_HEADERS = [
   'DS_HISTORICO',
 ] as const;
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
-  (value) => Number.isFinite(Date.parse(`${value}T00:00:00Z`)),
-  'data ISO inválida',
-);
-
 const optionsSchema = z.object({
   targetCnpjs: z.array(z.string().min(1)).min(1),
   programCodes: z.array(z.string().min(1)).optional(),
-  queriedAt: z.string().refine((value) => Number.isFinite(Date.parse(value))),
-  requestedThrough: isoDate,
+  queriedAt: isoTimestampSchema,
+  requestedThrough: isoDateSchema,
 }).strict();
 
 type RawRecord = Record<string, string>;

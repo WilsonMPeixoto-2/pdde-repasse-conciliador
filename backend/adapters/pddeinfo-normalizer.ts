@@ -7,6 +7,7 @@ import {
   type PddePayment,
   type SourceSnapshot,
 } from '../core/schemas';
+import { isoTimestampSchema } from '../core/time';
 
 const rawAccountSchema = z.object({
   programa: z.string(),
@@ -51,7 +52,7 @@ const rawSchoolSchema = z.object({
 
 const optionsSchema = z.object({
   fiscalYear: z.number().int().min(2000).max(2100),
-  queriedAt: z.string().refine((value) => Number.isFinite(Date.parse(value))),
+  queriedAt: isoTimestampSchema,
 }).strict();
 
 type RawFinance = z.infer<typeof rawFinanceSchema>;

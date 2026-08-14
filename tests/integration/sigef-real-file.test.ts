@@ -56,26 +56,33 @@ describe.skipIf(!hasRealInputs)('SIGEF — arquivo oficial completo', () => {
 });
 
 describe.skipIf(!pddeInfoJsonPath || !existsSync(pddeInfoJsonPath))('PDDEInfo — 163 respostas atuais', () => {
-  test('normaliza todos os registros atuais sem completar contas ausentes', () => {
+  test('normaliza todas as linhas recebidas sem fixar a cardinalidade mutável da fonte', () => {
     if (!pddeInfoJsonPath) throw new Error('caminho real do PDDEInfo ausente');
     const current = JSON.parse(readFileSync(pddeInfoJsonPath, 'utf8')) as {
-      schools: unknown[];
+      schools: Array<{ finance: unknown[] }>;
     };
+    const rawFinancialRows = current.schools.reduce(
+      (total, school) => total + school.finance.length,
+      0,
+    );
 
     const result = normalizePddeInfoSchools(current.schools, {
       fiscalYear: 2026,
       queriedAt: '2026-08-11T23:45:00-03:00',
     });
 
-    expect(result.statistics).toMatchObject({
-      schools: 163,
-      financialRecords: 520,
-      missingProgramAccounts: 47,
-      ignoredZeroRecords: 0,
-    });
-    expect(result.payments).toHaveLength(520);
+    expect(result.statistics.schools).toBe(163);
+    expect(result.statistics.financialRecords + result.statistics.ignoredZeroRecords)
+      .toBe(rawFinancialRows);
+    expect(result.payments).toHaveLength(result.statistics.financialRecords);
     expect(new Set(result.payments.map((payment) => payment.school.inep)).size).toBe(163);
     expect(result.warnings).toEqual([]);
+
+    console.info(JSON.stringify({
+      rawFinancialRows,
+      statistics: result.statistics,
+      warnings: result.warnings.length,
+    }));
   });
 });
 

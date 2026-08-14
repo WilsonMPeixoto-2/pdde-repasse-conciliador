@@ -228,6 +228,30 @@ describe('reconcileRepasse', () => {
     });
   });
 
+  test('não chama de pagamento ausente quando o próprio PDDEInfo está indisponível', async () => {
+    const unavailablePddeInfo = {
+      ...sources,
+      pddeInfo: {
+        ...sources.pddeInfo,
+        status: 'unavailable',
+        detail: 'consulta PDDEInfo não utilizável',
+      },
+    };
+
+    const result = await reconcile({
+      payment: null,
+      releases: [release],
+      movements: [movement],
+      sources: unavailablePddeInfo,
+    });
+
+    expect(result).toMatchObject({
+      status: 'CONSULTA_INCONCLUSIVA',
+      reasonCode: 'PDDEINFO_SOURCE_UNAVAILABLE',
+      requiresHumanReview: true,
+    });
+  });
+
   test('confirma um repasse quando vários créditos vinculados somam exatamente a liberação', async () => {
     const splitMovements = [
       { ...movement, id: 'movement-a', amountCents: 300_000 },
@@ -242,5 +266,74 @@ describe('reconcileRepasse', () => {
       matchedMovementIds: ['movement-a', 'movement-b'],
       movementTotalCents: 506_500,
     });
+  });
+
+  test('não ignora documento divergente para confirmar por data, conta e valor', async () => {
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [{ ...movement, document: 'OUTRA-ORDEM-999' }],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'ORDEM_BANCARIA_CONFIRMADA_CREDITO_NAO_LOCALIZADO',
+      reasonCode: 'MOVEMENT_NOT_FOUND',
+      matchedMovementIds: [],
+    });
+  });
+
+  test('usa data como fallback somente quando o movimento não traz documento', async () => {
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [{ ...movement, document: '' }],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'REPASSE_CONFIRMADO',
+      reasonCode: 'EXACT_MATCH',
+      matchedMovementIds: [movement.id],
+    });
+  });
+
+  test('não mantém confirmação positiva quando há estorno ligado à mesma OB', async () => {
+    const reversal = {
+      ...movement,
+      id: 'movement-reversal-1',
+      operation: 'debit',
+      movementDate: '2026-08-06',
+      history: 'ESTORNO DE ORDEM BANCARIA',
+    };
+
+    const result = await reconcile({
+      payment,
+      releases: [release],
+      movements: [movement, reversal],
+      sources,
+    });
+
+    expect(result).toMatchObject({
+      status: 'DIVERGENCIA_REVISAO_NECESSARIA',
+      reasonCode: 'MOVEMENT_REVERSAL_FOUND',
+      matchedMovementIds: [movement.id, reversal.id],
+      movementTotalCents: movement.amountCents,
+      requiresHumanReview: true,
+    });
+  });
+
+  test('rejeita total de movimentos que excede a faixa exata de centavos', async () => {
+    const overflowingMovements = [
+      { ...movement, id: 'movement-a', amountCents: Number.MAX_SAFE_INTEGER },
+      { ...movement, id: 'movement-b', amountCents: 1 },
+    ];
+
+    await expect(reconcile({
+      payment,
+      releases: [release],
+      movements: overflowingMovements,
+      sources,
+    })).rejects.toThrow(/total dos movimentos.*limite seguro/i);
   });
 });

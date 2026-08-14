@@ -1,14 +1,13 @@
 import { z } from 'zod';
+import { isoTimestampSchema } from './time';
 
-const timestampSchema = z.string().refine(
-  (value) => Number.isFinite(Date.parse(value)),
-  'data e hora inválidas',
-);
-
-const identifierSchema = z.string().min(1).max(160).regex(
-  /^[A-Za-z0-9._:-]+$/,
-  'identificador contém caracteres inválidos',
-);
+export const evidenceIdentifierSchema = z.string()
+  .min(1, 'identificador obrigatório')
+  .max(160, 'identificador excede 160 caracteres')
+  .regex(
+    /^[A-Za-z0-9._:-]+$/,
+    'identificador contém caracteres inválidos',
+  );
 
 export const evidenceSourceSchema = z.enum([
   'PDDEINFO',
@@ -21,6 +20,7 @@ export const evidenceSourceSchema = z.enum([
 ]);
 
 export const evidenceEventTypeSchema = z.enum([
+  'EXECUTION_REQUESTED',
   'EXECUTION_STARTED',
   'EXECUTION_FINISHED',
   'SOURCE_ATTEMPT_RECORDED',
@@ -30,13 +30,23 @@ export const evidenceEventTypeSchema = z.enum([
 ]);
 
 const commonFields = {
-  eventId: identifierSchema,
-  runId: identifierSchema,
-  occurredAt: timestampSchema,
+  eventId: evidenceIdentifierSchema,
+  runId: evidenceIdentifierSchema,
+  occurredAt: isoTimestampSchema,
   source: evidenceSourceSchema,
   fiscalYear: z.number().int().min(2000).max(2100),
   schoolInep: z.string().regex(/^\d{8}$/).optional(),
 };
+
+const executionRequestedSchema = z.object({
+  ...commonFields,
+  type: z.literal('EXECUTION_REQUESTED'),
+  payload: z.object({
+    jobKind: z.enum(['PDDEINFO', 'RECONCILIATION']),
+    idempotencyKey: z.string().min(1).max(200),
+    requestHash: z.string().regex(/^[a-f0-9]{64}$/i, 'sha-256 inválido'),
+  }).passthrough(),
+}).strict();
 
 const executionStartedSchema = z.object({
   ...commonFields,
@@ -84,6 +94,9 @@ const artifactSchema = z.object({
     sha256: z.string().regex(/^[a-f0-9]{64}$/i, 'sha-256 inválido'),
     bytes: z.number().int().nonnegative(),
     mediaType: z.string().min(1).optional(),
+    provider: z.enum(['LOCAL', 'SUPABASE_STORAGE']).optional(),
+    bucket: z.string().min(1).max(160).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   }).strict(),
 }).strict();
 
@@ -92,7 +105,7 @@ const observationSchema = z.object({
   type: z.literal('OBSERVATION_RECORDED'),
   payload: z.object({
     observationKind: z.string().min(1),
-    observedAt: timestampSchema.optional(),
+    observedAt: isoTimestampSchema.optional(),
     data: z.record(z.string(), z.unknown()),
   }).strict(),
 }).strict();
@@ -109,6 +122,7 @@ const findingSchema = z.object({
 }).strict();
 
 export const evidenceEventInputSchema = z.discriminatedUnion('type', [
+  executionRequestedSchema,
   executionStartedSchema,
   executionFinishedSchema,
   sourceAttemptSchema,

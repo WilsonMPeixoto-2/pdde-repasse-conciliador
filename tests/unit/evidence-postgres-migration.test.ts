@@ -11,17 +11,25 @@ describe('migration Postgres de evidências', () => {
     const sql = (await readFile(migrationUrl, 'utf8')).toLowerCase();
 
     expect(sql).toMatch(/create extension if not exists pgcrypto/);
+    expect(sql).toMatch(/create schema if not exists extensions/);
+    expect(sql).toMatch(/pgcrypto with schema extensions/);
+    expect(sql).toMatch(/extensions\.digest\(/);
     expect(sql).toMatch(/create table public\.evidence_events/);
+    expect(sql).toMatch(/char_length\(event_id\) between 1 and 160/);
+    expect(sql).toMatch(/char_length\(run_id\) between 1 and 160/);
     expect(sql).toMatch(/enable row level security/);
     expect(sql).toMatch(/create.*index.*run_id.*sequence/s);
     expect(sql).toMatch(/create.*index.*school_inep.*sequence/s);
     expect(sql).toMatch(/prevent_evidence_event_mutation/);
     expect(sql).toMatch(/before update or delete/);
+    expect(sql).toMatch(/before truncate/);
     expect(sql).toMatch(/pg_advisory_xact_lock/);
+    expect(sql).toMatch(/pg_catalog\.hashtext/);
     expect(sql).toMatch(/order by sequence desc\s+limit 1/);
     expect(sql).toMatch(/at time zone 'utc'/);
     expect(sql).toMatch(/digest\(/);
     expect(sql).toMatch(/create or replace function public\.verify_evidence_chain/);
+    expect(sql).toMatch(/security definer\s+set search_path = ''/s);
     expect(sql).toMatch(/eventhash divergente|event_hash divergente/);
     expect(sql).toMatch(/grant execute.*service_role/s);
     expect(sql).toMatch(/revoke all.*anon/s);

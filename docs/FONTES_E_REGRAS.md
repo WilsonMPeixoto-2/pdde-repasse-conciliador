@@ -2,18 +2,18 @@
 
 Este documento registra o estado operacional das fontes e as regras que afetam conclusões financeiras. Ele deve mudar quando a fonte ou a regra mudar de forma material, não a cada ajuste de implementação.
 
-## Estado das fontes — 12/08/2026
+## Estado das fontes — 13/08/2026
 
 | Fonte | Finalidade | Estado para o repositório canônico | Observação |
 |---|---|---|---|
-| **PDDEInfo — consulta por escola** | valores previstos/pagos, datas e contas apresentadas pelo sistema | **AUTÔNOMA E VALIDADA** | O v0.3 consulta diretamente por INEP, preserva bytes/HTML e JSON com hashes e validou 163/163 escolas em execução real controlada, sem warnings de normalização. |
+| **PDDEInfo — consulta por escola** | valores previstos/pagos, datas e contas apresentadas pelo sistema | **AUTÔNOMA E VALIDADA** | O v0.4 consulta diretamente por INEP, preserva bytes/HTML e JSON com hashes e validou 163/163 escolas em execução real controlada, sem warnings de normalização. |
 | **SIGEF Liberações** | ordem bancária, data, valor e conta destinatária | **uso por exportação comprovado; coleta autônoma bloqueada por CAPTCHA** | O Assistente de Liberações v0.2.0 organiza e valida os `.xls` obtidos pelo fluxo permitido. |
 | **SIGEF Movimentações** | localizar créditos e demais lançamentos bancários | **leitor comprovado** | O núcleo atual processa CSV nacional em streaming. A cobertura do arquivo deve ser registrada porque pode estar defasada. |
 | **SIGEF Extrato/Conta Corrente via portal** | evidência bancária complementar | **CAPTCHA_REQUIRED / não automatizado** | Protótipos paralelos confirmaram restrição por CAPTCHA. Arquivo/PDF autorizado pode ser estudado separadamente. |
 | **PDDEInfo — saldo das entidades** | saldo/composição por CNPJ, mês e programa | **evidência promissora em referência paralela; ainda não integrada** | Foi comprovada tecnicamente no projeto paralelo Manus, mas só passa a ser capacidade oficial quando incorporada e validada neste repositório. |
 | **Dados Abertos FNDE / Olinda** | controle secundário e cruzamentos | **candidato secundário; ainda não integrado ao canônico** | Pode complementar validações, sem substituir silenciosamente a fonte primária. |
 
-### Evidência de autonomia do PDDEInfo no v0.3
+### Evidência de autonomia do PDDEInfo no v0.4
 
 A validação real controlada da implementação canônica em 12/08/2026 produziu:
 
@@ -28,6 +28,21 @@ A validação real controlada da implementação canônica em 12/08/2026 produzi
 A execução usa lotes pequenos, retry para falhas transitórias, validação da identidade da escola e estado global `COMPLETE`/`PARTIAL`. Os artefatos recebidos são preservados antes do parsing; uma resposta que não possa ser validada não é convertida em uma escola aparentemente vazia.
 
 Os testes contra o portal real são opt-in. O CI padrão testa o comportamento de forma determinística e não depende da disponibilidade momentânea do FNDE.
+
+### Revalidação posterior na v0.5
+
+Depois de duas respostas HTTP 502 e sem converter a indisponibilidade em ausência, a fonte voltou a responder em 13/08/2026. Passaram uma escola, uma amostra de três e então a carteira completa. A execução `20260813T134355259Z-3c75744f` produziu:
+
+- 163/163 escolas, sem falha ou retry;
+- 468 linhas financeiras presentes nos HTMLs brutos;
+- 468 registros normalizados e 0 linhas zeradas desconhecidas ignoradas;
+- 169 registros com pagamento informado;
+- 47 pares escola/programa sem conta correspondente;
+- 0 warnings;
+- 493/493 eventos íntegros;
+- duração de 398,6 segundos no ambiente de validação.
+
+A contagem independente dos HTMLs encontrou 111 linhas de 1ª parcela regular, 111 de 2ª parcela regular, 52 de Primeira Infância P1, 145 de Educação Conectada, 43 de Escola e Comunidade e 6 de Escola das Adolescências. A soma é 468 e coincide exatamente com o normalizador. Portanto, a diferença de 52 em relação ao snapshot histórico de 520 é uma mudança observada no conteúdo atual do portal, não perda silenciosa do parser. O snapshot v0.4 permanece como baseline histórico, não como cardinalidade obrigatória de uma fonte mutável.
 
 ## Regra de autonomia
 
@@ -63,10 +78,12 @@ Quando houver extrato bancário direto ou outra evidência autorizada adequada, 
 ### Estorno ou devolução
 
 Crédito inicialmente identificado não deve permanecer apresentado como situação final positiva se existir evidência correspondente de estorno/devolução.
+O conciliador liga esse fato negativo apenas com chave forte: débito no mesmo CNPJ, programa e conta, documento igual à OB e histórico explícito de estorno ou devolução. Quando isso ocorre, crédito e débito permanecem listados separadamente e o estado exige revisão humana (`MOVEMENT_REVERSAL_FOUND`).
 
 ### Consulta inconclusiva
 
 Usada quando falta cobertura, fonte, chave suficiente ou informação necessária para concluir com segurança.
+Se o próprio PDDEInfo estiver indisponível, nenhum registro SIGEF pode ser rotulado como divergência por “pagamento ausente”; o motivo técnico permanece `PDDEINFO_SOURCE_UNAVAILABLE` até a fonte primária responder de forma utilizável.
 
 ## Estados atuais do conciliador
 
@@ -96,6 +113,7 @@ Uma conciliação deve usar a combinação mais forte disponível de:
 ### Proibições
 
 - não confirmar por valor semelhante isoladamente;
+- não ignorar documento/OB divergente para fazer fallback por data; o fallback temporal só é admissível quando o movimento não traz documento;
 - não escolher arbitrariamente entre múltiplas contas;
 - não promover referência histórica a dado corrente sem confirmação;
 - não considerar cobertura incompleta como prova de ausência;
@@ -108,9 +126,15 @@ A conta original apresentada pelo PDDEInfo deve ser preservada como informação
 
 Uma conta ausente pode receber informação complementar de outra fonte somente quando a origem ficar explícita e a correspondência documental for confiável. Complementar não significa reescrever a observação original.
 
+Um estorno/devolução vinculado impede a conclusão positiva do repasse, mas não apaga a procedência da conta destinatária já corroborada pela Liberação correspondente; a conta continua identificada como `SIGEF_LIBERACOES`.
+
 ## Tempo e cobertura
 
 Toda conclusão é limitada à cobertura temporal efetivamente consultada.
+
+Datas civis de corte e cobertura precisam existir no calendário gregoriano. Valores apenas formatados como `AAAA-MM-DD`, mas impossíveis (por exemplo, `2026-02-31`), são rejeitados; não podem ser normalizados silenciosamente para outro dia ou mês.
+
+Instantes de coleta, ocorrência e geração usam timestamp ISO 8601/RFC 3339 completo, com horário e fuso explícitos. Datas sem horário, formatos dependentes do locale e timestamps com data civil impossível são rejeitados.
 
 Exemplo: se um CSV de Movimentações termina em 29/05/2026, a ausência de um crédito posterior a essa data não pode ser interpretada como ausência bancária até agosto.
 
@@ -127,6 +151,7 @@ Relatórios financeiros devem:
 
 - materializar valores, sem depender de fórmulas voláteis ou ocultas para provar o resultado;
 - preservar identificadores bancários e cadastrais como texto quando necessário;
+- distinguir cada movimento vinculado como crédito ou débito; a quantidade inclui ambos, enquanto o valor de créditos localizados soma somente créditos;
 - neutralizar formula injection proveniente de conteúdo externo;
 - ser relidos e validados antes de serem considerados concluídos.
 

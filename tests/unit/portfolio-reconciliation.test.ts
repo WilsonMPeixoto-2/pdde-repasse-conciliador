@@ -152,6 +152,38 @@ describe('reconcilePortfolio', () => {
     ]);
   });
 
+  test('preserva a conta comprovada pela liberação mesmo quando o crédito foi estornado', async () => {
+    const input = completeInput([payment('1', 506_500, false)]);
+    input.movements.push({
+      ...movement,
+      id: 'movement-reversal',
+      operation: 'debit',
+      history: 'ESTORNO DE ORDEM BANCARIA',
+    });
+
+    const result = await reconcilePortfolio(input);
+
+    expect(result?.rows).toEqual([
+      expect.objectContaining({
+        reconciliation: expect.objectContaining({
+          reasonCode: 'MOVEMENT_REVERSAL_FOUND',
+        }),
+        accountResolution: {
+          pddeInfoAccount: null,
+          sigefDestinationAccount: account,
+          effectiveAccount: account,
+          source: 'SIGEF_LIBERACOES',
+          correspondence: 'SIGEF_ONLY',
+        },
+      }),
+    ]);
+    expect(result?.summary).toMatchObject({
+      divergent: 1,
+      accountsCompletedFromSigef: 1,
+      accountsMissing: 0,
+    });
+  });
+
   test('mantém consulta inconclusiva quando a liberação daquele CNPJ e programa não foi importada', async () => {
     const input = completeInput([payment('1', 506_500)]);
     input.sources.sigefReleases = [];
