@@ -6,7 +6,7 @@ O produto distingue o que cada fonte realmente comprova e evita transformar aus�
 
 ## Estado atual
 
-Marco atual: **v0.5.0**, com baseline técnico consolidado em **14/08/2026**.
+Marco atual: **v0.5.0**, com baseline técnico consolidado em **14/08/2026** e evolução posterior do monitoramento institucional.
 
 A camada de dados já avançou além do antigo extrator de planilha. Estão implementados no repositório canônico:
 
@@ -23,7 +23,8 @@ A camada de dados já avançou além do antigo extrator de planilha. Estão impl
 - Excel Fiscal v3 em camadas;
 - trilha append-only de evidências;
 - backend institucional em código com API, fila, worker, idempotência e Storage privado;
-- migrations Postgres/Supabase versionadas e testadas;
+- job institucional `MONITORING` para PDDEInfo + SIGEF + visão operacional + visão fiscal;
+- migrations Postgres/Supabase versionadas e testadas, inclusive suporte a `MONITORING`;
 - motor determinístico de conciliação;
 - Assistente de Liberações incremental e idempotente;
 - testes unitários, integrações opcionais e validações live controladas.
@@ -39,7 +40,7 @@ Em 14/08/2026:
 - **não existe frontend fiscal novo publicado**;
 - **não existe site desta plataforma publicado no Vercel**;
 - o backend institucional existe em código, mas ainda não opera como serviço implantado;
-- o melhor fluxo PDDEInfo + SIGEF + operacional + fiscal ainda é orquestrado por scripts/workflows e será promovido a job institucional `MONITORING`.
+- `MONITORING` existe em código e é validável por worker/API/CLI, mas ainda não persiste o estado corrente em um banco institucional implantado.
 
 O `index.html`, `src/main.ts` e o runtime AppDeploy presentes no repositório representam uma geração anterior do extrator e **não devem ser confundidos com o frontend fiscal que ainda será construído**.
 
@@ -67,6 +68,8 @@ O produto operacional atual trabalha com o exercício de **2026**.
 
 Dados anteriores podem ser preservados como evidência bruta ou usados numa investigação histórica separada, mas não podem preencher lacunas nem compor a visão operacional corrente de 2026.
 
+Essa regra agora também é validada no contrato do job institucional `MONITORING`: pedidos para outro exercício são recusados.
+
 ## Regra central de evidência
 
 O projeto separa fatos que não são equivalentes:
@@ -83,26 +86,25 @@ Na apresentação humana, evitar linguagem mais forte que a prova disponível. P
 
 ## Monitoramento 2026
 
-Fluxo já comprovado em código e em coleta real:
+Fluxo implementado como serviço reutilizável e validado com fontes reais:
 
 ```text
 Lista-mestre 163 UEs
         │
         ▼
-PDDEInfo por INEP
+MONITORING
         │
-        ├── UEx / CNPJ
-        ├── contas atuais
-        └── repasses / parcelas
+        ├── PDDEInfo por INEP
+        │     ├── UEx / CNPJ
+        │     ├── contas atuais
+        │     └── repasses / parcelas
         │
-        ▼
-SIGEF Extrato público direto
-        │
-        ├── créditos
-        ├── débitos
-        ├── aplicações / resgates
-        ├── documento / histórico
-        └── contraparte
+        ├── SIGEF Extrato público direto
+        │     ├── créditos
+        │     ├── débitos
+        │     ├── aplicações / resgates
+        │     ├── documento / histórico
+        │     └── contraparte
         │
         ▼
 Visão operacional 2026
@@ -110,11 +112,14 @@ Visão operacional 2026
         ▼
 Visão fiscal humana
         │
-        ├── JSON
-        └── Excel Fiscal v3
+        ├── monitoring.json
+        ├── operational.json
+        └── fiscal.json
 ```
 
-O próximo passo estrutural é retirar a orquestração principal dos scripts e transformá-la em uma capacidade institucional `MONITORING` executada pelo worker.
+O serviço central é `backend/application/run-monitoring.ts`. O worker institucional despacha jobs `MONITORING`, a API possui `POST /api/executions/monitoring` e o antigo `scripts/monitor-live-2026.ts` agora é somente uma CLI sobre o mesmo motor.
+
+Detalhes: [`docs/MONITORING_INSTITUCIONAL.md`](docs/MONITORING_INSTITUCIONAL.md).
 
 ## Excel Fiscal v3
 
@@ -141,6 +146,8 @@ npm run check
 
 `npm run check` executa testes, typecheck TypeScript e build. Integrações contra serviços externos ficam desativadas por padrão; workflows específicos realizam validações live controladas.
 
+Alterações no motor de monitoramento também podem disparar validação real de 10 UEs e, no PR, a validação integral das 163 UEs.
+
 ## Backend institucional em código
 
 A base institucional já contém:
@@ -150,17 +157,20 @@ A base institucional já contém:
 - idempotência;
 - worker;
 - API institucional;
+- jobs `PDDEINFO`, `MONITORING` e `RECONCILIATION`;
 - eventos append-only;
 - armazenamento privado de artefatos;
 - SHA-256;
 - projeções de execuções, achados, artefatos e histórico escolar;
 - migrations Supabase/Postgres.
 
-Hoje os jobs institucionais principais ainda são `PDDEINFO` e `RECONCILIATION`. O monitoramento completo será incorporado como `MONITORING` antes da implantação do banco e do frontend novo.
+O próximo passo estrutural é implantar essa base em um **Supabase dedicado** e criar o read model financeiro corrente que alimentará a futura API fiscal e o frontend.
 
 ## Postgres / Supabase
 
 As migrations em `supabase/migrations/` descrevem o modelo institucional e foram exercitadas por testes, mas **ainda não foram aplicadas a um projeto Supabase dedicado**. Bancos de outros sistemas não devem ser reutilizados por conveniência.
+
+A migration `20260814225500_monitoring_job_kind.sql` acrescenta `MONITORING` ao contrato de fila sem reescrever a migration histórica anterior.
 
 ## Assistente de Liberações
 
@@ -181,7 +191,7 @@ Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
 - `backend/report/` — relatórios e validações;
 - `backend/api/` — API institucional;
 - `backend/runtime/` — composição/execução do backend institucional;
-- `scripts/` — CLIs e orquestrações operacionais ainda não promovidas a serviço;
+- `scripts/` — CLIs, exportações e pontos de validação que reutilizam os serviços da aplicação;
 - `supabase/migrations/` — schema institucional versionado;
 - `tests/` — regras, regressões e integrações.
 
@@ -191,20 +201,21 @@ Leia nesta ordem:
 
 1. [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md)
 2. [`docs/CONHECIMENTO_ACUMULADO.md`](docs/CONHECIMENTO_ACUMULADO.md)
-3. [`docs/REFERENCIAS_NORMATIVAS.md`](docs/REFERENCIAS_NORMATIVAS.md), quando a tarefa envolver interpretação de pagamentos, aplicações, despesas ou conformidade
-4. [`docs/PROJETO.md`](docs/PROJETO.md)
-5. [`docs/DECISOES.md`](docs/DECISOES.md)
-6. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
-7. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-8. [`docs/VISAO_FISCAL.md`](docs/VISAO_FISCAL.md)
+3. [`docs/MONITORING_INSTITUCIONAL.md`](docs/MONITORING_INSTITUCIONAL.md), para o estado pós-baseline do monitoramento
+4. [`docs/REFERENCIAS_NORMATIVAS.md`](docs/REFERENCIAS_NORMATIVAS.md), quando a tarefa envolver interpretação de pagamentos, aplicações, despesas ou conformidade
+5. [`docs/PROJETO.md`](docs/PROJETO.md)
+6. [`docs/DECISOES.md`](docs/DECISOES.md)
+7. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
+8. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+9. [`docs/VISAO_FISCAL.md`](docs/VISAO_FISCAL.md)
 
 A documentação é memória institucional, não gate burocrático. Um novo chat deve sempre conferir a `main` e os commits posteriores ao baseline antes de alterar código. Referências normativas são datadas e devem ser revalidadas antes de virarem lógica automatizada.
 
 ## Próxima sequência técnica aprovada
 
-1. consolidar documentação e baseline;
-2. promover o fluxo atual a job institucional `MONITORING`;
-3. criar/conectar Supabase dedicado e read model financeiro corrente;
+1. **concluído:** consolidar documentação e baseline;
+2. **concluído em código:** promover o fluxo atual a job institucional `MONITORING`;
+3. **próximo:** criar/conectar Supabase dedicado e read model financeiro corrente;
 4. expor API orientada ao trabalho fiscal;
 5. construir e publicar o frontend novo;
 6. ampliar fontes e fechar lacunas, especialmente posição de aplicações/rendimentos, e então limpar o legado.
