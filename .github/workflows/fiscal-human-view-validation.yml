@@ -2,7 +2,7 @@ name: Fiscal Human View Validation
 on:
   push:
     branches:
-      - feat/fiscal-human-view-installments
+      - feat/excel-fiscal-layered-v3
     paths:
       - '.github/workflows/fiscal-human-view-validation.yml'
       - 'backend/application/build-fiscal-human-view.ts'
@@ -32,7 +32,7 @@ jobs:
         run: node --import tsx scripts/monitor-all-163.ts
       - name: Gerar visão fiscal agrupada
         run: npm run monitor:fiscal -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.json
-      - name: Gerar caderno Excel de fiscalização
+      - name: Gerar Excel fiscal em camadas
         run: npm run monitor:fiscal:xlsx -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.xlsx
       - name: Preservar saídas da validação
         if: always()
