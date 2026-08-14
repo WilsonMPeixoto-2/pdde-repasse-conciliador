@@ -1,9 +1,14 @@
 name: SIGEF Full 163 Validation
 on:
-  push:
-    branches:
-      - feat/sigef-public-2026-monitoring
+  pull_request:
     paths:
+      - 'backend/application/run-monitoring.ts'
+      - 'backend/adapters/pddeinfo-http.ts'
+      - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/pddeinfo-normalizer.ts'
+      - 'backend/adapters/sigef-public-statement.ts'
+      - 'scripts/monitor-live-2026.ts'
+      - 'scripts/monitor-all-163.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
   workflow_dispatch:
 permissions:
