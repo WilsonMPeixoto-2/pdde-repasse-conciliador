@@ -1,0 +1,47 @@
+name: Fiscal Human View Validation
+on:
+  push:
+    branches:
+      - feat/fiscal-human-view-installments
+    paths:
+      - '.github/workflows/fiscal-human-view-validation.yml'
+      - 'backend/application/build-fiscal-human-view.ts'
+      - 'scripts/build-fiscal-human-view.ts'
+      - 'scripts/export-fiscal-workbook.ts'
+      - 'tests/unit/fiscal-human-view.test.ts'
+      - 'package.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fiscal-view:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Testar visão fiscal
+        run: npm run test -- --run tests/unit/fiscal-human-view.test.ts
+      - name: Verificar tipos
+        run: npm run typecheck
+      - name: Coletar as 163 UEs em fontes reais
+        run: node --import tsx scripts/monitor-all-163.ts
+      - name: Gerar visão fiscal agrupada
+        run: npm run monitor:fiscal -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.json
+      - name: Gerar caderno Excel de fiscalização
+        run: npm run monitor:fiscal:xlsx -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.xlsx
+      - name: Preservar saídas da validação
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fiscal-human-view-163-2026
+          path: |
+            artifacts/monitor-all-163-2026.json
+            artifacts/monitor-fiscal-2026.json
+            artifacts/monitor-fiscal-2026.xlsx
+          if-no-files-found: warn
+          retention-days: 7
