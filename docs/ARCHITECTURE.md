@@ -1,52 +1,232 @@
 # Arquitetura atual e direção de evolução
 
-## Estado atual — v0.4.0
+## Estado atual — v0.5.0 / baseline 14/08/2026
 
-O repositório já cobre quatro responsabilidades separadas:
+O repositório possui hoje **duas camadas maduras que ainda precisam ser unidas institucionalmente**:
 
-1. coleta autônoma e validação do PDDEInfo;
-2. preservação append-only de evidências e artefatos;
-3. conciliação determinística entre fontes;
-4. projeções de leitura por execução e por escola.
+1. o motor financeiro atual, já capaz de coletar PDDEInfo + SIGEF, produzir visão operacional/fiscal e Excel v3;
+2. a infraestrutura institucional em código, com API, fila, worker, evidências, Storage e migrations Supabase/Postgres.
 
-A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar coleta e diagnóstico, mas não decidem o resultado financeiro final.
+Além delas, permanecem no repositório arquivos de frontend/runtime de uma geração anterior do extrator. Esse legado **não representa uma aplicação atualmente publicada**.
 
-## Fluxo atual
+A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar pesquisa, diagnóstico e adaptação de estrutura, mas não decidem o resultado financeiro final.
+
+## Fluxo financeiro atualmente comprovado
 
 ```text
 Lista-mestre 163 escolas
         │
         ▼
-PDDEInfo HTTP + parser
+PDDEInfo HTTP por INEP
         │
-        ├── HTML/JSON/manifest ───────────────┐
-        │                                      │
-        ▼                                      ▼
-normalização                         trilha append-only
-        │                           evidence/events.jsonl
-        │                                      │
-        ├─────────────┐                        │
-        │             │                        │
-        ▼             ▼                        │
-SIGEF Liberações   SIGEF Movimentações         │
-        │             │                        │
-        └──────┬──────┘                        │
-               ▼                               │
-       conciliação determinística              │
-               │                               │
-               ├── FINDING_RECORDED ──────────┤
-               ├── Excel + SHA-256 ───────────┤
-               ▼                               ▼
-          resultado                     projeções de leitura
-                                   execução / histórico escolar
+        ├── identidade da escola / UEx / CNPJ
+        ├── contas atuais por programa
+        ├── repasses / ações / parcelas
+        └── HTML bruto preservável
+        │
+        ▼
+Contas mapeadas
+        │
+        ▼
+SIGEF Extrato público direto
+        │
+        ├── valida identidade bancária retornada
+        ├── coleta páginas / cobertura
+        ├── histórico e documento
+        ├── crédito / débito
+        └── contraparte quando disponível
+        │
+        ▼
+Monitor bruto
+        │
+        ├── histórico recebido da fonte
+        └── filtro operacional para 2026
+        │
+        ▼
+Visão operacional 2026
+        │
+        ├── repasses e estados de associação
+        ├── movimentos normalizados
+        └── registros candidatos à conferência
+        │
+        ▼
+Visão fiscal humana
+        │
+        ├── escola → programa/ação → parcela
+        ├── escola → conta → extrato cronológico
+        └── linguagem neutra de evidência
+        │
+        ├── JSON fiscal
+        └── Excel Fiscal v3
 ```
 
-Observação de fonte e conclusão derivada permanecem separadas. Eventos gerados pelo motor usam origem `CONCILIADOR`; eles não são apresentados como se tivessem sido observados diretamente no PDDEInfo ou SIGEF.
+Em 14/08/2026 esse fluxo foi validado na carteira integral:
+
+- 163/163 escolas PDDEInfo;
+- 284/284 contas SIGEF completas;
+- 394 movimentos pertencentes a 2026;
+- 520 registros de repasse/parcela;
+- 0 contas parciais/falhas na rodada.
+
+Detalhes: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).
+
+## Coleta PDDEInfo
+
+Principais módulos:
+
+1. `backend/adapters/pddeinfo-http.ts` — consulta pública e política HTTP;
+2. `backend/adapters/pddeinfo-html.ts` — interpretação/identidade;
+3. `backend/adapters/pddeinfo-normalizer.ts` — pagamentos, ações, parcelas e contas;
+4. `backend/application/collect-pddeinfo.ts` — orquestração da coleta institucional existente;
+5. scripts de monitoramento — reutilizam a mesma fonte no fluxo financeiro atual.
+
+Invariantes:
+
+- identidade devolvida precisa corresponder ao INEP/SME consultado;
+- conta parcial é erro, não dado aceitável;
+- mais de uma conta corrente candidata para o mesmo programa não é escolhida arbitrariamente;
+- destinação financeira relevante desconhecida gera erro explícito;
+- valores são validados em centavos inteiros;
+- conta corrente ausente não é preenchida com histórico ou outro programa.
+
+## SIGEF Extrato público direto
+
+O adaptador atual é `backend/adapters/sigef-public-statement.ts`.
+
+A rota é construída com:
+
+- banco;
+- agência;
+- conta;
+- CNPJ da UEx;
+- código de programa;
+- período.
+
+O adaptador:
+
+- valida a identidade da página retornada;
+- preserva conta alfanumérica e dígito `X`;
+- trata encoding legado;
+- possui timeout/controle de falha;
+- observa paginação/cobertura;
+- produz movimentos com operação, valor, data, documento, histórico e contraparte;
+- classifica tecnicamente alguns históricos sem substituir o texto original;
+- mantém resultado `COMPLETE`, `PARTIAL` ou `ERROR`.
+
+Códigos efetivamente usados na rodada integral de 14/08/2026:
+
+- `02` — PDDE Básico;
+- `0B` — PDDE Qualidade;
+- `0A` — PDDE Equidade.
+
+O normalizador também conhece `Z9` para Educação Integral. Novos códigos devem ser comprovados pela fonte, não deduzidos por nome.
+
+## Regra temporal
+
+O monitor bruto pode receber movimentos históricos porque a própria fonte SIGEF pode devolvê-los. Isso não altera o contrato do produto:
+
+> **a visão operacional corrente é 2026.**
+
+Portanto:
+
+- movimentos anteriores podem ser preservados no bruto/evidência;
+- a visão operacional/fiscal deve filtrar o exercício;
+- histórico não preenche lacunas de 2026;
+- uma futura visualização histórica deverá ser separada.
+
+Essa regra deverá ser reforçada quando `MONITORING` virar job institucional.
+
+## Visão operacional
+
+`backend/application/build-monitoring-operational-view.ts` transforma o monitor bruto em duas coleções principais:
+
+### Repasses
+
+Cada registro conserva:
+
+- escola;
+- programa;
+- ação;
+- parcela;
+- valor programado;
+- pagamento informado;
+- data PDDEInfo;
+- conta correspondente, quando exibida;
+- associação bancária, quando possível.
+
+Estados técnicos atuais incluem:
+
+- `PROGRAMADO_NAO_PAGO`;
+- `CREDITO_CONFIRMADO`;
+- `PAGO_SEM_CONTA_ATUAL`;
+- `PAGO_CREDITO_NAO_LOCALIZADO`;
+- `CREDITO_AMBIGUO`;
+- `CONSULTA_INCONCLUSIVA`.
+
+Esses nomes são internos. A camada humana deve usar linguagem proporcional à prova, como **“Crédito compatível localizado no extrato SIGEF”**.
+
+### Movimentações
+
+As categorias auxiliares atuais incluem:
+
+- `REPASSE_FNDE`;
+- `APLICACAO_FINANCEIRA`;
+- `RESGATE_APLICACAO`;
+- `PAGAMENTO_TRANSFERENCIA`;
+- `PAGAMENTO_CARTAO`;
+- `RENDIMENTO_FINANCEIRO`;
+- `ENTRADA_TERCEIRO`;
+- `TARIFA_BANCARIA`;
+- `ESTORNO_REVERSAO`;
+- `MOVIMENTO_NAO_CLASSIFICADO`.
+
+Categoria auxiliar nunca substitui `history` e `document` originais.
+
+## Visão fiscal humana
+
+`backend/application/build-fiscal-human-view.ts` organiza a informação para leitura humana.
+
+Contrato principal:
+
+```text
+Escola
+├── Repasses
+│   └── Programa/Ação
+│       └── Parcela
+└── Extratos
+    └── Conta/Programa
+        └── Movimentações cronológicas
+```
+
+A apresentação:
+
+- separa valor programado, pagamento informado e crédito SIGEF;
+- mantém parcela explícita (`1ª Parcela`, `2ª Parcela`, `P1`, `P2` ou sem divisão);
+- usa linguagem temporal neutra quando o PDDEInfo ainda não informou pagamento;
+- não converte movimento bancário em julgamento de regularidade;
+- deixa evidência técnica disponível em nível mais profundo.
+
+## Excel Fiscal v3
+
+`scripts/export-fiscal-workbook.ts` produz nove abas:
+
+1. `Visão Geral`;
+2. `Unidades`;
+3. `Repasses por Escola`;
+4. `Extratos por Escola`;
+5. `Registros para Conferência`;
+6. `BASE - Repasses`;
+7. `BASE - Movimentos`;
+8. `BASE - Contas`;
+9. `Legenda e Fontes`.
+
+O Excel é uma camada de produto complementar, não apenas serialização do frontend.
 
 ## Modelo de evidência
 
 `backend/core/evidence.ts` define eventos canônicos:
 
+- `EXECUTION_REQUESTED`;
 - `EXECUTION_STARTED`;
 - `EXECUTION_FINISHED`;
 - `SOURCE_ATTEMPT_RECORDED`;
@@ -54,155 +234,125 @@ Observação de fonte e conclusão derivada permanecem separadas. Eventos gerado
 - `OBSERVATION_RECORDED`;
 - `FINDING_RECORDED`.
 
-Cada evento persistido possui:
+Cada evento persistido possui, conforme o contrato:
 
-- `eventId` único;
+- `eventId`;
 - `runId`;
-- sequência monotônica;
 - origem;
 - exercício;
 - INEP opcional;
 - data/hora;
-- payload tipado;
+- payload;
+- sequência;
 - `previousHash`;
 - `eventHash` SHA-256.
 
-### Adaptador JSONL
+Observações de fonte e achados do `CONCILIADOR` permanecem semanticamente separados.
 
-`backend/adapters/jsonl-evidence-store.ts` implementa o contrato imediatamente utilizável:
+## Backend institucional em código
 
-- append serializado mesmo com escolas processadas em paralelo;
-- rejeição de `eventId` duplicado;
-- verificação da cadeia antes de novos appends;
-- detecção de adulteração, quebra de sequência e divergência de hash;
-- leitura por execução, por escola ou integral.
+A segunda camada da arquitetura já possui:
 
-O arquivo padrão é:
+- `backend/application/execution-command-service.ts`;
+- `backend/application/execution-worker.ts`;
+- fila `execution_jobs`;
+- API institucional em `backend/api/`;
+- adaptadores Supabase;
+- Storage privado de artefatos;
+- idempotência;
+- read models de execução/achados/artefatos/histórico escolar.
+
+A migration `20260813064845_institutional_backend.sql` materializa `execution_jobs`, views de leitura e funções de enqueue/claim/complete/recovery.
+
+A migration `20260813235000_single_pending_execution.sql` impõe uma única execução `QUEUED`/`RUNNING` por vez.
+
+### Limitação arquitetural atual
+
+Os jobs institucionais ainda contemplam principalmente:
+
+- `PDDEINFO`;
+- `RECONCILIATION`.
+
+Enquanto isso, o melhor fluxo financeiro completo existe em scripts/workflows.
+
+Essa é a lacuna que o próximo corte resolve.
+
+## Arquitetura alvo imediata
 
 ```text
-<workspace>/evidence/events.jsonl
+Frontend fiscal futuro
+        │
+        ▼
+API fiscal/read models
+        │
+        ▼
+Supabase dedicado
+        │
+        ├── estado financeiro corrente
+        ├── execution_jobs
+        ├── evidence_events
+        └── Storage de artefatos
+        │
+        ▼
+Worker institucional
+        │
+        ▼
+MONITORING 2026
+        │
+        ├── PDDEInfo
+        ├── SIGEF Extrato
+        ├── visão operacional
+        ├── visão fiscal
+        └── Excel/JSON/evidências
 ```
 
-### Postgres / Supabase
+O frontend não deve reconstruir o domínio a partir de `evidence_events`. A trilha append-only atende auditoria/histórico; o produto necessita de um **read model financeiro corrente** adequado a carteira e prontuário.
 
-`supabase/migrations/20260813050000_evidence_events.sql` materializa o mesmo princípio em Postgres:
+## Postgres / Supabase
 
-- `pgcrypto` para SHA-256;
-- índices por execução, escola e fonte/exercício;
-- RLS habilitado e forçado;
-- sem leitura/escrita para `anon` ou `authenticated` nesta etapa;
-- `UPDATE` e `DELETE` bloqueados por trigger;
-- append por função `SECURITY DEFINER` concedida apenas a `service_role`;
-- `pg_advisory_xact_lock` serializa sequência e cadeia de hashes.
+As migrations estão versionadas e testadas, mas ainda **não foram aplicadas a um projeto Supabase dedicado**.
 
-A migration está versionada, mas ainda **não foi aplicada a um projeto Supabase dedicado**. Os projetos já conectados pertencem a outras aplicações e não serão reutilizados por conveniência.
+Não existe banco institucional desta plataforma em produção em 14/08/2026.
 
-## Coleta PDDEInfo
+A implantação futura deve revisar as migrations contra o modelo financeiro corrente antes de aplicá-las, em vez de assumir que todo schema preparado durante a evolução deve ser publicado sem reavaliação.
 
-Principais módulos:
+## Frontend e runtime legado
 
-1. `pddeinfo-http.ts` realiza a consulta pública por INEP com timeout/retry;
-2. `pddeinfo-html.ts` interpreta e valida a identidade retornada;
-3. `pddeinfo-normalizer.ts` converte a resposta em pagamentos esperados;
-4. `collect-pddeinfo.ts` orquestra lotes, preserva artefatos e registra a execução;
-5. `scripts/collect-pddeinfo.ts` cria automaticamente a trilha de evidências e verifica sua integridade.
+Arquivos como:
 
-Uma falha de fonte é registrada como tentativa falha da escola. Uma falha do próprio armazenamento de auditoria não é mascarada como falha da escola: a execução é interrompida.
+- `index.html`;
+- `src/main.ts`;
+- `backend/index.ts`;
+- `SOURCE_MANIFEST.json`;
 
-## Conciliação
+representam a geração AppDeploy/extrator V2.
 
-Principais módulos:
+Eles continuam úteis como referência histórica e podem conter soluções reaproveitáveis, mas **não constituem o site atual**, pois não há site institucional publicado.
 
-1. `sigef-release-inspector.ts` identifica metadados das exportações;
-2. `load-sigef-release-exports.ts` importa manifesto ou pasta canônica;
-3. `sigef-releases-html.ts` interpreta os `.xls` HTML/Windows-1252;
-4. `sigef-movements-csv.ts` lê o CSV em streaming;
-5. `reconciliation-pipeline.ts` valida procedência/cobertura;
-6. `portfolio-reconciliation.ts` resolve candidatos sem inferência silenciosa;
-7. `reconciliation.ts` produz estado e código de razão;
-8. `reconcile-files.ts` gera o Excel e registra execução, achados e relatório na trilha;
-9. `reconciliation-workbook.ts` gera, relê e audita o workbook.
-
-Quando o PDDEInfo veio do layout padrão do coletor, `scripts/reconcile.ts` encontra automaticamente a mesma trilha de evidências. Uma execução do conciliador registra qual `runId` de coleta lhe serviu como origem.
-
-## Leitura e projeções
-
-`backend/application/evidence-history.ts` reconstrói o estado a partir dos eventos, sem criar uma segunda tabela mutável de “resumo atual”.
-
-As projeções já disponíveis incluem:
-
-- status, início e fim de uma execução;
-- origem e exercício;
-- vínculo da conciliação com a coleta anterior;
-- contagem de tentativas, falhas, artefatos, achados e revisões humanas;
-- linha do tempo por INEP.
-
-`scripts/inspect-evidence.ts` expõe essas projeções por CLI e verifica a integridade da cadeia antes de apresentar resultados.
+O frontend fiscal novo será construído depois que o backend possuir `MONITORING`, persistência corrente e API adequada.
 
 ## Invariantes
 
+- exercício operacional atual: 2026;
 - dinheiro é comparado em centavos inteiros;
-- CNPJ, banco, agência, conta, INEP, código SME e OB permanecem texto;
+- CNPJ, banco, agência, conta, INEP, código SME e documento permanecem texto;
 - fonte ausente ou cobertura insuficiente nunca vira confirmação nem ausência definitiva;
-- observação externa e conclusão derivada permanecem semanticamente separadas;
-- eventos já persistidos não são reescritos para simular estado atual;
+- observação externa e conclusão derivada permanecem separadas;
 - conta divergente entre fontes nunca é escolhida automaticamente;
 - conta ausente no PDDEInfo não é inferida de histórico ou programa diferente;
 - cabeçalho, destinação ou estrutura desconhecida geram erro explícito;
+- histórico SIGEF bruto é preservado mesmo quando existe classificação auxiliar;
 - conteúdo externo capaz de virar fórmula no Excel é neutralizado;
-- o workbook final é relido e validado antes de ser considerado concluído.
+- aplicações/resgates não são convertidos em posição atual de investimento;
+- CAPTCHA/login/restrição não serão contornados.
 
-## Validação de escala
+## Próxima ordem técnica
 
-Em 13/08/2026, a coleta real das 163 unidades foi repetida com a persistência ligada:
+1. consolidar documentação/baseline;
+2. promover o monitoramento a `MONITORING` institucional;
+3. criar/conectar Supabase dedicado + read model financeiro;
+4. expor API fiscal;
+5. construir/publicar frontend novo;
+6. integrar novas fontes somente depois que agregarem evidência real ao produto.
 
-- 163/163 escolas concluídas;
-- 520 registros financeiros;
-- 169 com pagamento informado;
-- 47 sem conta correspondente de programa na visão consultada;
-- 0 warnings de normalização;
-- 493 eventos append-only;
-- cadeia de integridade validada integralmente.
-
-## Direção da plataforma
-
-```text
-Aplicação web operacional
-        │
-        ▼
-API / casos de uso
-        │
-        ├── execução de coletas
-        ├── conciliação
-        ├── projeções de histórico
-        └── gestão de exceções
-        │
-        ▼
-Modelo canônico + trilha de evidências
-        │
-        ├── JSONL operacional/local
-        └── Postgres/Supabase institucional
-        │
-        ▼
-Fontes + motor determinístico
-```
-
-O passo seguinte é materializar o backend institucional sobre o contrato já validado, aplicar a migration em um projeto dedicado e expor as projeções por API para a futura interface web.
-
-## Direção de UX
-
-A aplicação deve mostrar primeiro execução, escola, resumo financeiro, exceções e ações úteis. Hashes, URLs, parser e demais metadados permanecem acessíveis numa camada secundária de rastreabilidade.
-
-As implementações paralelas continuam sendo referência de UX, especialmente para hierarquia visual, estados semânticos, alto contraste, teclado e responsividade, sem herança automática de seus runtimes.
-
-## Limites atuais
-
-- obtenção autônoma do SIGEF continua limitada por CAPTCHA em rotas relevantes;
-- o fluxo principal ainda é CLI;
-- a migration Postgres está pronta, mas não há banco Supabase canônico criado/aplicado;
-- autenticação e interface web ainda não estão integradas;
-- arquivos operacionais grandes permanecem fora do Git quando não agregam valor ao histórico do código.
-
-## Dependência transitiva
-
-O ExcelJS 4.4.0 ainda declara `uuid ^8.3.0`. O projeto força `uuid 11.1.1`, versão corrigida para a vulnerabilidade transitiva monitorada. Geração, serialização e releitura do workbook permanecem cobertas por testes. O override deve ser removido quando uma futura versão do ExcelJS atualizar sua dependência nativa.
+Conhecimentos e oportunidades ainda não materializados estão registrados em [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
