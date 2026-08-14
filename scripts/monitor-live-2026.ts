@@ -316,7 +316,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   let accountsFailed = 0;
 
   for (const account of accountResults) {
-    for (const classification of CLASSIFICATIONS) summaryTotals[classification] += account.totals[classification];
+    for (const classification of CLASSIFICATIONS) {
+      summaryTotals[classification] += account.totals[classification];
+    }
     movementsInYear += account.movementsInYear;
     historical += account.uniqueMovements;
     balances += account.saldoPddeInfoCents ?? 0;
@@ -340,7 +342,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     coverage: {
       requestedSchools: selected.length,
       pddeInfoSchoolsCollected: schools.length,
-      pddeInfoFailures,
+      pddeInfoFailures: pddeFailures,
       mappedAccountsAttempted: accountResults.length,
       mappedAccountsComplete: accountsComplete,
       mappedAccountsPartial: accountsPartial,
@@ -371,7 +373,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   await mkdir(dirname(opt.output), { recursive: true });
   await writeFile(opt.output, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-  process.stdout.write(`${JSON.stringify({ status: result.status, output: opt.output, coverage: result.coverage, summary: result.summary }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({
+    status: result.status,
+    output: opt.output,
+    coverage: result.coverage,
+    summary: result.summary,
+  }, null, 2)}\n`);
+
   if (result.status !== 'COMPLETE') process.exitCode = 2;
 }
 
