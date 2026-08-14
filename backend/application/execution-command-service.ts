@@ -39,14 +39,24 @@ const releaseArtifactReferenceSchema = artifactReferenceSchema.refine(
   (value) => value.path.toLowerCase().endsWith('.xls'),
   'artefato de Liberações deve usar extensão .xls',
 );
+const schoolInepsSchema = z.array(z.string().regex(/^\d{8}$/, 'INEP inválido')).min(1).max(163)
+  .refine((values) => new Set(values).size === values.length, 'INEP duplicado');
 
 export const pddeInfoJobRequestSchema = z.object({
   fiscalYear: z.number().int().min(2000).max(2100),
-  schoolIneps: z.array(z.string().regex(/^\d{8}$/, 'INEP inválido')).min(1).max(163)
-    .refine((values) => new Set(values).size === values.length, 'INEP duplicado')
-    .optional(),
+  schoolIneps: schoolInepsSchema.optional(),
   batchSize: z.number().int().min(1).max(20).default(3),
   batchDelayMs: z.number().int().min(0).max(60_000).default(1_500),
+}).strict();
+
+/**
+ * A visão operacional corrente da plataforma é deliberadamente 2026.
+ * Histórico pode ser preservado como evidência bruta, mas não pode ser
+ * promovido acidentalmente para o monitoramento corrente.
+ */
+export const monitoringJobRequestSchema = z.object({
+  fiscalYear: z.literal(2026, { error: 'MONITORING institucional opera exclusivamente no exercício de 2026.' }),
+  schoolIneps: schoolInepsSchema.optional(),
 }).strict();
 
 export const reconciliationJobRequestSchema = z.object({
@@ -61,6 +71,7 @@ export const reconciliationJobRequestSchema = z.object({
 export const reconciliationJobPayloadSchema = reconciliationJobRequestSchema;
 
 export type PddeInfoJobRequest = z.input<typeof pddeInfoJobRequestSchema>;
+export type MonitoringJobRequest = z.input<typeof monitoringJobRequestSchema>;
 export type ReconciliationJobRequest = z.input<typeof reconciliationJobRequestSchema>;
 
 export interface ExecutionCommandReceipt {
@@ -111,7 +122,12 @@ function deterministicRunId(kind: ExecutionJobKind, idempotencyKey: string): str
     .update(`${kind}\u0000${idempotencyKey}`, 'utf8')
     .digest('hex')
     .slice(0, 32);
-  return `${kind === 'PDDEINFO' ? 'pddeinfo' : 'reconciliation'}-${digest}`;
+  const prefix = kind === 'PDDEINFO'
+    ? 'pddeinfo'
+    : kind === 'MONITORING'
+      ? 'monitoring'
+      : 'reconciliation';
+  return `${prefix}-${digest}`;
 }
 
 export class ExecutionCommandService {
@@ -133,6 +149,13 @@ export class ExecutionCommandService {
     rawRequest: PddeInfoJobRequest,
   ): Promise<ExecutionCommandReceipt> {
     return this.enqueue('PDDEINFO', rawIdempotencyKey, pddeInfoJobRequestSchema.parse(rawRequest));
+  }
+
+  async requestMonitoring(
+    rawIdempotencyKey: string,
+    rawRequest: MonitoringJobRequest,
+  ): Promise<ExecutionCommandReceipt> {
+    return this.enqueue('MONITORING', rawIdempotencyKey, monitoringJobRequestSchema.parse(rawRequest));
   }
 
   async requestReconciliation(
