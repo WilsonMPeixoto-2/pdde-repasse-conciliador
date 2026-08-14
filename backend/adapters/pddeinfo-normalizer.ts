@@ -138,6 +138,12 @@ function mapDestination(rawDestination: string): DestinationMapping | null {
       actionName: 'PDDE Básico — Primeira Infância', installmentCode: 'P1', installmentLabel: 'P1',
     };
   }
+  if (destination === 'PDDE PDDE BASICO PRIMEIRA INFANCIA P2') {
+    return {
+      programCode: '02', programName: 'PDDE', actionCode: 'PDDE_PRIMEIRA_INFANCIA',
+      actionName: 'PDDE Básico — Primeira Infância', installmentCode: 'P2', installmentLabel: 'P2',
+    };
+  }
   if (destination === 'PDDE QUALIDADE EDUCACAO CONECTADA 2026') {
     return {
       programCode: '0B', programName: 'PDDE Qualidade', actionCode: 'EDUCACAO_CONECTADA',
