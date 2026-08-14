@@ -191,13 +191,14 @@ Leia nesta ordem:
 
 1. [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md)
 2. [`docs/CONHECIMENTO_ACUMULADO.md`](docs/CONHECIMENTO_ACUMULADO.md)
-3. [`docs/PROJETO.md`](docs/PROJETO.md)
-4. [`docs/DECISOES.md`](docs/DECISOES.md)
-5. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
-6. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-7. [`docs/VISAO_FISCAL.md`](docs/VISAO_FISCAL.md)
+3. [`docs/REFERENCIAS_NORMATIVAS.md`](docs/REFERENCIAS_NORMATIVAS.md), quando a tarefa envolver interpretação de pagamentos, aplicações, despesas ou conformidade
+4. [`docs/PROJETO.md`](docs/PROJETO.md)
+5. [`docs/DECISOES.md`](docs/DECISOES.md)
+6. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
+7. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+8. [`docs/VISAO_FISCAL.md`](docs/VISAO_FISCAL.md)
 
-A documentação é memória institucional, não gate burocrático. Um novo chat deve sempre conferir a `main` e os commits posteriores ao baseline antes de alterar código.
+A documentação é memória institucional, não gate burocrático. Um novo chat deve sempre conferir a `main` e os commits posteriores ao baseline antes de alterar código. Referências normativas são datadas e devem ser revalidadas antes de virarem lógica automatizada.
 
 ## Próxima sequência técnica aprovada
 
