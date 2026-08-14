@@ -2,9 +2,17 @@
 
 ## Missão
 
-Construir uma plataforma interna para a 4ª CRE capaz de **coletar, validar, conciliar e rastrear dados financeiros do PDDE**, preservando a distinção entre o que cada fonte realmente comprova e entregando uma experiência operacional simples, além de relatórios Excel profissionais e auditáveis.
+Construir uma plataforma interna para a 4ª CRE capaz de **coletar, validar, conciliar, monitorar e rastrear dados financeiros do PDDE**, preservando a distinção entre o que cada fonte realmente comprova e entregando uma experiência operacional simples, além de relatórios Excel profissionais e auditáveis.
 
-O caso concreto e prioritário é a carteira de **163 escolas da 4ª CRE no exercício de 2026**. Expansão para outros exercícios, CREs ou fontes é desejável somente depois que melhorar o produto real, não como pretexto para ampliar escopo indefinidamente.
+O caso concreto e prioritário é a carteira de **163 escolas da 4ª CRE no exercício de 2026**. Expansão para outros exercícios, CREs ou fontes só deve ocorrer quando melhorar o produto real, não como pretexto para ampliar escopo indefinidamente.
+
+## Estado de referência
+
+O baseline factual de 14/08/2026 está em [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).
+
+Ideias, pesquisas e descobertas ainda não materializadas estão em [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
+
+Esses documentos existem para permitir continuidade por novos chats sem depender da memória da conversa.
 
 ## Como o projeto evoluiu
 
@@ -19,6 +27,8 @@ O experimento municipal comprovou escala:
 - 3.027 registros de contas bancárias;
 - 4.987 registros financeiros;
 - paginação completa validada e 4.987 registros conciliados internamente sem divergência.
+
+A primeira grande conclusão arquitetural foi que não era necessário depender do botão de exportação quebrado do sistema oficial para obter os dados públicos que a própria página apresentava.
 
 ### 2. Carteira fixa da 4ª CRE
 
@@ -42,13 +52,13 @@ O projeto passou a diferenciar:
 
 A pergunta deixou de ser apenas “qual é o valor?” e passou a incluir “qual fonte comprova este fato e até onde vai essa comprovação?”.
 
-### 4. Conciliação com SIGEF
+### 4. Conciliação com SIGEF por arquivos/exportações
 
 Foram desenvolvidos leitores e regras para combinar PDDEInfo, SIGEF Liberações e SIGEF Movimentações com chaves fortes de correspondência. Similaridade de valor, sozinha, não confirma uma parcela.
 
-A primeira execução real parcial do núcleo atual processou 520 repasses. Como a evidência de Liberações não estava disponível naquela rodada, todos permaneceram inconclusivos, comportamento considerado correto e obrigatório.
+A primeira execução real parcial do núcleo processou 520 repasses e os manteve inconclusivos quando a cobertura externa necessária não estava disponível. Esse comportamento conservador virou uma regra permanente.
 
-### 5. Assistente de Liberações — v0.2.0
+### 5. Assistente de Liberações
 
 A coleta manual das exportações do SIGEF recebeu uma camada operacional que:
 
@@ -59,6 +69,101 @@ A coleta manual das exportações do SIGEF recebeu uma camada operacional que:
 - detecta duplicidade equivalente, atualização monotônica, conflito, pasta incorreta e arquivo fora da carteira;
 - gera planilha de cobertura e pendências;
 - pode ser executada repetidamente sem destruir estado válido.
+
+O Assistente permanece útil para evidências de Liberações, mas deixou de ser o único caminho para observar movimentações bancárias.
+
+### 6. Descoberta e incorporação do extrato SIGEF público direto
+
+A pesquisa técnica mostrou que, quando banco, agência, conta, CNPJ e programa já são conhecidos, o SIGEF possui uma rota pública de detalhamento do extrato acessível diretamente.
+
+O repositório canônico incorporou essa capacidade em `backend/adapters/sigef-public-statement.ts`.
+
+O adaptador:
+
+- monta a rota a partir da identidade bancária;
+- valida a identidade retornada;
+- preserva conta com dígito `X`;
+- trata encoding e instabilidade;
+- preserva histórico e documento;
+- extrai contraparte quando disponível;
+- mantém estados `COMPLETE`, `PARTIAL` e `ERROR`;
+- nunca interpreta CAPTCHA/erro como ausência de movimentos.
+
+### 7. Validação integral PDDEInfo + SIGEF nas 163 UEs
+
+Em 14/08/2026, o fluxo canônico completou uma rodada integral:
+
+- 163/163 escolas no PDDEInfo;
+- 284/284 contas SIGEF completas;
+- 0 consultas parciais ou falhas de conta;
+- 520 registros de repasse/parcela;
+- 394 movimentos do exercício de 2026;
+- 51.547 movimentos históricos recebidos das fontes brutas e mantidos fora da visão corrente;
+- R$ 827.615,00 com pagamento informado no PDDEInfo;
+- R$ 409.010,00 em créditos compatíveis localizados no SIGEF.
+
+Essa etapa encerrou a dúvida sobre a viabilidade técnica de monitorar a carteira completa usando PDDEInfo + SIGEF público.
+
+### 8. Visão operacional
+
+O projeto passou a organizar os fatos em duas famílias principais:
+
+- **repasses**, com programa/ação/parcela, valor programado, pagamento informado e associação bancária;
+- **movimentações**, com conta, data, crédito/débito, histórico, documento, contraparte e categoria auxiliar.
+
+As categorias de movimento ajudam a leitura, mas não substituem o histórico original do banco nem produzem julgamento automático de regularidade.
+
+### 9. Visão fiscal humana
+
+A experiência deixou de ser pensada como uma tabela técnica única e passou a seguir a lógica de trabalho do fiscal:
+
+```text
+Unidade Escolar
+├── Programa / Ação
+│   └── Parcela
+└── Conta / Programa
+    └── Movimentações
+        └── Evidência
+```
+
+A escola é a unidade principal de navegação. A interface deve permitir leitura rápida, aprofundamento financeiro e investigação de evidências sem obrigar o usuário a compreender o pipeline de coleta.
+
+### 10. Excel Fiscal v3
+
+O Excel foi promovido de “saída do extrator” a produto de análise complementar ao futuro site.
+
+A versão atual possui nove abas:
+
+1. Visão Geral;
+2. Unidades;
+3. Repasses por Escola;
+4. Extratos por Escola;
+5. Registros para Conferência;
+6. BASE - Repasses;
+7. BASE - Movimentos;
+8. BASE - Contas;
+9. Legenda e Fontes.
+
+A planilha preserva bases técnicas para cruzamentos adicionais sem obrigar a interface web a reproduzir todas as possibilidades analíticas do Excel.
+
+### 11. Backend institucional em código
+
+O repositório também evoluiu para uma base institucional com:
+
+- API;
+- fila de execuções;
+- worker;
+- idempotência;
+- estados operacionais;
+- Storage privado;
+- eventos append-only;
+- SHA-256;
+- read models de execuções/achados/artefatos;
+- migrations Supabase/Postgres.
+
+Essa infraestrutura **ainda não está implantada**. Não existe Supabase dedicado conectado nem site publicado no Vercel.
+
+O backend institucional conhece hoje principalmente `PDDEINFO` e `RECONCILIATION`. O monitoramento completo PDDEInfo + SIGEF ainda precisa ser promovido de scripts/workflows para um job institucional `MONITORING`.
 
 ## Experimentos paralelos e aprendizado
 
@@ -74,7 +179,7 @@ Durante a fase exploratória foram usados três ambientes de implementação em 
 
 `WilsonMPeixoto-2/extrator-pdde-4cre`
 
-Contém snapshots e implementações anteriores, incluindo fluxo AppDeploy validado, Excel V3, testes E2E e soluções que podem ser portadas seletivamente. Não recebe novo desenvolvimento deste fluxo.
+Contém implementações anteriores, incluindo auditoria web, histórico por observação, comparadores, E2E, AppDeploy e outras soluções candidatas a reaproveitamento seletivo. Não recebe novo desenvolvimento deste fluxo.
 
 ### Projeto paralelo Manus
 
@@ -84,47 +189,46 @@ Contém snapshots e implementações anteriores, incluindo fluxo AppDeploy valid
 
 ## O que vale aproveitar das referências
 
-A consolidação será feita por capacidade, não copiando um repositório inteiro.
+A consolidação é feita por capacidade, não copiando um repositório inteiro.
 
-Do núcleo atual, preservamos principalmente a conciliação determinística, adaptadores, centavos inteiros, estados explícitos, Excel auditável e Assistente de Liberações.
+Ideias úteis já observadas:
 
-Das implementações anteriores, são candidatas úteis:
-
-- coleta autônoma do PDDEInfo por INEP;
-- persistência e recuperação de execuções;
-- evidências brutas e SHA-256;
-- proveniência por campo;
-- histórico append-only;
 - dossiê financeiro por escola;
-- baselines e achados;
-- experiência web operacional;
-- validações E2E e comportamento em falhas parciais.
-
-### Direção visual observada no Manus
-
-As atualizações recentes do projeto paralelo reforçaram uma direção de UX que merece servir de inspiração:
-
+- filtros avançados por execução/escola/programa/campo;
+- comparador histórico;
+- cobertura de fonte explicitamente comunicada;
+- referência primária completa não substituída por execução parcial;
+- evidência técnica recolhida em camada secundária;
 - navegação institucional compacta;
-- hierarquia clara entre execução, validações e auditoria;
-- métricas resumidas sem aparência de dashboard decorativo;
-- auditoria centrada primeiro na escola e no resumo financeiro;
-- detalhes técnicos recolhidos em “Rastreabilidade e evidências”;
-- cores semânticas, foco visível, tooltips explicativos e alto contraste;
-- uso responsivo em desktop e celular;
-- exclusão de áreas que não ajudam a operação, como notificações sem função clara.
+- alto contraste, foco visível e responsividade;
+- métricas operacionais sem aparência de dashboard decorativo.
 
-A inspiração visual não implica copiar runtime, banco, arquitetura ou dependências do Manus.
+A inspiração visual ou funcional não implica copiar runtime, banco, arquitetura ou dependências das referências.
+
+## Conhecimento ainda não materializado
+
+As pesquisas já identificaram possibilidades que não devem ser esquecidas, mas que **não são capacidades atuais do canônico**. Entre elas:
+
+- relatórios públicos complementares do PDDEInfo, inclusive saldo e situação de contas/prestação de contas;
+- Novo Webservice do SIGEF, condicionado a documentação/credenciais institucionais;
+- API do BB Gestão Ágil, condicionada a acesso institucional;
+- produtos estruturados da Plataforma Antonieta de Barros;
+- PDDEREx, condicionado a piloto de utilidade em 2026;
+- API do Portal da Transparência, condicionada a prova de granularidade útil por UEx;
+- Dados Abertos FNDE como controle secundário;
+- SiGPC como possível camada futura de prestação de contas.
+
+O registro completo, com grau de maturidade e experimentos necessários, está em [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
 
 ## Próxima direção de desenvolvimento
 
-A evolução do repositório canônico deve seguir aproximadamente esta ordem:
+A sequência aprovada em 14/08/2026 é:
 
-1. preservar e amadurecer o núcleo determinístico já validado;
-2. incorporar coleta autônoma e resiliente do PDDEInfo para os 163 INEPs;
-3. consolidar um modelo canônico de dados e evidências;
-4. incorporar persistência e histórico sem perder o caráter auditável;
-5. integrar o motor à aplicação web operacional;
-6. transportar seletivamente UX e capacidades comprovadas nos protótipos;
-7. ampliar fontes apenas quando houver rota tecnicamente e operacionalmente válida.
+1. **consolidar documentação e baseline técnico**;
+2. **transformar o monitoramento atual em job institucional `MONITORING`**;
+3. **criar/conectar Supabase dedicado e persistir um read model financeiro corrente**;
+4. **expor API orientada à carteira e ao prontuário fiscal**;
+5. **construir o frontend novo e publicar a plataforma**;
+6. **ampliar fontes e fechar lacunas**, especialmente posição de aplicações/rendimentos, e então remover/arquivar legado desnecessário.
 
-Essa ordem é orientação, não uma burocracia de fases. Desenvolvimento útil não deve ficar bloqueado porque este documento ainda não refletiu uma alteração secundária.
+Essa ordem é orientação de produto e arquitetura, não uma burocracia de fases. O objetivo é transformar o motor financeiro já comprovado numa plataforma institucional utilizável antes de voltar a expandir o número de fontes.

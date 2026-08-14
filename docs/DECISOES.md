@@ -2,6 +2,68 @@
 
 Este arquivo registra somente decisões que seriam caras de rediscutir ou reconstruir. Ele não é um changelog e não precisa ser atualizado a cada alteração de código.
 
+## 2026-08-14 — A visão operacional corrente é 2026
+
+**Decisão:** para todas as 163 UEs, o produto operacional atual trabalha exclusivamente com o exercício de **2026**.
+
+Dados anteriores podem ser preservados como evidência bruta ou usados numa investigação histórica separada, mas não podem preencher lacunas nem compor saldos, aplicações, resgates, repasses ou registros para conferência da visão corrente.
+
+**Motivo:** uma fonte como o SIGEF pode devolver histórico de vários exercícios. Misturar 2021/2025 numa análise corrente de 2026 produz uma narrativa tecnicamente verdadeira sobre o passado, mas errada para a pergunta operacional atual.
+
+## 2026-08-14 — Código existente não significa sistema implantado
+
+**Decisão:** documentação e comunicação do projeto devem distinguir explicitamente quatro estados: **implementado no código**, **validado**, **conectado/implantado** e **publicado para uso**.
+
+Em 14/08/2026, não há Supabase dedicado conectado, frontend fiscal novo publicado nem site desta plataforma no Vercel.
+
+**Motivo:** evitar que novos chats ou desenvolvedores interpretem arquivos de frontend, migrations ou adaptadores como prova de uma implantação que ainda não ocorreu.
+
+## 2026-08-14 — A escola é a unidade principal do produto
+
+**Decisão:** o produto web futuro será organizado prioritariamente por unidade escolar, e não por execução, transação, arquivo ou job.
+
+A hierarquia desejada é:
+
+```text
+4ª CRE → Escola → Programa/Ação → Conta → Parcela → Movimentações → Evidência
+```
+
+Execuções e metadados técnicos permanecem acessíveis numa camada de rastreabilidade.
+
+**Motivo:** essa estrutura corresponde ao trabalho real de fiscalização e reduz a necessidade de o usuário reconstruir mentalmente o pipeline técnico.
+
+## 2026-08-14 — A visão fiscal humana é o contrato de apresentação
+
+**Decisão:** a camada fiscal por escola/programa/parcela/conta é a referência semântica para o futuro frontend e para relatórios destinados ao usuário.
+
+A base plana operacional continua existindo para processamento, filtros e integrações, mas não deve ditar a experiência humana.
+
+**Motivo:** a visão fiscal preserva a complexidade necessária sem expor a estrutura interna do coletor como interface de trabalho.
+
+## 2026-08-14 — Site e Excel são produtos complementares
+
+**Decisão:** o futuro site prioriza compreensão, navegação, acompanhamento e investigação. O Excel continua sendo uma ferramenta de análise livre, filtros e cruzamentos.
+
+**Motivo:** não há benefício em reproduzir no navegador toda capacidade exploratória de uma planilha nem em reduzir o Excel a uma cópia da tela.
+
+## 2026-08-14 — Monitoramento completo será uma capacidade institucional
+
+**Decisão:** o fluxo já comprovado `PDDEInfo → contas → SIGEF → visão operacional → visão fiscal → artefatos` será promovido a job institucional `MONITORING` antes da implantação da plataforma.
+
+**Motivo:** hoje a melhor coleta ainda é orquestrada principalmente por scripts/workflows, enquanto a infraestrutura institucional de fila/API/worker conhece `PDDEINFO` e `RECONCILIATION`. A integração elimina essa divisão arquitetural antes do frontend novo.
+
+## 2026-08-14 — Conhecimento de pesquisa terá grau de maturidade explícito
+
+**Decisão:** descobertas de pesquisas, protótipos e repositórios paralelos devem ser preservadas, mas classificadas como incorporadas, validadas fora do canônico, pesquisa confirmada, piloto necessário ou não priorizadas.
+
+**Motivo:** evitar dois erros opostos: perder descobertas caras quando o contexto de chat acabar ou tratar uma ideia promissora como funcionalidade já existente.
+
+## 2026-08-14 — Aplicação/resgate não prova posição atual do investimento
+
+**Decisão:** movimentos SIGEF de aplicação e resgate podem ser apresentados como fatos do extrato. Eles não autorizam calcular automaticamente o saldo atualmente aplicado ou rendimento acumulado.
+
+**Motivo:** posição de investimento é uma informação distinta e exige fonte adequada. A lacuna deverá ser tratada futuramente por relatórios de saldo, BB Gestão Ágil, webservice ou outra evidência oficial que realmente exponha a posição corrente.
+
 ## 2026-08-13 — Evidência operacional é append-only
 
 **Decisão:** coletas, artefatos, observações e achados relevantes entram em uma trilha de eventos append-only. Eventos já persistidos não são atualizados nem apagados para representar “estado atual”; projeções de leitura reconstroem execução e histórico escolar a partir da sequência registrada.
@@ -88,7 +150,7 @@ Observações de fontes externas mantêm a origem da própria fonte. Conclusões
 
 ## 2026-08-12 — Interface deve priorizar operação, não arqueologia técnica
 
-**Decisão:** a aplicação web deve mostrar primeiro execução, escola, resumo financeiro, exceções e ações úteis. Hashes, URLs, parser, evidências e metadados ficam disponíveis em camada secundária sob demanda.
+**Decisão:** a aplicação web deve mostrar primeiro escola, resumo financeiro, exceções e ações úteis. Hashes, URLs, parser, execuções e metadados ficam disponíveis em camada secundária sob demanda.
 
 **Motivo:** experimentos paralelos mostraram melhor usabilidade quando a complexidade técnica permaneceu acessível sem dominar a tela.
 
