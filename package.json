@@ -19,8 +19,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
-    "monitor:collect": "node --import tsx scripts/collect-monitoring.ts",
-    "sigef:smoke": "node --import tsx scripts/smoke-sigef-public.ts",
+    "monitor:live": "node --import tsx scripts/monitor-live-2026.ts",
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
     "evidence:inspect": "node --import tsx scripts/inspect-evidence.ts",
@@ -30,8 +29,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "check": "npm run test && npm run typecheck && npm run build",
-    "monitor:live": "node --import tsx scripts/monitor-live-2026.ts"
+    "check": "npm run test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.3",
