@@ -1,5 +1,7 @@
 # Assistente de Liberações 2026
 
+> **Contexto atual:** o Assistente continua suportado como fluxo assistido para evidências de **SIGEF Liberações**, mas não é mais o caminho principal para obter movimentações bancárias. Desde 14/08/2026, o repositório canônico possui consulta direta e validada do **SIGEF Extrato público**. Ver [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).
+
 ## Finalidade
 
 O Assistente de Liberações prepara as exportações `.xls` do **SIGEF > Liberações** para o conciliador PDDE. Ele foi desenhado para reduzir o trabalho manual de renomear e organizar arquivos, sem enfraquecer as validações auditáveis já existentes no núcleo de conciliação.
