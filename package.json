@@ -22,6 +22,7 @@
     "monitor:live": "node --import tsx scripts/monitor-live-2026.ts",
     "monitor:operational": "node --import tsx scripts/build-monitoring-operational-view.ts",
     "monitor:fiscal": "node --import tsx scripts/build-fiscal-human-view.ts",
+    "monitor:fiscal:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
     "evidence:inspect": "node --import tsx scripts/inspect-evidence.ts",
