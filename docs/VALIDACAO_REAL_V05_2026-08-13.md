@@ -1,5 +1,7 @@
 # Validação real v0.5 — 13/08/2026
 
+> **Registro histórico.** Este documento preserva uma rodada real do PDDEInfo em 13/08/2026 e não representa sozinho o estado mais recente do projeto. Para a fotografia atual consolidada, incluindo PDDEInfo + SIGEF nas 163 UEs, consulte [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).
+
 Este registro documenta a repetição controlada da coleta pública do PDDEInfo durante o desenvolvimento da v0.5. Ele preserva resultados e hashes verificáveis sem transformar uma fonte mutável em fixture eterna.
 
 ## Sequência executada
