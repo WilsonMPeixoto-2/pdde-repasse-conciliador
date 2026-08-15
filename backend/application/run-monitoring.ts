@@ -20,6 +20,7 @@ import {
 import { canonicalAccount, canonicalText } from '../core/normalization';
 import type { BankAccount } from '../core/schemas';
 import type { EvidenceEventInput, EvidenceSource } from '../core/evidence';
+import { buildMonitoringSourceObservations } from '../core/source-observation';
 import type {
   ArtifactKind,
   ArtifactStore,
@@ -345,13 +346,27 @@ function createRawMonitoring(input: {
     && accountsPartial === 0
     && accountsFailed === 0
     && input.unknownProgramAccounts.length === 0;
+  const sourceObservations = buildMonitoringSourceObservations({
+    generatedAt: input.generatedAt,
+    pddeInfo: {
+      collected: input.schools.length,
+      failures: input.pddeFailures.length,
+      queriedAt: Object.values(input.pddeMeta).map((meta) => meta.queriedAt),
+    },
+    sigef: input.accountResults.map((account) => ({
+      status: account.status,
+      coverageThrough: account.coverageThrough,
+      movementsInYear: account.movementsInYear,
+    })),
+  });
 
   return {
-    version: 3,
+    version: 4,
     generatedAt: input.generatedAt,
     fiscalYear: input.fiscalYear,
     status: complete ? 'COMPLETE' as const : 'PARTIAL' as const,
     sources: ['PDDEINFO', 'SIGEF_EXTRATO'],
+    sourceObservations,
     coverage: {
       requestedSchools: input.selectedCount,
       pddeInfoSchoolsCollected: input.schools.length,
