@@ -1,0 +1,31 @@
+name: Portal OpenAPI Probe Once
+
+on:
+  push:
+    branches:
+      - feat/public-data-pilot-20260815
+    paths:
+      - .github/workflows/portal-openapi-probe-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Inspecionar OpenAPI oficial do Portal
+        run: node --import tsx scripts/probe-portal-openapi.ts portal-openapi-probe.json
+      - name: Publicar contrato do probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-openapi-probe
+          path: portal-openapi-probe.json
+          retention-days: 1
