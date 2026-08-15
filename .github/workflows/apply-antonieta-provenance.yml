@@ -1,0 +1,119 @@
+name: Apply Antonieta Provenance Patch
+
+on:
+  push:
+    branches:
+      - feat/antonieta-provenance-model
+    paths:
+      - .github/workflows/apply-antonieta-provenance.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+        with:
+          ref: feat/antonieta-provenance-model
+          fetch-depth: 0
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Aplicar integração de catálogo e observações de fonte
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: marcador esperado exatamente 1 vez, encontrado {count}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'backend/application/run-monitoring.ts',
+              "import type { EvidenceEventInput, EvidenceSource } from '../core/evidence';\n",
+              "import type { EvidenceEventInput, EvidenceSource } from '../core/evidence';\nimport { buildMonitoringSourceObservations } from '../core/source-observation';\n",
+          )
+          replace_once(
+              'backend/application/run-monitoring.ts',
+              "  const paidRows = pdde.payments.filter((payment) => payment.amountPaidCents > 0);\n  const complete = input.pddeFailures.length === 0\n    && accountsPartial === 0\n    && accountsFailed === 0\n    && input.unknownProgramAccounts.length === 0;\n\n  return {\n    version: 3,\n",
+              "  const paidRows = pdde.payments.filter((payment) => payment.amountPaidCents > 0);\n  const complete = input.pddeFailures.length === 0\n    && accountsPartial === 0\n    && accountsFailed === 0\n    && input.unknownProgramAccounts.length === 0;\n  const sourceObservations = buildMonitoringSourceObservations({\n    generatedAt: input.generatedAt,\n    pddeInfo: {\n      collected: input.schools.length,\n      failures: input.pddeFailures.length,\n      queriedAt: Object.values(input.pddeMeta).map((meta) => meta.queriedAt),\n    },\n    sigef: input.accountResults.map((account) => ({\n      status: account.status,\n      coverageThrough: account.coverageThrough,\n      movementsInYear: account.movementsInYear,\n    })),\n  });\n\n  return {\n    version: 4,\n",
+          )
+          replace_once(
+              'backend/application/run-monitoring.ts',
+              "    sources: ['PDDEINFO', 'SIGEF_EXTRATO'],\n    coverage: {\n",
+              "    sources: ['PDDEINFO', 'SIGEF_EXTRATO'],\n    sourceObservations,\n    coverage: {\n",
+          )
+
+          replace_once(
+              'backend/application/build-monitoring-operational-view.ts',
+              "import type { SigefMovementClass } from '../adapters/sigef-public-statement';\n",
+              "import type { SigefMovementClass } from '../adapters/sigef-public-statement';\nimport { sourceObservationSchema } from '../core/source-observation';\n",
+          )
+          replace_once(
+              'backend/application/build-monitoring-operational-view.ts',
+              "  sources: z.array(z.string()),\n  coverage: z.record(z.string(), z.unknown()),\n",
+              "  sources: z.array(z.string()),\n  sourceObservations: z.array(sourceObservationSchema).default([]),\n  coverage: z.record(z.string(), z.unknown()),\n",
+          )
+          replace_once(
+              'backend/application/build-monitoring-operational-view.ts',
+              "    sources: input.sources,\n    coverage: input.coverage,\n",
+              "    sources: input.sources,\n    sourceObservations: input.sourceObservations,\n    coverage: input.coverage,\n",
+          )
+
+          replace_once(
+              'backend/application/build-fiscal-human-view.ts',
+              "import type { SigefMovementClass } from '../adapters/sigef-public-statement';\n",
+              "import type { SigefMovementClass } from '../adapters/sigef-public-statement';\nimport { sourceObservationSchema } from '../core/source-observation';\n",
+          )
+          replace_once(
+              'backend/application/build-fiscal-human-view.ts',
+              "  sources: z.array(z.string()),\n  coverage: z.record(z.string(), z.unknown()),\n",
+              "  sources: z.array(z.string()),\n  sourceObservations: z.array(sourceObservationSchema).default([]),\n  coverage: z.record(z.string(), z.unknown()),\n",
+          )
+          replace_once(
+              'backend/application/build-fiscal-human-view.ts',
+              "    sources: source.sources,\n    coverage: source.coverage,\n",
+              "    sources: source.sources,\n    sourceObservations: source.sourceObservations,\n    coverage: source.coverage,\n",
+          )
+
+          replace_once(
+              'backend/api/institutional-api.ts',
+              "import type { EvidenceIntegrityResult } from '../core/evidence';\n",
+              "import type { EvidenceIntegrityResult } from '../core/evidence';\nimport { DATA_PRODUCT_CATALOG, SOURCE_CATALOG } from '../core/source-catalog';\n",
+          )
+          replace_once(
+              'backend/api/institutional-api.ts',
+              "          money: 'INTEGER_CENTS',\n        });\n",
+              "          money: 'INTEGER_CENTS',\n          sourceCatalog: SOURCE_CATALOG,\n          dataProducts: DATA_PRODUCT_CATALOG,\n        });\n",
+          )
+          PY
+
+      - name: Instalar dependências imutáveis
+        run: npm ci
+
+      - name: Validar implementação antes do commit
+        run: npm run check
+
+      - name: Gravar implementação na branch
+        shell: bash
+        run: |
+          git config user.name "Wilson Malafaia Peixoto"
+          git config user.email "wilsonmp2@gmail.com"
+          git add backend/application/run-monitoring.ts \
+                  backend/application/build-monitoring-operational-view.ts \
+                  backend/application/build-fiscal-human-view.ts \
+                  backend/api/institutional-api.ts
+          git commit -m "feat: institucionaliza catálogo e recência das fontes"
+          git push origin HEAD:feat/antonieta-provenance-model
