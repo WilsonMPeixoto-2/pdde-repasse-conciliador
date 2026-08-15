@@ -1,0 +1,157 @@
+name: Crosscheck PDDE 02 163
+
+on:
+  push:
+    branches:
+      - test/sigef-account-discovery-20260815
+    paths:
+      - .github/workflows/crosscheck-pdde02-163.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  crosscheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar última coleta integral
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p source out
+          gh run download 31861324595 --repo WilsonMPeixoto-2/pdde-repasse-conciliador -n sigef-full-163-2026 -D source
+          test -f source/artifacts/monitor-all-163-2026.json
+
+      - name: Cruzar liberações SIGEF programa 02
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv, json, re, time, urllib.request
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          SOURCE = Path('source/artifacts/monitor-all-163-2026.json')
+          OUT_JSON = Path('out/pdde02-contas-163-cruzamento.json')
+          OUT_CSV = Path('out/pdde02-contas-163-cruzamento.csv')
+          BASE = 'https://www.fnde.gov.br/sigefweb/index.php/liberacoes/resultado-entidade/ano/2026/programa/02/cnpj/'
+
+          class TableParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.tables=[]; self.table=None; self.row=None; self.cell=None
+              def handle_starttag(self, tag, attrs):
+                  if tag=='table': self.table=[]
+                  elif tag=='tr' and self.table is not None: self.row=[]
+                  elif tag in ('th','td') and self.row is not None: self.cell=''
+              def handle_data(self, data):
+                  if self.cell is not None: self.cell += data
+              def handle_endtag(self, tag):
+                  if tag in ('th','td') and self.cell is not None:
+                      self.row.append(re.sub(r'\s+',' ',self.cell).strip()); self.cell=None
+                  elif tag=='tr' and self.row is not None:
+                      if self.row: self.table.append(self.row)
+                      self.row=None
+                  elif tag=='table' and self.table is not None:
+                      self.tables.append(self.table); self.table=None
+
+          def digits(v): return re.sub(r'\D','',v or '')
+          def canon_account(v): return (v or '').lstrip('0') or '0'
+          def parse_money(v):
+              v=(v or '').strip().replace('.','').replace(',','.')
+              try: return int(round(float(v)*100))
+              except: return None
+          months={'JAN':'01','FEV':'02','MAR':'03','ABR':'04','MAI':'05','JUN':'06','JUL':'07','AGO':'08','SET':'09','OUT':'10','NOV':'11','DEZ':'12'}
+          def parse_date(v):
+              m=re.match(r'^(\d{2})/([A-Z]{3})/(\d{2}|\d{4})$',(v or '').strip().upper())
+              if not m: return None
+              y=m.group(3); y=('20'+y) if len(y)==2 else y
+              return f'{y}-{months.get(m.group(2),"00")}-{m.group(1)}'
+
+          data=json.loads(SOURCE.read_text())
+          results=[]
+          for i,s in enumerate(data['schools'],1):
+              cnpj=digits(s['cnpj'])
+              url=BASE+cnpj
+              req=urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 PDDE-4CRE-audit/1.0'})
+              error=None; html=''
+              for attempt in range(3):
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          raw=r.read(); html=raw.decode('iso-8859-1','replace')
+                      break
+                  except Exception as e:
+                      error=str(e)
+                      if attempt<2: time.sleep(1.5*(attempt+1))
+              parser=TableParser(); parser.feed(html)
+              releases=[]
+              for table in parser.tables:
+                  if not table: continue
+                  headers=[x.upper() for x in table[0]]
+                  needed=['DATA DE PAGAMENTO','ORDEM BANCÁRIA','VALOR','PROGRAMA','BANCO','AGÊNCIA','CONTA CORRENTE']
+                  if not all(x in headers for x in needed): continue
+                  idx={x:headers.index(x) for x in needed}
+                  for row in table[1:]:
+                      if len(row)<=max(idx.values()): continue
+                      if 'TOTAL' in ' '.join(row).upper(): continue
+                      releases.append({
+                          'date':parse_date(row[idx['DATA DE PAGAMENTO']]),
+                          'order':row[idx['ORDEM BANCÁRIA']],
+                          'amountCents':parse_money(row[idx['VALOR']]),
+                          'program':row[idx['PROGRAMA']],
+                          'bank': '001' if 'BANCO DO BRASIL' in row[idx['BANCO']].upper() else row[idx['BANCO']],
+                          'agency':row[idx['AGÊNCIA']],
+                          'account':row[idx['CONTA CORRENTE']],
+                      })
+              p1=[r for r in s['repasses'] if r['programCode']=='02' and (r.get('pagoInformadoCents') or 0)>0]
+              pdde_p1=p1[0] if p1 else None
+              matches=[]
+              if pdde_p1:
+                  matches=[r for r in releases if r['amountCents']==pdde_p1['pagoInformadoCents']]
+                  exact=[r for r in matches if r['date']==pdde_p1.get('dataOrdem')]
+                  if exact: matches=exact
+              a02=[a for a in s['accounts'] if a['programCode']=='02']
+              known=[a['account'] for a in a02]
+              matched=matches[0] if len(matches)==1 else None
+              if matched:
+                  same=any(digits(a['agency'])==digits(matched['agency']) and canon_account(a['number'])==canon_account(matched['account']) for a in known)
+                  status='CONFIRMADA_PDDEINFO_SIGEF' if known and same else ('RECUPERADA_SIGEF' if not known else 'DIVERGENTE')
+              else:
+                  status='SEM_LIBERACAO_SIGEF' if not releases else 'AMBIGUA'
+              results.append({
+                  'inep':s['inep'],'sme':s['sme'],'school':s['name'],'uex':s['uex'],'cnpj':s['cnpj'],
+                  'pddeInfoProgram02Accounts':known,
+                  'pddeInfoP1':pdde_p1,
+                  'sigefProgram02Releases':releases,
+                  'matchedRelease':matched,
+                  'status':status,
+                  'requestError':error if not html else None,
+                  'sourceUrl':url,
+              })
+              print(f'[{i:03d}/163] {s["inep"]} {status} known={len(known)} releases={len(releases)} match={len(matches)}')
+              time.sleep(0.12)
+
+          summary={}
+          for r in results: summary[r['status']]=summary.get(r['status'],0)+1
+          output={'generatedAt':__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(), 'summary':summary,'schools':results}
+          OUT_JSON.write_text(json.dumps(output,ensure_ascii=False,indent=2))
+          fields=['inep','sme','school','cnpj','status','agency','account','amountCents','paymentDate','orderBank','pddeInfoAgency','pddeInfoAccount','sourceUrl']
+          with OUT_CSV.open('w',newline='',encoding='utf-8-sig') as f:
+              w=csv.DictWriter(f,fieldnames=fields); w.writeheader()
+              for r in results:
+                  m=r['matchedRelease'] or {}; k=(r['pddeInfoProgram02Accounts'] or [{}])[0]
+                  w.writerow({'inep':r['inep'],'sme':r['sme'],'school':r['school'],'cnpj':r['cnpj'],'status':r['status'],
+                              'agency':m.get('agency',''),'account':m.get('account',''),'amountCents':m.get('amountCents',''),
+                              'paymentDate':m.get('date',''),'orderBank':m.get('order',''),'pddeInfoAgency':k.get('agency',''),
+                              'pddeInfoAccount':k.get('number',''),'sourceUrl':r['sourceUrl']})
+          print('SUMMARY', json.dumps(summary, ensure_ascii=False, sort_keys=True))
+          unresolved=[r for r in results if r['status'] not in ('CONFIRMADA_PDDEINFO_SIGEF','RECUPERADA_SIGEF')]
+          print('UNRESOLVED', len(unresolved))
+          for r in unresolved: print('UNRESOLVED_ITEM',r['inep'],r['school'],r['status'],r['requestError'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdde02-contas-163-cruzamento
+          path: out/
+          retention-days: 7
