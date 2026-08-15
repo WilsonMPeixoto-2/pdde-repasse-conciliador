@@ -7,6 +7,7 @@ on:
       - 'scripts/probe-pab.ts'
       - 'scripts/probe-pab-deep.ts'
       - 'scripts/probe-pab-bbagil.ts'
+      - 'scripts/probe-pab-bbagil-api.ts'
       - '.github/workflows/probe-pab.yml'
 permissions:
   contents: read
@@ -26,3 +27,5 @@ jobs:
         run: node --import tsx scripts/probe-pab-deep.ts
       - name: Localizar painel e API BB Gestão Ágil
         run: node --import tsx scripts/probe-pab-bbagil.ts
+      - name: Identificar endpoint e parâmetros reais BB Gestão Ágil
+        run: node --import tsx scripts/probe-pab-bbagil-api.ts
