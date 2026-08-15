@@ -1,0 +1,22 @@
+name: Probe PAB BB Agil API
+on:
+  push:
+    branches:
+      - test/sigef-month-window-2344
+    paths:
+      - 'scripts/probe-pab-bbagil-api.ts'
+      - '.github/workflows/probe-pab-bbagil-api.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Identificar endpoint e parâmetros reais BB Gestão Ágil
+        run: node --import tsx scripts/probe-pab-bbagil-api.ts
