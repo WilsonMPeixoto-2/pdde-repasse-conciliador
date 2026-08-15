@@ -1,0 +1,39 @@
+name: Dependency Update Probe
+
+on:
+  push:
+    branches:
+      - chore/dependency-update-20260815
+    paths:
+      - .github/workflows/dependency-update-probe.yml
+      - package.json
+      - package-lock.json
+      - tailwind.config.*
+      - postcss.config.*
+      - vite.config.*
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Baseline
+        run: |
+          npm ci
+          npm run check
+      - name: Registry inventory
+        run: |
+          echo '=== NPM OUTDATED ==='
+          npm outdated || true
+          echo '=== PACKAGE LATEST / ENGINES / PEERS ==='
+          for p in vite tailwindcss typescript lucide vitest @types/node tsx autoprefixer postcss @supabase/supabase-js cheerio csv-parse exceljs zod @electric-sql/pglite; do
+            echo "--- $p ---"
+            npm view "$p" version engines peerDependencies --json
+          done
