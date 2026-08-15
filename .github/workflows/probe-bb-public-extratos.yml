@@ -1,0 +1,22 @@
+name: Probe BB Public Extratos
+on:
+  push:
+    branches:
+      - test/sigef-month-window-2344
+    paths:
+      - 'scripts/probe-bb-public-extratos.ts'
+      - '.github/workflows/probe-bb-public-extratos.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Descobrir e testar extratos online BB Gestão Ágil
+        run: node --import tsx scripts/probe-bb-public-extratos.ts
