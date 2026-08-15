@@ -15,6 +15,12 @@ function isPdf(bytes: Uint8Array): boolean {
   return String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-';
 }
 
+async function destroyIfSupported(pdf: unknown): Promise<void> {
+  if (!pdf || typeof pdf !== 'object' || !('destroy' in pdf)) return;
+  const destroy = (pdf as { destroy?: () => void | Promise<void> }).destroy;
+  if (typeof destroy === 'function') await destroy.call(pdf);
+}
+
 export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfText> {
   if (!isPdf(bytes)) throw new Error('O arquivo informado não possui assinatura PDF válida.');
   const pdf = await getDocumentProxy(bytes);
@@ -34,6 +40,6 @@ export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfTex
       },
     };
   } finally {
-    await pdf.destroy();
+    await destroyIfSupported(pdf);
   }
 }
