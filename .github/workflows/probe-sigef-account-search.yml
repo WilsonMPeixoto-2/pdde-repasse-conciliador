@@ -1,0 +1,38 @@
+name: Probe SIGEF Account Search
+
+on:
+  push:
+    branches:
+      - test/sigef-account-discovery-20260815
+    paths:
+      - .github/workflows/probe-sigef-account-search.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public account search
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -L --fail --silent --show-error -c out/cookies.txt 'https://www.fnde.gov.br/sigefweb/pesquisa-conta' -o out/get.html
+          echo '=== FORMS ==='
+          grep -Eoi '<form[^>]*>|<input[^>]*>|<select[^>]*>|<option[^>]*>' out/get.html | head -120 || true
+          echo '=== ACTION CONTEXT ==='
+          grep -n -i -E 'pesquisa-conta|cnpj|buscar|form' out/get.html | head -120 || true
+          echo '=== POST SAMPLE ==='
+          curl -L --silent --show-error -b out/cookies.txt -c out/cookies.txt \
+            -X POST 'https://www.fnde.gov.br/sigefweb/pesquisa-conta' \
+            --data-urlencode 'cnpj=04500463000173' \
+            --data-urlencode 'buscaPor=1' \
+            --data-urlencode 'buscar=Buscar' \
+            -o out/post.html -w 'HTTP=%{http_code} URL=%{url_effective}\n'
+          grep -n -i -E '04\.500\.463|04500463|conta|agencia|PDDE|programa|nenhum|resultado' out/post.html | head -160 || true
+
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigef-account-search-probe
+          path: out/
+          retention-days: 1
