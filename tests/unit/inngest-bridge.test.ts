@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 const subjectUrl = new URL('../../backend/orchestration/inngest-bridge.ts', import.meta.url).href;
 
@@ -36,5 +36,26 @@ describe('ponte Inngest opcional', () => {
     if (!subject) return;
     const create = subject.createInngestBridge as (options?: Record<string, unknown>) => Record<string, unknown>;
     expect(() => create({ enabled: true, appId: '' })).toThrow(/appId/i);
+  });
+
+  test('lê ativação explicitamente do ambiente e continua desligada sem flag', async () => {
+    const subject = await loadSubject();
+    expect(subject, 'a ponte Inngest ainda não foi implementada').not.toBeNull();
+    if (!subject) return;
+    const fromEnv = subject.createInngestBridgeFromEnv as (env: Record<string, string | undefined>) => Record<string, any>;
+    expect(fromEnv({ INNGEST_APP_ID: 'pdde-4cre' })).toMatchObject({ enabled: false, client: null });
+    expect(fromEnv({ INNGEST_ENABLED: 'true', INNGEST_APP_ID: 'pdde-4cre' })).toMatchObject({ enabled: true });
+  });
+
+  test('adapta step.run do Inngest ao executor durável neutro', async () => {
+    const subject = await loadSubject();
+    expect(subject, 'a ponte Inngest ainda não foi implementada').not.toBeNull();
+    if (!subject) return;
+    const adapt = subject.inngestStepRunner as (step: any) => { run(id: string, handler: () => Promise<unknown>): Promise<unknown> };
+    const step = { run: vi.fn(async (_id: string, handler: () => Promise<unknown>) => handler()) };
+    const runner = adapt(step);
+    await expect(runner.run('pddeinfo', async () => ({ ok: true }))).resolves.toEqual({ ok: true });
+    expect(step.run).toHaveBeenCalledTimes(1);
+    expect(step.run).toHaveBeenCalledWith('pddeinfo', expect.any(Function));
   });
 });
