@@ -15,6 +15,7 @@ export const evidenceSourceSchema = z.enum([
   'SIGEF_MOVIMENTACOES',
   'SIGEF_EXTRATO',
   'DADOS_ABERTOS_FNDE',
+  'PORTAL_TRANSPARENCIA',
   'EXTRATO_BANCARIO_AUTORIZADO',
   'CONCILIADOR',
 ]);
