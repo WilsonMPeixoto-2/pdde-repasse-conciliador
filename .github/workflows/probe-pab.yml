@@ -6,6 +6,7 @@ on:
     paths:
       - 'scripts/probe-pab.ts'
       - 'scripts/probe-pab-deep.ts'
+      - 'scripts/probe-pab-bbagil.ts'
       - '.github/workflows/probe-pab.yml'
 permissions:
   contents: read
@@ -23,3 +24,5 @@ jobs:
         run: node --import tsx scripts/probe-pab.ts
       - name: Explorar módulos e API internos públicos
         run: node --import tsx scripts/probe-pab-deep.ts
+      - name: Localizar painel e API BB Gestão Ágil
+        run: node --import tsx scripts/probe-pab-bbagil.ts
