@@ -5,7 +5,7 @@
   "description": "Coleta, evidência e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "repository": {
     "type": "git",
