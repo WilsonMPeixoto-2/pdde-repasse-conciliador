@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { PersistedEvidenceEvent } from '../core/evidence';
 import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
+import type { CurrentFiscalPortfolio, CurrentFiscalSchoolSnapshot } from './current-fiscal-read-model';
 import {
   projectEvidenceRun,
   type EvidenceRunProjection,
@@ -264,6 +265,17 @@ export class InstitutionalReadService {
         ? { nextCursor: String(items.at(-1)!.sequence) }
         : {}),
     };
+  }
+
+  async getCurrentFiscalPortfolio(): Promise<CurrentFiscalPortfolio | null> {
+    if (!this.repository?.getCurrentFiscalPortfolio) return null;
+    return this.repository.getCurrentFiscalPortfolio();
+  }
+
+  async getCurrentFiscalSchool(inep: string): Promise<CurrentFiscalSchoolSnapshot | null> {
+    z.string().regex(/^\d{8}$/, 'INEP inválido').parse(inep);
+    if (!this.schoolByInep.has(inep) || !this.repository?.getCurrentFiscalSchool) return null;
+    return this.repository.getCurrentFiscalSchool(inep);
   }
 
   async listArtifacts(runId: string): Promise<ArtifactReadModel[]> {

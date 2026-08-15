@@ -16,6 +16,8 @@ import {
   evidenceSourceSchema,
 } from '../core/evidence';
 import { isoTimestampSchema } from '../core/time';
+import { sourceObservationSchema } from '../core/source-observation';
+import type { CurrentFiscalPortfolio, CurrentFiscalSchoolSnapshot, CurrentFiscalSchoolSummary } from '../application/current-fiscal-read-model';
 import { mapSupabaseEvidenceEvent } from './supabase-evidence-store';
 
 const EVENT_COLUMNS = [
@@ -30,8 +32,23 @@ const EXECUTION_COLUMNS = [
 ].join(',');
 // Mantém a query `in(...)` abaixo de limites usuais de URL mesmo quando cada
 // identificador ocupa os 160 caracteres permitidos pelo contrato.
+const CURRENT_FISCAL_SNAPSHOT_COLUMNS = [
+  'fiscal_year', 'run_id', 'generated_at', 'source_generated_at',
+  'source_observations', 'coverage', 'metrics',
+].join(',');
+const CURRENT_FISCAL_SCHOOL_COLUMNS = ['school_inep', 'sme', 'school_name', 'metrics'].join(',');
 const RUN_ID_BATCH_SIZE = 40;
 const projectedStatusSchema = z.enum(['QUEUED', 'RUNNING', 'COMPLETE', 'PARTIAL', 'FAILED', 'UNKNOWN']);
+const currentFiscalMetricsSchema = z.object({
+  schools: z.number().int().nonnegative(),
+  accounts: z.number().int().nonnegative(),
+  movements: z.number().int().nonnegative(),
+  programmedCents: z.number().int().nonnegative(),
+  paidInformedCents: z.number().int().nonnegative(),
+  creditedCents: z.number().int().nonnegative(),
+  reportedBalanceCents: z.number().int(),
+}).strict();
+const currentFiscalSchoolMetricsSchema = currentFiscalMetricsSchema.omit({ schools: true });
 
 interface SupabaseResult {
   data: unknown;
@@ -214,6 +231,67 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
     return projections
       .sort((left, right) => right.anchor - left.anchor)
       .map((item) => item.projection);
+  }
+
+  async getCurrentFiscalPortfolio(): Promise<CurrentFiscalPortfolio | null> {
+    const snapshotResult = await this.client.from('current_fiscal_snapshots')
+      .select(CURRENT_FISCAL_SNAPSHOT_COLUMNS)
+      .eq('fiscal_year', 2026)
+      .limit(1);
+    if (snapshotResult.error) throw new Error(`Read model fiscal corrente: ${message(snapshotResult.error)}.`);
+    if (!Array.isArray(snapshotResult.data)) throw new Error('Read model fiscal corrente retornou formato inválido.');
+    if (snapshotResult.data.length === 0) return null;
+    const snapshot = record(snapshotResult.data[0]);
+
+    const schoolResult = await this.client.from('current_fiscal_schools')
+      .select(CURRENT_FISCAL_SCHOOL_COLUMNS)
+      .eq('fiscal_year', 2026)
+      .order('sme', { ascending: true })
+      .limit(500);
+    if (schoolResult.error) throw new Error(`Read models fiscais das escolas: ${message(schoolResult.error)}.`);
+    if (!Array.isArray(schoolResult.data)) throw new Error('Read models fiscais das escolas retornaram formato inválido.');
+    const schools: CurrentFiscalSchoolSummary[] = schoolResult.data.map((raw) => {
+      const row = record(raw);
+      return {
+        inep: z.string().regex(/^\d{8}$/).parse(row.school_inep),
+        sme: z.string().regex(/^\d{7}$/).parse(row.sme),
+        name: z.string().min(1).parse(row.school_name),
+        metrics: currentFiscalSchoolMetricsSchema.parse(row.metrics),
+      };
+    });
+    return {
+      fiscalYear: z.literal(2026).parse(Number(snapshot.fiscal_year)),
+      runId: evidenceIdentifierSchema.parse(snapshot.run_id),
+      generatedAt: isoTimestampSchema.parse(snapshot.generated_at),
+      sourceGeneratedAt: isoTimestampSchema.parse(snapshot.source_generated_at),
+      sourceObservations: z.array(sourceObservationSchema).parse(snapshot.source_observations),
+      coverage: z.record(z.string(), z.unknown()).parse(snapshot.coverage),
+      metrics: currentFiscalMetricsSchema.parse(snapshot.metrics),
+      schools,
+    };
+  }
+
+  async getCurrentFiscalSchool(inep: string): Promise<CurrentFiscalSchoolSnapshot | null> {
+    const validatedInep = z.string().regex(/^\d{8}$/).parse(inep);
+    const result = await this.client.from('current_fiscal_schools')
+      .select('snapshot')
+      .eq('fiscal_year', 2026)
+      .eq('school_inep', validatedInep)
+      .limit(1);
+    if (result.error) throw new Error(`Read model fiscal da escola: ${message(result.error)}.`);
+    if (!Array.isArray(result.data)) throw new Error('Read model fiscal da escola retornou formato inválido.');
+    if (result.data.length === 0) return null;
+    const value = record(record(result.data[0]).snapshot);
+    return {
+      fiscalYear: z.literal(2026).parse(Number(value.fiscalYear)),
+      runId: evidenceIdentifierSchema.parse(value.runId),
+      school: z.object({
+        inep: z.string().regex(/^\d{8}$/), sme: z.string().regex(/^\d{7}$/),
+        name: z.string().min(1), uex: z.string(), cnpj: z.string(),
+      }).strict().parse(value.school),
+      repasses: z.array(z.unknown()).parse(value.repasses),
+      statements: z.array(z.unknown()).parse(value.statements),
+    };
   }
 
 }
