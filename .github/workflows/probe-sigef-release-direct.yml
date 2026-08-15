@@ -1,0 +1,27 @@
+name: Probe SIGEF Release Direct
+
+on:
+  push:
+    branches:
+      - test/sigef-account-discovery-20260815
+    paths:
+      - .github/workflows/probe-sigef-release-direct.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar liberação direta
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          url='https://www.fnde.gov.br/sigefweb/index.php/liberacoes/resultado-entidade/ano/2026/programa/02/cnpj/04500463000173'
+          curl -L --silent --show-error "$url" -o out/sample.html -w 'HTTP=%{http_code} URL=%{url_effective}\n'
+          iconv -f ISO-8859-1 -t UTF-8 out/sample.html > out/sample.utf8.html || cp out/sample.html out/sample.utf8.html
+          grep -n -i -E '04\.500\.463|EMA|PDDE|BANCO DO BRASIL|Conta Corrente|Data de pagamento|não foram encontrados|Nenhum' out/sample.utf8.html | head -200 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sigef-release-direct-probe
+          path: out/
+          retention-days: 1
