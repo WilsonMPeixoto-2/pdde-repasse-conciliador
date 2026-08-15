@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  upgrade:
+  finalize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,57 +24,40 @@ jobs:
           node-version: '24'
           cache: npm
 
-      - name: Inspect current and latest versions
+      - name: Align Node engine and Vite 8 config
         run: |
-          echo '=== current ==='
-          node -e "const p=require('./package.json'); console.log({vite:p.devDependencies.vite,tailwindcss:p.devDependencies.tailwindcss,typescript:p.devDependencies.typescript,lucide:p.dependencies.lucide})"
-          echo '=== latest ==='
-          npm view vite version
-          npm view tailwindcss version
-          npm view @tailwindcss/postcss version
-          npm view typescript version
-          npm view lucide version
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          p.engines.node = '>=22.12.0';
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
+          cat > vite.config.ts <<'EOF'
+          import { defineConfig } from 'vite';
 
-      - name: Upgrade Vite TypeScript and Lucide
-        run: |
-          npm install -D vite@latest typescript@latest
-          npm install lucide@latest
-          npm run check
-
-      - name: Upgrade Tailwind to v4 PostCSS integration
-        run: |
-          npm install -D tailwindcss@latest @tailwindcss/postcss@latest
-          npm uninstall autoprefixer
-          cat > postcss.config.js <<'EOF'
-          export default {
-            plugins: {
-              '@tailwindcss/postcss': {},
-            },
-          }
+          export default defineConfig({
+              base: './',
+          });
           EOF
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('src/styles.css')
-          s=p.read_text()
-          old='@tailwind base;\n@tailwind components;\n@tailwind utilities;'
-          if old not in s:
-              raise SystemExit('Tailwind v3 directives not found as expected')
-          p.write_text(s.replace(old, '@import "tailwindcss";', 1))
-          PY
-          npm run check
+          npm install --package-lock-only
+          npm ci
 
-      - name: Record resulting versions
+      - name: Full verification
         run: |
-          echo '=== resulting package versions ==='
+          npm run check
+          npm run build 2>&1 | tee build.log
+          if grep -q 'Invalid input options' build.log; then
+            echo 'Vite configuration still contains an invalid option.' >&2
+            exit 1
+          fi
           npm ls vite tailwindcss @tailwindcss/postcss typescript lucide --depth=0
-          echo '=== npm outdated ==='
-          npm outdated || true
+          node -e "const p=require('./package.json'); if(p.engines.node !== '>=22.12.0') process.exit(1); console.log('Node engine:', p.engines.node)"
 
-      - name: Commit dependency refresh
+      - name: Commit compatibility fixes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json postcss.config.js src/styles.css
+          git add package.json package-lock.json vite.config.ts
           git diff --cached --check
-          git commit -m 'chore: atualiza toolchain de frontend'
+          git commit -m 'chore: alinha Vite 8 e requisito do Node'
           git push origin HEAD:chore/dependency-refresh-20260815
