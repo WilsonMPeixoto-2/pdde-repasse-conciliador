@@ -1,0 +1,183 @@
+name: Apply Current Fiscal Read Model
+
+on:
+  push:
+    branches:
+      - feat/current-fiscal-read-model
+    paths:
+      - .github/workflows/apply-current-fiscal-read-model.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+        with:
+          ref: feat/current-fiscal-read-model
+          fetch-depth: 0
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Aplicar implementação
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: marcador esperado 1 vez, encontrado {count}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          # Publicação preparada carrega uma afirmação explícita de completude.
+          replace_once(
+              'backend/application/current-fiscal-read-model.ts',
+              "export interface PreparedCurrentFiscalSnapshot {\n  portfolio: CurrentFiscalPortfolio;\n",
+              "export interface PreparedCurrentFiscalSnapshot {\n  sourceStatus: 'COMPLETE';\n  portfolio: CurrentFiscalPortfolio;\n",
+          )
+          replace_once(
+              'backend/application/current-fiscal-read-model.ts',
+              "  return {\n    portfolio: {\n",
+              "  return {\n    sourceStatus: 'COMPLETE',\n    portfolio: {\n",
+          )
+
+          # API de leitura fiscal corrente.
+          replace_once(
+              'backend/api/institutional-api.ts',
+              "  getCurrentReport(runId: string): Promise<{\n    kind: string;\n    provider: string;\n    bucket: string | null;\n    path: string;\n    sha256: string;\n  } | null>;\n}\n",
+              "  getCurrentReport(runId: string): Promise<{\n    kind: string;\n    provider: string;\n    bucket: string | null;\n    path: string;\n    sha256: string;\n  } | null>;\n  getCurrentFiscalPortfolio?(): Promise<unknown | null>;\n  getCurrentFiscalSchool?(inep: string): Promise<unknown | null>;\n}\n",
+          )
+          replace_once(
+              'backend/api/institutional-api.ts',
+              "      if (segments.length === 2 && segments[1] === 'schools') {\n",
+              "      if (segments[1] === 'current') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (segments.length === 3 && segments[2] === 'portfolio') {\n          if (!dependencies.readService.getCurrentFiscalPortfolio) {\n            return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');\n          }\n          const portfolio = await dependencies.readService.getCurrentFiscalPortfolio();\n          return portfolio\n            ? json(portfolio)\n            : errorResponse(404, 'Retrato fiscal corrente ainda não publicado.');\n        }\n        if (segments.length === 4 && segments[2] === 'schools') {\n          if (!dependencies.readService.getCurrentFiscalSchool) {\n            return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');\n          }\n          const school = await dependencies.readService.getCurrentFiscalSchool(segments[3]);\n          return school\n            ? json(school)\n            : errorResponse(404, 'Retrato fiscal corrente da escola ainda não publicado.');\n        }\n      }\n\n      if (segments.length === 2 && segments[1] === 'schools') {\n",
+          )
+
+          # Contrato do repositório institucional.
+          replace_once(
+              'backend/application/institutional-read-repository.ts',
+              "import type { EvidenceRunProjection } from './evidence-history';\n",
+              "import type { EvidenceRunProjection } from './evidence-history';\nimport type {\n  CurrentFiscalPortfolio,\n  CurrentFiscalSchoolSnapshot,\n} from './current-fiscal-read-model';\n",
+          )
+          replace_once(
+              'backend/application/institutional-read-repository.ts',
+              "  listExecutionsByRuns(runIds: string[]): Promise<EvidenceRunProjection[]>;\n}\n",
+              "  listExecutionsByRuns(runIds: string[]): Promise<EvidenceRunProjection[]>;\n  getCurrentFiscalPortfolio?(): Promise<CurrentFiscalPortfolio | null>;\n  getCurrentFiscalSchool?(inep: string): Promise<CurrentFiscalSchoolSnapshot | null>;\n}\n",
+          )
+
+          # Serviço de leitura expõe o read model corrente sem fallback para evidência histórica.
+          replace_once(
+              'backend/application/institutional-read-service.ts',
+              "import type { EvidenceEventStore } from './evidence-store';\n",
+              "import type { EvidenceEventStore } from './evidence-store';\nimport type {\n  CurrentFiscalPortfolio,\n  CurrentFiscalSchoolSnapshot,\n} from './current-fiscal-read-model';\n",
+          )
+          replace_once(
+              'backend/application/institutional-read-service.ts',
+              "  async listArtifacts(runId: string): Promise<ArtifactReadModel[]> {\n",
+              "  async getCurrentFiscalPortfolio(): Promise<CurrentFiscalPortfolio | null> {\n    if (!this.repository?.getCurrentFiscalPortfolio) return null;\n    return this.repository.getCurrentFiscalPortfolio();\n  }\n\n  async getCurrentFiscalSchool(inep: string): Promise<CurrentFiscalSchoolSnapshot | null> {\n    z.string().regex(/^\\d{8}$/, 'INEP inválido').parse(inep);\n    if (!this.schoolByInep.has(inep) || !this.repository?.getCurrentFiscalSchool) return null;\n    return this.repository.getCurrentFiscalSchool(inep);\n  }\n\n  async listArtifacts(runId: string): Promise<ArtifactReadModel[]> {\n",
+          )
+
+          # Supabase read repository.
+          replace_once(
+              'backend/adapters/supabase-institutional-read-repository.ts',
+              "import { isoTimestampSchema } from '../core/time';\n",
+              "import { isoTimestampSchema } from '../core/time';\nimport type { SourceObservation } from '../core/source-observation';\nimport type {\n  CurrentFiscalPortfolio,\n  CurrentFiscalSchoolSnapshot,\n  CurrentFiscalSchoolSummary,\n} from '../application/current-fiscal-read-model';\n",
+          )
+          replace_once(
+              'backend/adapters/supabase-institutional-read-repository.ts',
+              "const RUN_ID_BATCH_SIZE = 40;\n",
+              "const CURRENT_FISCAL_SNAPSHOT_COLUMNS = [\n  'fiscal_year', 'run_id', 'generated_at', 'source_generated_at',\n  'source_observations', 'coverage', 'metrics',\n].join(',');\nconst CURRENT_FISCAL_SCHOOL_COLUMNS = [\n  'school_inep', 'sme', 'school_name', 'metrics',\n].join(',');\nconst RUN_ID_BATCH_SIZE = 40;\n",
+          )
+          replace_once(
+              'backend/adapters/supabase-institutional-read-repository.ts',
+              "const projectedStatusSchema = z.enum(['QUEUED', 'RUNNING', 'COMPLETE', 'PARTIAL', 'FAILED', 'UNKNOWN']);\n",
+              "const projectedStatusSchema = z.enum(['QUEUED', 'RUNNING', 'COMPLETE', 'PARTIAL', 'FAILED', 'UNKNOWN']);\nconst currentFiscalMetricsSchema = z.object({\n  schools: z.number().int().nonnegative(),\n  accounts: z.number().int().nonnegative(),\n  movements: z.number().int().nonnegative(),\n  programmedCents: z.number().int().nonnegative(),\n  paidInformedCents: z.number().int().nonnegative(),\n  creditedCents: z.number().int().nonnegative(),\n  reportedBalanceCents: z.number().int(),\n}).strict();\nconst currentFiscalSchoolMetricsSchema = currentFiscalMetricsSchema.omit({ schools: true });\n",
+          )
+          replace_once(
+              'backend/adapters/supabase-institutional-read-repository.ts',
+              "\n}\n",
+              "\n  async getCurrentFiscalPortfolio(): Promise<CurrentFiscalPortfolio | null> {\n    const snapshotResult = await this.client.from('current_fiscal_snapshots')\n      .select(CURRENT_FISCAL_SNAPSHOT_COLUMNS)\n      .eq('fiscal_year', 2026)\n      .limit(1);\n    if (snapshotResult.error) {\n      throw new Error(`Read model fiscal corrente: ${message(snapshotResult.error)}.`);\n    }\n    if (!Array.isArray(snapshotResult.data)) {\n      throw new Error('Read model fiscal corrente retornou formato inválido.');\n    }\n    if (snapshotResult.data.length === 0) return null;\n    const snapshot = record(snapshotResult.data[0]);\n\n    const schoolResult = await this.client.from('current_fiscal_schools')\n      .select(CURRENT_FISCAL_SCHOOL_COLUMNS)\n      .eq('fiscal_year', 2026)\n      .order('sme', { ascending: true })\n      .limit(500);\n    if (schoolResult.error) {\n      throw new Error(`Read models fiscais das escolas: ${message(schoolResult.error)}.`);\n    }\n    if (!Array.isArray(schoolResult.data)) {\n      throw new Error('Read models fiscais das escolas retornaram formato inválido.');\n    }\n    const observations = snapshot.source_observations;\n    if (!Array.isArray(observations)) {\n      throw new Error('Observações de fonte do retrato fiscal retornaram formato inválido.');\n    }\n    const coverage = record(snapshot.coverage);\n    const metrics = currentFiscalMetricsSchema.parse(snapshot.metrics);\n    const schools: CurrentFiscalSchoolSummary[] = schoolResult.data.map((raw) => {\n      const row = record(raw);\n      return {\n        inep: z.string().regex(/^\\d{8}$/).parse(row.school_inep),\n        sme: z.string().regex(/^\\d{7}$/).parse(row.sme),\n        name: z.string().min(1).parse(row.school_name),\n        metrics: currentFiscalSchoolMetricsSchema.parse(row.metrics),\n      };\n    });\n    return {\n      fiscalYear: z.literal(2026).parse(Number(snapshot.fiscal_year)),\n      runId: evidenceIdentifierSchema.parse(snapshot.run_id),\n      generatedAt: isoTimestampSchema.parse(snapshot.generated_at),\n      sourceGeneratedAt: isoTimestampSchema.parse(snapshot.source_generated_at),\n      sourceObservations: observations as SourceObservation[],\n      coverage,\n      metrics,\n      schools,\n    };\n  }\n\n  async getCurrentFiscalSchool(inep: string): Promise<CurrentFiscalSchoolSnapshot | null> {\n    const validatedInep = z.string().regex(/^\\d{8}$/).parse(inep);\n    const result = await this.client.from('current_fiscal_schools')\n      .select('snapshot')\n      .eq('fiscal_year', 2026)\n      .eq('school_inep', validatedInep)\n      .limit(1);\n    if (result.error) throw new Error(`Read model fiscal da escola: ${message(result.error)}.`);\n    if (!Array.isArray(result.data)) throw new Error('Read model fiscal da escola retornou formato inválido.');\n    if (result.data.length === 0) return null;\n    const row = record(result.data[0]);\n    const value = record(row.snapshot);\n    return {\n      fiscalYear: z.literal(2026).parse(Number(value.fiscalYear)),\n      runId: evidenceIdentifierSchema.parse(value.runId),\n      school: z.object({\n        inep: z.string().regex(/^\\d{8}$/),\n        sme: z.string().regex(/^\\d{7}$/),\n        name: z.string().min(1),\n        uex: z.string(),\n        cnpj: z.string(),\n      }).strict().parse(value.school),\n      repasses: z.array(z.unknown()).parse(value.repasses),\n      statements: z.array(z.unknown()).parse(value.statements),\n    };\n  }\n\n}\n",
+          )
+
+          # O replace anterior precisa atingir apenas o fechamento da classe, não interfaces auxiliares.
+          # Se acabou atingindo cedo, abortamos por uma verificação simples de presença no final.
+          text = Path('backend/adapters/supabase-institutional-read-repository.ts').read_text()
+          if text.rfind('async getCurrentFiscalPortfolio') < text.rfind('listExecutionsByRuns'):
+              raise SystemExit('Métodos fiscais foram inseridos antes do fim esperado da classe.')
+
+          # Executor publica somente uma coleta completa de toda a carteira.
+          replace_once(
+              'backend/application/institutional-job-executor.ts',
+              "import type { ArtifactReference, ArtifactStore } from './artifact-store';\n",
+              "import type { ArtifactReference, ArtifactStore } from './artifact-store';\nimport type { CurrentFiscalPublisher } from './current-fiscal-read-model';\n",
+          )
+          replace_once(
+              'backend/application/institutional-job-executor.ts',
+              "type MonitoringRunner = (\n  options: RunMonitoringOptions,\n) => Promise<{ status: 'COMPLETE' | 'PARTIAL' }>;\n",
+              "type MonitoringRunner = (\n  options: RunMonitoringOptions,\n) => Promise<{ status: 'COMPLETE' | 'PARTIAL'; fiscal?: unknown }>;\n",
+          )
+          replace_once(
+              'backend/application/institutional-job-executor.ts',
+              "  artifactStore: ArtifactStore;\n  collectPddeInfo?: CollectionRunner;\n",
+              "  artifactStore: ArtifactStore;\n  currentFiscalPublisher?: CurrentFiscalPublisher;\n  collectPddeInfo?: CollectionRunner;\n",
+          )
+          replace_once(
+              'backend/application/institutional-job-executor.ts',
+              "    });\n    return { status: result.status };\n  }\n\n  private async executeReconciliation(\n",
+              "    });\n    if (\n      result.status === 'COMPLETE'\n      && schools.length === this.schools.length\n      && this.dependencies.currentFiscalPublisher\n    ) {\n      if (result.fiscal === undefined) {\n        throw new Error('MONITORING completo não retornou a visão fiscal para publicação.');\n      }\n      await this.dependencies.currentFiscalPublisher.publish({\n        runId: job.runId,\n        expectedSchoolCount: this.schools.length,\n        fiscal: result.fiscal,\n      });\n    }\n    return { status: result.status };\n  }\n\n  private async executeReconciliation(\n",
+          )
+
+          # Runtime conecta publisher ao mesmo cliente service-role usado pelo backend.
+          replace_once(
+              'backend/runtime/institutional-runtime.ts',
+              "import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';\n",
+              "import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';\nimport { SupabaseCurrentFiscalPublisher } from '../adapters/supabase-current-fiscal-publisher';\n",
+          )
+          replace_once(
+              'backend/runtime/institutional-runtime.ts',
+              "  const readRepository = new SupabaseInstitutionalReadRepository(client);\n  const readService = new InstitutionalReadService(evidenceStore, schools, readRepository);\n",
+              "  const readRepository = new SupabaseInstitutionalReadRepository(client);\n  const currentFiscalPublisher = new SupabaseCurrentFiscalPublisher(client);\n  const readService = new InstitutionalReadService(evidenceStore, schools, readRepository);\n",
+          )
+          replace_once(
+              'backend/runtime/institutional-runtime.ts',
+              "    readRepository,\n    readService,\n",
+              "    readRepository,\n    currentFiscalPublisher,\n    readService,\n",
+          )
+          replace_once(
+              'backend/runtime/institutional-runtime.ts',
+              "    artifactStore: services.artifactStore,\n  });\n",
+              "    artifactStore: services.artifactStore,\n    currentFiscalPublisher: services.currentFiscalPublisher,\n  });\n",
+          )
+          PY
+
+      - name: Instalar dependências imutáveis
+        run: npm ci
+
+      - name: Validar implementação antes do commit
+        run: npm run check
+
+      - name: Gravar implementação
+        shell: bash
+        run: |
+          git config user.name "Wilson Malafaia Peixoto"
+          git config user.email "wilsonmp2@gmail.com"
+          git add backend/application/current-fiscal-read-model.ts \
+                  backend/application/institutional-read-repository.ts \
+                  backend/application/institutional-read-service.ts \
+                  backend/application/institutional-job-executor.ts \
+                  backend/adapters/supabase-institutional-read-repository.ts \
+                  backend/runtime/institutional-runtime.ts \
+                  backend/api/institutional-api.ts
+          git commit -m "feat: publica e serve retrato fiscal corrente de 2026"
+          git push origin HEAD:feat/current-fiscal-read-model
