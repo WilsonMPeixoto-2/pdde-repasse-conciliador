@@ -8,6 +8,7 @@ import { SupabaseArtifactStore } from '../adapters/supabase-artifact-store';
 import { SupabaseEvidenceStore } from '../adapters/supabase-evidence-store';
 import { SupabaseExecutionQueue } from '../adapters/supabase-execution-queue';
 import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';
+import { SupabaseCurrentFiscalPublisher } from '../adapters/supabase-current-fiscal-publisher';
 import {
   administrativeCommandTokenSchema,
   createInstitutionalApi,
@@ -39,6 +40,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
   const queue = new SupabaseExecutionQueue(client);
   const commandService = new ExecutionCommandService(queue, { artifactEvidence: evidenceStore });
   const readRepository = new SupabaseInstitutionalReadRepository(client);
+  const currentFiscalPublisher = new SupabaseCurrentFiscalPublisher(client);
   const readService = new InstitutionalReadService(evidenceStore, schools, readRepository);
   return {
     client,
@@ -49,6 +51,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
     queue,
     commandService,
     readRepository,
+    currentFiscalPublisher,
     readService,
     version: await packageVersion(),
   };
@@ -86,6 +89,7 @@ export async function createInstitutionalWorkerRuntime(
     schools: services.schools,
     evidenceStore: services.evidenceStore,
     artifactStore: services.artifactStore,
+    currentFiscalPublisher: services.currentFiscalPublisher,
   });
   const worker = new ExecutionWorker(services.queue, executor);
   // O escopo institucional usa uma única instância do runner. Se o processo

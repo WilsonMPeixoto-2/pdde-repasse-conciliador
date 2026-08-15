@@ -87,6 +87,7 @@ export interface CurrentFiscalSchoolSnapshot {
 }
 
 export interface PreparedCurrentFiscalSnapshot {
+  sourceStatus: 'COMPLETE';
   portfolio: CurrentFiscalPortfolio;
   schools: Array<{
     school: z.infer<typeof schoolIdentitySchema>;
@@ -164,6 +165,7 @@ export function prepareCurrentFiscalSnapshot(input: {
   });
 
   return {
+    sourceStatus: 'COMPLETE',
     portfolio: {
       fiscalYear: 2026,
       runId,

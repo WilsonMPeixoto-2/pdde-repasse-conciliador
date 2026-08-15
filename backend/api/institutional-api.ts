@@ -46,6 +46,8 @@ interface ReadServiceApi {
     path: string;
     sha256: string;
   } | null>;
+  getCurrentFiscalPortfolio?(): Promise<unknown | null>;
+  getCurrentFiscalSchool?(inep: string): Promise<unknown | null>;
 }
 
 interface CommandServiceApi {
@@ -241,6 +243,24 @@ export function createInstitutionalApi(
           sourceCatalog: SOURCE_CATALOG,
           dataProducts: DATA_PRODUCT_CATALOG,
         });
+      }
+
+      if (segments[1] === 'current') {
+        if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (segments.length === 3 && segments[2] === 'portfolio') {
+          if (!dependencies.readService.getCurrentFiscalPortfolio) {
+            return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');
+          }
+          const portfolio = await dependencies.readService.getCurrentFiscalPortfolio();
+          return portfolio ? json(portfolio) : errorResponse(404, 'Retrato fiscal corrente ainda não publicado.');
+        }
+        if (segments.length === 4 && segments[2] === 'schools') {
+          if (!dependencies.readService.getCurrentFiscalSchool) {
+            return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');
+          }
+          const school = await dependencies.readService.getCurrentFiscalSchool(segments[3]);
+          return school ? json(school) : errorResponse(404, 'Retrato fiscal corrente da escola ainda não publicado.');
+        }
       }
 
       if (segments.length === 2 && segments[1] === 'schools') {
