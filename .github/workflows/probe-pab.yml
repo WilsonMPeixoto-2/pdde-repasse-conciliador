@@ -5,6 +5,7 @@ on:
       - test/sigef-month-window-2344
     paths:
       - 'scripts/probe-pab.ts'
+      - 'scripts/probe-pab-deep.ts'
       - '.github/workflows/probe-pab.yml'
 permissions:
   contents: read
@@ -20,3 +21,5 @@ jobs:
       - run: npm ci
       - name: Explorar catálogo e endpoints públicos
         run: node --import tsx scripts/probe-pab.ts
+      - name: Explorar módulos e API internos públicos
+        run: node --import tsx scripts/probe-pab-deep.ts
