@@ -1,0 +1,22 @@
+name: Probe SIGEF General Direct
+on:
+  push:
+    branches:
+      - test/sigef-month-window-2344
+    paths:
+      - 'scripts/probe-sigef-general-direct.ts'
+      - '.github/workflows/probe-sigef-general-direct.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Consultar AJAX e gerador sem contornar captcha
+        run: node --import tsx scripts/probe-sigef-general-direct.ts
