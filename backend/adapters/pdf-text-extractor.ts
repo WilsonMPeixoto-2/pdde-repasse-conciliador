@@ -15,6 +15,11 @@ function isPdf(bytes: Uint8Array): boolean {
   return String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-';
 }
 
+function objectRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value));
+}
+
 async function destroyIfSupported(pdf: unknown): Promise<void> {
   if (!pdf || typeof pdf !== 'object' || !('destroy' in pdf)) return;
   const destroy = (pdf as { destroy?: () => void | Promise<void> }).destroy;
@@ -35,8 +40,8 @@ export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedPdfTex
       pages,
       mergedText: pages.join('\n\f\n'),
       metadata: {
-        info: meta.info as Record<string, unknown>,
-        metadata: meta.metadata as Record<string, unknown>,
+        info: objectRecord(meta.info),
+        metadata: objectRecord(meta.metadata),
       },
     };
   } finally {
