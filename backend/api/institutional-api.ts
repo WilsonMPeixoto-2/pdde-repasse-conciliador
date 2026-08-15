@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { EvidenceIntegrityResult } from '../core/evidence';
+import { DATA_PRODUCT_CATALOG, SOURCE_CATALOG } from '../core/source-catalog';
 import type {
   MonitoringJobRequest,
   PddeInfoJobRequest,
@@ -237,6 +238,8 @@ export function createInstitutionalApi(
           executionMode: 'POSTGRES_QUEUE_AND_TRUSTED_NODE_RUNNER',
           evidence: 'APPEND_ONLY',
           money: 'INTEGER_CENTS',
+          sourceCatalog: SOURCE_CATALOG,
+          dataProducts: DATA_PRODUCT_CATALOG,
         });
       }
 

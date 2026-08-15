@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { canonicalAccount, canonicalText } from '../core/normalization';
 import type { BankAccount } from '../core/schemas';
 import type { SigefMovementClass } from '../adapters/sigef-public-statement';
+import { sourceObservationSchema } from '../core/source-observation';
 
 export type OperationalRepasseStatus =
   | 'PROGRAMADO_NAO_PAGO'
@@ -85,6 +86,7 @@ const rawMonitorSchema = z.object({
   fiscalYear: z.number().int(),
   status: z.enum(['COMPLETE', 'PARTIAL']),
   sources: z.array(z.string()),
+  sourceObservations: z.array(sourceObservationSchema).default([]),
   coverage: z.record(z.string(), z.unknown()),
   summary: z.record(z.string(), z.unknown()),
   schools: z.array(schoolSchema),
@@ -466,6 +468,7 @@ export function buildMonitoringOperationalView(rawInput: unknown) {
     fiscalYear: input.fiscalYear,
     sourceStatus: input.status,
     sources: input.sources,
+    sourceObservations: input.sourceObservations,
     coverage: input.coverage,
     summary: {
       schools: input.schools.length,

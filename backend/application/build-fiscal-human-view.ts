@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { canonicalAccount } from '../core/normalization';
 import type { BankAccount } from '../core/schemas';
 import type { SigefMovementClass } from '../adapters/sigef-public-statement';
+import { sourceObservationSchema } from '../core/source-observation';
 import {
   buildMonitoringOperationalView,
   type OperationalMovement,
@@ -42,6 +43,7 @@ const sourceSchema = z.object({
   fiscalYear: z.number().int(),
   status: z.enum(['COMPLETE', 'PARTIAL']),
   sources: z.array(z.string()),
+  sourceObservations: z.array(sourceObservationSchema).default([]),
   coverage: z.record(z.string(), z.unknown()),
   schools: z.array(sourceSchoolSchema),
 }).passthrough();
@@ -319,6 +321,7 @@ export function buildFiscalHumanView(rawInput: unknown) {
     fiscalYear: source.fiscalYear,
     sourceStatus: source.status,
     sources: source.sources,
+    sourceObservations: source.sourceObservations,
     coverage: source.coverage,
     presentation: {
       repasses: 'Ações agrupadas por escola com parcelas preservadas exatamente como informadas pelo PDDEInfo.',
