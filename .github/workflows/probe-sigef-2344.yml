@@ -1,0 +1,20 @@
+name: Probe SIGEF 2344-2
+on:
+  push:
+    branches:
+      - test/sigef-month-window-2344
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Consultar janeiro, junho, julho e agosto separadamente
+        run: node --import tsx scripts/probe-sigef-2344.ts
