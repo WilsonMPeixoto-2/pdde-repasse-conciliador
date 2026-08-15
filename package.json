@@ -29,11 +29,13 @@
     "api:start": "node --import tsx scripts/api.ts",
     "worker:start": "node --import tsx scripts/worker.ts",
     "worker:once": "node --import tsx scripts/worker.ts --once",
+    "browser:install": "playwright install chromium",
+    "browser:assist": "node --import tsx scripts/browser-assist.ts",
+    "browser:verify": "node --import tsx scripts/verify-browser-tooling.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "check": "npm run test && npm run typecheck && npm run build",
-    "browser:install": "playwright install chromium"
+    "check": "npm run test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@duckdb/node-api": "1.5.5-r.4",
