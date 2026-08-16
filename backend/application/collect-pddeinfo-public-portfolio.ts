@@ -34,11 +34,13 @@ export type PublicPortfolioFetchReport = (
 ) => Promise<PddeInfoPublicReportResult>;
 
 export type DiscoverBalanceMonths = (signal?: AbortSignal) => Promise<string[]>;
+export type BalanceCollectionMode = 'LATEST' | 'ALL_AVAILABLE_2026';
 
 export interface PublicPortfolioFailure {
   kind: 'ATTENDANCE' | 'ACCOUNTING' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
   schoolInep?: string;
   cnpj?: string;
+  month?: string;
   error: string;
 }
 
@@ -71,6 +73,7 @@ export interface CollectPddeInfoPublicPortfolioOptions {
   fiscalYear: 2026;
   fetchReport?: PublicPortfolioFetchReport;
   discoverBalanceMonths?: DiscoverBalanceMonths;
+  balanceMode?: BalanceCollectionMode;
   browserFallback?: boolean;
   signal?: AbortSignal;
 }
@@ -85,10 +88,10 @@ function monthRank(value: string): number {
   return 202600 + Number(match[1]);
 }
 
-function latest2026Month(values: readonly string[]): string | null {
+function valid2026Months(values: readonly string[]): string[] {
   return [...new Set(values)]
     .filter((value) => /^(0[1-9]|1[0-2])-2026$/.test(value))
-    .sort((left, right) => monthRank(right) - monthRank(left))[0] ?? null;
+    .sort((left, right) => monthRank(right) - monthRank(left));
 }
 
 function artifact(
@@ -121,6 +124,7 @@ export async function collectPddeInfoPublicPortfolio(
   const discoverMonths = options.discoverBalanceMonths
     ?? ((signal?: AbortSignal) => discoverPddeInfoBalanceMonths(signal ? { signal } : {}));
   const browserFallback = options.browserFallback ?? true;
+  const balanceMode = options.balanceMode ?? 'LATEST';
   const attendance: PddeInfoAttendanceObservation[] = [];
   const accounting: PddeInfoAccountingObservation[] = [];
   const balances: PortfolioBalanceObservation[] = [];
@@ -161,12 +165,16 @@ export async function collectPddeInfoPublicPortfolio(
     ...(options.signal ? { signal: options.signal } : {}),
   });
 
-  let balanceReferenceMonth: string | null = null;
+  let availableBalanceMonths: string[] = [];
   try {
-    balanceReferenceMonth = latest2026Month(await discoverMonths(options.signal));
+    availableBalanceMonths = valid2026Months(await discoverMonths(options.signal));
   } catch (cause) {
     failures.push({ kind: 'BALANCE_MONTH_DISCOVERY', error: errorText(cause) });
   }
+  const balanceReferenceMonth = availableBalanceMonths[0] ?? null;
+  const monthsToCollect = balanceMode === 'ALL_AVAILABLE_2026'
+    ? availableBalanceMonths
+    : balanceReferenceMonth ? [balanceReferenceMonth] : [];
 
   const cnpjSchools = new Map<string, Set<string>>();
   for (const observation of attendance) {
@@ -176,12 +184,15 @@ export async function collectPddeInfoPublicPortfolio(
   }
 
   let coverageThrough: string | null = null;
-  if (balanceReferenceMonth) {
-    await runRateLimited([...cnpjSchools.keys()].sort(), async (cnpj) => {
+  const balanceTasks = [...cnpjSchools.keys()].sort().flatMap((cnpj) => (
+    monthsToCollect.map((month) => ({ cnpj, month }))
+  ));
+  if (balanceTasks.length > 0) {
+    await runRateLimited(balanceTasks, async ({ cnpj, month }) => {
       options.signal?.throwIfAborted();
       try {
         const report = await fetchReport({
-          filter: { kind: 'BALANCE', month: balanceReferenceMonth!, cnpj },
+          filter: { kind: 'BALANCE', month, cnpj },
           browserFallback,
           ...(options.signal ? { signal: options.signal } : {}),
         });
@@ -189,7 +200,7 @@ export async function collectPddeInfoPublicPortfolio(
         if (report.coverageThrough) {
           coverageThrough = coverageThrough === null
             ? report.coverageThrough
-            : [coverageThrough, report.coverageThrough].sort()[0];
+            : [coverageThrough, report.coverageThrough].sort().at(-1) ?? coverageThrough;
         }
         const schoolIneps = [...(cnpjSchools.get(cnpj) ?? new Set<string>())].sort();
         for (const row of report.rows) {
@@ -201,7 +212,7 @@ export async function collectPddeInfoPublicPortfolio(
           balances.push({ ...normalized, schoolIneps });
         }
       } catch (cause) {
-        failures.push({ kind: 'BALANCE', cnpj, error: errorText(cause) });
+        failures.push({ kind: 'BALANCE', cnpj, month, error: errorText(cause) });
       }
     }, {
       concurrency: 3,
@@ -224,11 +235,13 @@ export async function collectPddeInfoPublicPortfolio(
   ));
   balances.sort((left, right) => (
     (left.schoolIneps[0] ?? '').localeCompare(right.schoolIneps[0] ?? '')
+    || left.coverageThrough.localeCompare(right.coverageThrough)
     || left.programName.localeCompare(right.programName, 'pt-BR')
     || left.account.localeCompare(right.account)
   ));
   failures.sort((left, right) => (
     (left.schoolInep ?? left.cnpj ?? '').localeCompare(right.schoolInep ?? right.cnpj ?? '')
+    || (left.month ?? '').localeCompare(right.month ?? '')
     || left.kind.localeCompare(right.kind)
   ));
 
