@@ -1,4 +1,5 @@
 name: Refinar semântica das métricas humanas
+# Reexecução após o boundary público remover runId dos fixtures do frontend.
 on:
   push:
     branches:
