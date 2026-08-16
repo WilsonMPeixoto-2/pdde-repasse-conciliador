@@ -1,0 +1,95 @@
+name: Smoke Excel humano 2026
+
+on:
+  push:
+    branches:
+      - feat/inteligencia-financeira-2026-foundation
+    paths:
+      - '.github/workflows/human-workbook-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  workbook:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar monitoramento real em 10 UEs
+        id: monitoring
+        shell: bash
+        run: |
+          set +e
+          npm run monitor:live -- \
+            --year 2026 \
+            --workspace artifacts/human-workbook-smoke/run \
+            --output artifacts/human-workbook-smoke/monitoring.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Monitoramento terminou com código $code. Os artefatos serão inspecionados antes de qualquer promoção."
+          exit 0
+
+      - name: Gerar Excel humano
+        if: always()
+        run: |
+          test -f artifacts/human-workbook-smoke/run/human-financial.json
+          npm run monitor:human:xlsx -- \
+            --input artifacts/human-workbook-smoke/run/human-financial.json \
+            --output artifacts/human-workbook-smoke/inteligencia-financeira-pdde-4cre-2026.xlsx
+
+      - name: Validar workbook gerado
+        if: always()
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const human = JSON.parse(fs.readFileSync('artifacts/human-workbook-smoke/run/human-financial.json', 'utf8'));
+          console.log(JSON.stringify({
+            title: human.title,
+            fiscalYear: human.fiscalYear,
+            schools: human.schools.length,
+            referenceLabel: human.referenceLabel,
+            indicators: human.indicators.map(({label, count, units}) => ({label, count, unitCount: units.length})),
+            sources: human.sources,
+          }, null, 2));
+          if (human.fiscalYear !== 2026) throw new Error('Visão humana fora de 2026.');
+          if (human.indicators.some(x => x.count !== x.units.length)) throw new Error('Indicador sem lista nominal íntegra.');
+          NODE
+
+      - name: Preservar Excel e visão humana
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-workbook-smoke-2026
+          path: |
+            artifacts/human-workbook-smoke/inteligencia-financeira-pdde-4cre-2026.xlsx
+            artifacts/human-workbook-smoke/run/human-financial.json
+            artifacts/human-workbook-smoke/run/fiscal.json
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Sinalizar monitoramento parcial após preservar artefatos
+        if: always()
+        shell: bash
+        run: |
+          code='${{ steps.monitoring.outputs.exit_code }}'
+          if [ -z "$code" ]; then
+            echo 'Monitoramento não produziu código de saída.'
+            exit 1
+          fi
+          if [ "$code" != '0' ] && [ "$code" != '2' ]; then
+            exit "$code"
+          fi
+          exit 0
