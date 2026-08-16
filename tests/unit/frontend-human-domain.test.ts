@@ -4,7 +4,6 @@ import { buildAccountTimeline2026, deriveSchoolSummary } from '../../src/product
 
 const school = {
   fiscalYear: 2026,
-  runId: 'monitoring-full-2026',
   school: { inep: '33069093', sme: '0410002', name: 'EM ALBINO SOUZA CRUZ', uex: 'CEC ALBINO', cnpj: '12345678000190' },
   programs: [{
     name: 'PDDE / PDDE Básico',
@@ -36,7 +35,7 @@ const school = {
 };
 
 const portfolio = {
-  title: 'Inteligência Financeira PDDE | 4ª CRE', fiscalYear: 2026, runId: 'monitoring-full-2026',
+  title: 'Inteligência Financeira PDDE | 4ª CRE', fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026', schoolCount: 1,
   metrics: { schoolCount: 1, accountsTotal: 1, accountsWithPosition: 1, programmedCents: 1013000, paymentInformedCents: 506500, creditLocatedCents: 506500, reportedBalanceCents: 415143, applicationsCents: 415032 },
   sources: [{ name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e prestação de contas.' }],
