@@ -18,63 +18,86 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Proteger superfície técnica e adaptar testes legados
+      - name: Proteger somente rotas técnicas conhecidas
         run: |
           python - <<'PY'
           from pathlib import Path
 
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'Âncora não encontrada: {label}')
+              return text.replace(old, new, 1)
+
           api = Path('backend/api/institutional-api.ts')
           s = api.read_text()
-          anchor = """        if (segments.length === 4 && segments[2] === 'schools') {\n          if (!dependencies.readService.getCurrentFiscalSchool) {"""
-          replacement = """        if (!authorized(request, commandToken)) {\n          return errorResponse(401, 'Leitura administrativa não autorizada.');\n        }\n        if (segments.length === 4 && segments[2] === 'schools') {\n          if (!dependencies.readService.getCurrentFiscalSchool) {"""
-          # A guarda acima do fiscal school não protege current/portfolio. Inserimos também antes do portfolio.
-          portfolio_anchor = """        if (segments.length === 3 && segments[2] === 'portfolio') {\n          if (!dependencies.readService.getCurrentFiscalPortfolio) {"""
-          portfolio_replacement = """        if (!authorized(request, commandToken)) {\n          return errorResponse(401, 'Leitura administrativa não autorizada.');\n        }\n        if (segments.length === 3 && segments[2] === 'portfolio') {\n          if (!dependencies.readService.getCurrentFiscalPortfolio) {"""
-          if portfolio_anchor not in s:
-              raise SystemExit('Âncora fiscal portfolio não encontrada')
-          s = s.replace(portfolio_anchor, portfolio_replacement, 1)
-          # Evitar uma segunda guarda redundante no current school: a primeira já cobre o restante do bloco current.
+
+          s = replace_once(s,
+          """        if (segments.length === 3 && segments[2] === 'portfolio') {\n          if (!dependencies.readService.getCurrentFiscalPortfolio) {""",
+          """        if (segments.length === 3 && segments[2] === 'portfolio') {\n          if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');\n          if (!dependencies.readService.getCurrentFiscalPortfolio) {""",
+          'current portfolio')
+
+          s = replace_once(s,
+          """        if (segments.length === 4 && segments[2] === 'schools') {\n          if (!dependencies.readService.getCurrentFiscalSchool) {""",
+          """        if (segments.length === 4 && segments[2] === 'schools') {\n          if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');\n          if (!dependencies.readService.getCurrentFiscalSchool) {""",
+          'current school')
+
+          s = replace_once(s,
+          """      if (segments.length === 2 && segments[1] === 'schools') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');""",
+          """      if (segments.length === 2 && segments[1] === 'schools') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');""",
+          'schools catalog')
+
+          s = replace_once(s,
+          """      if (segments[1] === 'schools' && segments.length >= 3) {\n        if (request.method !== 'GET') return methodNotAllowed('GET');""",
+          """      if (segments[1] === 'schools' && segments.length >= 3) {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');""",
+          'school technical reads')
+
+          s = replace_once(s,
+          """      if (segments.length === 2 && segments[1] === 'executions') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');""",
+          """      if (segments.length === 2 && segments[1] === 'executions') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');""",
+          'executions list')
+
+          s = replace_once(s,
+          """        if (request.method !== 'GET') return methodNotAllowed('GET');\n        const runId = segments[2];""",
+          """        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');\n        const runId = segments[2];""",
+          'execution detail reads')
+
+          s = replace_once(s,
+          """      if (segments.length === 2 && segments[1] === 'findings') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');""",
+          """      if (segments.length === 2 && segments[1] === 'findings') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');""",
+          'findings list')
           api.write_text(s)
 
-          # Tudo fora de /current/human, health e meta passa pela guarda antes do catálogo técnico.
-          s = api.read_text()
-          schools_anchor = """      if (segments.length === 2 && segments[1] === 'schools') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');"""
-          schools_replacement = """      if (!authorized(request, commandToken)) {\n        return errorResponse(401, 'Acesso administrativo não autorizado.');\n      }\n\n      if (segments.length === 2 && segments[1] === 'schools') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');"""
-          if schools_anchor not in s:
-              raise SystemExit('Âncora catálogo técnico não encontrada')
-          s = s.replace(schools_anchor, schools_replacement, 1)
-          api.write_text(s)
-
-          # Testes antigos que exercitam a superfície técnica precisam declarar a credencial.
           p = Path('tests/unit/institutional-api.test.ts')
           t = p.read_text()
           if 'function adminGet(' not in t:
               marker = "async function json(response: Response): Promise<Record<string, any>> {\n"
               helper = """function adminGet(url: string): Request {\n  return new Request(url, { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } });\n}\n\n"""
-              if marker not in t:
-                  raise SystemExit('Âncora helper institutional-api não encontrada')
-              t = t.replace(marker, helper + marker, 1)
-          replacements = {
-            "new Request('http://localhost/api/schools')": "adminGet('http://localhost/api/schools')",
-            "new Request(`http://localhost/api/schools/${school.inep}`)": "adminGet(`http://localhost/api/schools/${school.inep}`)",
-            "new Request(\n      `http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`,\n    )": "adminGet(`http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`)",
-            "new Request(`http://localhost/api/schools/${school.inep}/findings?review=true`)": "adminGet(`http://localhost/api/schools/${school.inep}/findings?review=true`)",
-            "new Request('http://localhost/api/schools/99999999')": "adminGet('http://localhost/api/schools/99999999')",
-            "new Request('http://localhost/api/executions?limit=20')": "adminGet('http://localhost/api/executions?limit=20')",
-            "new Request('http://localhost/api/executions/run-1')": "adminGet('http://localhost/api/executions/run-1')",
-            "new Request('http://localhost/api/findings?review=true')": "adminGet('http://localhost/api/findings?review=true')",
-            "new Request('http://localhost/api/executions/run-1/artifacts')": "adminGet('http://localhost/api/executions/run-1/artifacts')",
-            "new Request('http://localhost/api/executions/run-1/report')": "adminGet('http://localhost/api/executions/run-1/report')",
-          }
-          for old, new in replacements.items():
+              t = replace_once(t, marker, helper + marker, 'adminGet helper')
+          replacements = [
+            ("new Request('http://localhost/api/schools')", "adminGet('http://localhost/api/schools')"),
+            ("new Request(`http://localhost/api/schools/${school.inep}`)", "adminGet(`http://localhost/api/schools/${school.inep}`)"),
+            ("new Request(\n      `http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`,\n    )", "adminGet(`http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`)"),
+            ("new Request(`http://localhost/api/schools/${school.inep}/findings?review=true`)", "adminGet(`http://localhost/api/schools/${school.inep}/findings?review=true`)"),
+            ("new Request('http://localhost/api/schools/99999999')", "adminGet('http://localhost/api/schools/99999999')"),
+            ("new Request('http://localhost/api/executions?limit=20')", "adminGet('http://localhost/api/executions?limit=20')"),
+            ("new Request('http://localhost/api/executions/run-1')", "adminGet('http://localhost/api/executions/run-1')"),
+            ("new Request('http://localhost/api/findings?review=true')", "adminGet('http://localhost/api/findings?review=true')"),
+            ("new Request('http://localhost/api/executions/run-1/artifacts')", "adminGet('http://localhost/api/executions/run-1/artifacts')"),
+            ("new Request('http://localhost/api/executions/run-1/report')", "adminGet('http://localhost/api/executions/run-1/report')"),
+          ]
+          for old, new in replacements:
               t = t.replace(old, new)
           p.write_text(t)
 
           p = Path('tests/unit/institutional-current-fiscal-api.test.ts')
           t = p.read_text()
-          # Este arquivo já possui token na fixture; adiciona Authorization aos GETs fiscais pela forma mais estável.
-          t = t.replace("new Request('http://localhost/api/current/portfolio')", "new Request('http://localhost/api/current/portfolio', { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } })")
-          t = t.replace("new Request('http://localhost/api/current/schools/33069247')", "new Request('http://localhost/api/current/schools/33069247', { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } })")
+          if 'function adminGet(' not in t:
+              marker = "describe('API do retrato fiscal corrente', () => {\n"
+              helper = """function adminGet(url: string): Request {\n  return new Request(url, { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } });\n}\n\n"""
+              t = replace_once(t, marker, helper + marker, 'fiscal admin helper')
+          t = t.replace("new Request('http://localhost/api/current/portfolio')", "adminGet('http://localhost/api/current/portfolio')")
+          t = t.replace("new Request(`http://localhost/api/current/schools/${school.inep}`)", "adminGet(`http://localhost/api/current/schools/${school.inep}`)")
+          t = t.replace("new Request('http://localhost/api/current/schools/99999999')", "adminGet('http://localhost/api/current/schools/99999999')")
           p.write_text(t)
           PY
       - name: Testes de autenticação e API
