@@ -5,6 +5,11 @@ import type {
   FiscalSchoolView,
 } from './build-fiscal-human-view';
 
+export interface HumanSourceDescription {
+  name: string;
+  information: string;
+}
+
 export interface HumanFinancialCounterparty {
   document: string | null;
   name: string | null;
@@ -102,6 +107,7 @@ export interface HumanFinancialPortfolioView {
   title: 'Inteligência Financeira PDDE | 4ª CRE';
   fiscalYear: 2026;
   referenceLabel: string;
+  sources: HumanSourceDescription[];
   indicators: HumanFinancialIndicator[];
   schools: HumanFinancialSchoolView[];
 }
@@ -115,6 +121,17 @@ export interface BuildHumanFinancialViewOptions {
   fiscalView: FiscalViewInput;
   publicReports: PddeInfoPublicPortfolioResult;
 }
+
+const HUMAN_SOURCES: HumanSourceDescription[] = [
+  {
+    name: 'PDDEInfo',
+    information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
+  },
+  {
+    name: 'SIGEF',
+    information: 'Movimentações das contas e créditos compatíveis localizados no extrato.',
+  },
+];
 
 function brDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -391,6 +408,7 @@ export function buildHumanFinancialView(
     referenceLabel: reference
       ? `Posição financeira pública disponível até ${brDate(reference)}`
       : 'Posição de saldo público ainda não disponível para 2026',
+    sources: HUMAN_SOURCES.map((source) => ({ ...source })),
     indicators: buildIndicators(schools),
     schools,
   };
