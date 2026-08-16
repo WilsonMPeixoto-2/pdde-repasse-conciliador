@@ -56,6 +56,80 @@ A estrutura do banco não determina a estrutura visual.
 - “Saldo informado até DD/MM/AAAA” explicita a data de cobertura.
 - “Requer conferência” é preferível a conclusões automáticas de irregularidade.
 
+### 6. Continuidade semântica dos dados
+
+Uma sequência financeira deve permanecer visualmente contínua.
+
+Exemplo de ordem aceitável:
+
+```text
+Programa → Banco → Agência → Conta → Previsto → Pagamento informado → Data → Crédito
+```
+
+Textos explicativos, regras internas, observações sobre método de coleta ou histórico **não podem ser inseridos entre esses campos**.
+
+Frases como:
+
+- “histórico não utilizado como dado vigente”;
+- “transcrição direta da consulta corrente”;
+- “exibida no PDDEInfo 2026”;
+- explicações de vínculo ou regra técnica;
+
+pertencem, quando realmente necessárias, a ajuda contextual, tooltip, detalhe sob demanda, rodapé ou área administrativa. Elas não são colunas financeiras.
+
+### 7. Indicadores quantitativos devem ser acionáveis
+
+Nenhum número agregado deve ser exibido como peça decorativa.
+
+Se a interface informa:
+
+- “47 unidades com conta não exibida”;
+- “111 unidades com 1ª parcela paga”;
+- “12 unidades com informação parcial”;
+
+ela deve disponibilizar imediatamente **quais são essas unidades**.
+
+Contrato obrigatório:
+
+1. todo indicador contém o conjunto nominal de unidades que o compõe;
+2. `quantidade = número de unidades da lista`;
+3. no site, o indicador funciona como filtro ou drill-down para essa lista;
+4. no Excel, o indicador aponta para uma aba/lista nominal correspondente;
+5. no PDF, o número só aparece se houver lista, seção ou referência que permita identificar seus componentes.
+
+Um indicador que apenas diz “47” e obriga o usuário a procurar 47 casos manualmente não cumpre função operacional e deve ser removido.
+
+### 8. Aparência deve prometer apenas interações reais
+
+- Cartão, botão, chip, linha ou número com aparência clicável deve executar uma ação útil.
+- Elementos não interativos não devem imitar controles.
+- Contagem que parece filtro deve efetivamente filtrar.
+- Link para uma unidade deve abrir a unidade, não ser apenas texto azul sublinhado.
+- Estados de hover/foco devem reforçar interatividade real, nunca decoração.
+
+### 9. Cor tem função semântica estável
+
+Cor deve reduzir esforço de leitura, não servir como maquiagem de template.
+
+Exemplos já aceitos:
+
+- diferenciar visualmente **Previsto** de **Pagamento informado**;
+- usar verde de forma consistente para a dimensão de pagamento informado;
+- reservar cores de atenção para situações que realmente pedem acompanhamento;
+- nunca depender exclusivamente de cor para transmitir estado.
+
+A mesma cor deve conservar o mesmo significado ao longo da aplicação e dos relatórios.
+
+### 10. Resumo e detalhe são duas camadas do mesmo dado
+
+Toda síntese deve ter caminho de expansão:
+
+```text
+Resumo → lista filtrada → unidade → programa/conta → detalhe financeiro
+```
+
+A síntese não substitui o detalhe e o detalhe não deve ser despejado inteiro na síntese.
+
 ## Decisões de produto que ainda precisam ser tomadas
 
 ### A. Página inicial da carteira
@@ -71,7 +145,9 @@ Definir quais indicadores justificam ocupar a primeira tela. Candidatos:
 - unidades que merecem acompanhamento por baixa execução;
 - prestações de contas com situação que requer atenção.
 
-**Questão de produto:** quantos indicadores aparecem de imediato e quais ficam em segundo nível.
+**Regra já decidida:** qualquer indicador por unidade deve abrir a lista nominal correspondente.
+
+**Questão de produto restante:** quantos indicadores aparecem de imediato e quais ficam em segundo nível.
 
 ### B. Página da unidade escolar
 
@@ -89,14 +165,16 @@ Blocos candidatos:
 8. prestação de contas;
 9. acompanhamento/recomendações descritivas.
 
-**Questão de produto:** quais blocos ficam expandidos por padrão e quais ficam sob demanda.
+**Regra já decidida:** explicações e regras não interrompem os blocos de dados; ficam em ajuda contextual ou detalhe sob demanda.
+
+**Questão de produto restante:** quais blocos ficam expandidos por padrão e quais ficam sob demanda.
 
 ### C. Série histórica
 
 Definir a visualização principal:
 
 - linha temporal de saldo total;
-- composição empilhada entre conta, fundos, poupança e RDB/CDB;
+- composição entre conta, fundos, poupança e RDB/CDB;
 - marcadores de recebimentos relevantes;
 - marcadores de saídas relevantes;
 - comparação entre saldo inicial, entradas, saídas e saldo remanescente.
@@ -114,20 +192,25 @@ Antes de programar thresholds definitivos, definir quais situações são realme
 - prestação de contas em situação que merece contato;
 - divergência entre fontes.
 
-**Questão de produto:** limites, prioridade, prazo e redação de cada alerta.
+**Regra já decidida:** todo alerta agregado precisa abrir a relação de unidades/casos que o originou.
+
+**Questão de produto restante:** limites, prioridade, prazo e redação de cada alerta.
 
 ### E. Excel executivo
 
-A fundação já define seis recortes humanos, todos com no máximo dez colunas:
+A fundação passa a definir sete recortes humanos, todos curtos:
 
 1. Visão Geral;
-2. Unidades;
-3. Repasses;
-4. Contas e Saldos;
-5. Movimentações;
-6. Prestação de Contas.
+2. Acompanhamento;
+3. Unidades;
+4. Repasses;
+5. Contas e Saldos;
+6. Movimentações;
+7. Prestação de Contas.
 
-**Questão de produto:** quais abas são essenciais para a primeira versão distribuída aos usuários e se a planilha deve incluir uma folha específica de acompanhamento preventivo.
+A Visão Geral contém apenas síntese e navegação; a aba Acompanhamento contém as listas nominais dos indicadores.
+
+**Questão de produto restante:** quais abas serão distribuídas na primeira versão e quais poderão ficar sob demanda.
 
 ### F. PDF
 
@@ -138,7 +221,7 @@ Definir se o PDF será:
 - ambos;
 - ou gerado apenas sob demanda.
 
-O PDF deve privilegiar síntese, não reproduzir tabelas massivas do Excel.
+O PDF deve privilegiar síntese e listas úteis, não reproduzir tabelas massivas do Excel.
 
 ### G. Nível de detalhe das fontes
 
