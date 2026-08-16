@@ -2,7 +2,7 @@
   "name": "pdde-repasse-conciliador",
   "private": true,
   "version": "0.5.0",
-  "description": "Coleta, evidência e conciliação auditável de repasses PDDE entre PDDEInfo e SIGEF.",
+  "description": "Plataforma de Inteligência Financeira das Verbas do PDDE/2026 da 4ª CRE.",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -20,9 +20,12 @@
     "preview": "vite preview",
     "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
     "monitor:live": "node --import tsx scripts/monitor-live-2026.ts",
+    "monitor:backfill:2026": "node --import tsx scripts/backfill-public-balances-2026.ts",
     "monitor:operational": "node --import tsx scripts/build-monitoring-operational-view.ts",
     "monitor:fiscal": "node --import tsx scripts/build-fiscal-human-view.ts",
-    "monitor:fiscal:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",
+    "monitor:human:xlsx": "node --import tsx scripts/export-human-financial-workbook.ts",
+    "monitor:fiscal:xlsx": "node --import tsx scripts/export-human-financial-workbook.ts",
+    "monitor:audit:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",
     "reconcile": "node --import tsx scripts/reconcile.ts",
     "releases:assist": "node --import tsx scripts/assist-releases.ts",
     "evidence:inspect": "node --import tsx scripts/inspect-evidence.ts",
