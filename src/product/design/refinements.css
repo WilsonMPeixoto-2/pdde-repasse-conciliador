@@ -1,0 +1,77 @@
+.reference-note {
+  margin-top: var(--space-8);
+  padding: var(--space-6) 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-8);
+  border-bottom: 1px solid var(--ink-100);
+}
+.reference-note strong {
+  display: block;
+  max-width: 46rem;
+  font-size: 0.94rem;
+}
+.reference-note__eyebrow {
+  display: block;
+  margin-bottom: 0.22rem;
+  color: var(--ink-500);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.reference-note__coverage {
+  max-width: 19rem;
+  color: var(--ink-600);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+/* Uma conta é um recorte mais estreito que a faixa executiva da página. */
+.disclosure__content > .metrics-band {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: var(--space-4);
+}
+.disclosure__content > .metrics-band .metric {
+  padding: 1rem 1rem 1rem 0;
+  border-left: 0;
+}
+.disclosure__content > .metrics-band .metric:nth-child(even) {
+  padding-left: 1rem;
+  border-left: 1px solid var(--ink-100);
+}
+.disclosure__content > .metrics-band .metric:nth-child(n+3) {
+  border-top: 1px solid var(--ink-100);
+}
+.disclosure__content > .metrics-band .metric__label {
+  min-height: 0;
+  font-size: 0.75rem;
+}
+.disclosure__content > .metrics-band .metric-value {
+  font-size: clamp(1.32rem, 2.2vw, 1.85rem);
+  white-space: nowrap;
+}
+.disclosure__content > .metrics-band .metric__meta {
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 700px) {
+  .metric-value {
+    font-size: clamp(1.32rem, 6.2vw, 2.1rem);
+    letter-spacing: -0.055em;
+  }
+  .reference-note { display: block; }
+  .reference-note__coverage {
+    display: block;
+    max-width: none;
+    margin-top: 0.7rem;
+    text-align: left;
+  }
+  .disclosure__content > .metrics-band .metric-value { font-size: 1.32rem; }
+}
+
+@media (max-width: 420px) {
+  .metric-value { font-size: 1.28rem; }
+  .disclosure__content > .metrics-band .metric-value { font-size: 1.18rem; }
+}
