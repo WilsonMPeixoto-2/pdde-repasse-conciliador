@@ -1,0 +1,259 @@
+name: Corrigir gates do frontend de produto
+on:
+  push:
+    branches:
+      - feat/frontend-inteligencia-financeira-2026
+    paths:
+      - '.github/workflows/repair-frontend-product-gates.yml'
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/frontend-inteligencia-financeira-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Aplicar correções tipadas e visuais
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # Remove helper obsoleto após a migração para série histórica completa.
+          p = Path('backend/application/build-human-financial-view.ts')
+          t = p.read_text()
+          obsolete = """function positionFor(
+            schoolInep: string,
+            bank: string,
+            agency: string,
+            account: string,
+            publicReports: PddeInfoPublicPortfolioResult,
+          ): HumanFinancialPosition | null {
+            return positionsFor(schoolInep, bank, agency, account, publicReports).at(-1) ?? null;
+          }
+
+          """
+          # Normalize indentation from source before replacement.
+          compact = obsolete.replace('          ', '')
+          if compact not in t:
+              raise SystemExit('helper positionFor obsoleto não encontrado')
+          t = t.replace(compact, '', 1)
+          p.write_text(t)
+
+          # Fixture do Excel passa a refletir o contrato atual: métricas + série de posições.
+          p = Path('tests/unit/human-financial-workbook.test.ts')
+          t = p.read_text()
+          marker = """  referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+          sources:""".replace('          ', '')
+          replacement = """  referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+            metrics: {
+              schoolCount: 1, accountsTotal: 1, accountsWithPosition: 1,
+              programmedCents: 418500, paymentInformedCents: 418500, creditLocatedCents: 418500,
+              reportedBalanceCents: 318699, applicationsCents: 318699,
+            },
+            sources:""".replace('            ', '')
+          if marker not in t:
+              raise SystemExit('âncora de métricas do workbook não encontrada')
+          t = t.replace(marker, replacement, 1)
+          account_marker = """      program: 'PDDE QUALIDADE', bank: '001', agency: '0249', account: '0000546402',
+                latestPosition: {
+                  referenceDate: '2026-06-30', checkingBalanceCents: 0,
+                  applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
+                  totalReportedBalanceCents: 318699,
+                },
+          """.replace('                ', '      ')
+          account_replacement = """      program: 'PDDE QUALIDADE', bank: '001', agency: '0249', account: '0000546402',
+            positions: [{
+              referenceDate: '2026-06-30', checkingBalanceCents: 0,
+              applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
+              totalReportedBalanceCents: 318699,
+            }],
+            latestPosition: {
+              referenceDate: '2026-06-30', checkingBalanceCents: 0,
+              applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
+              totalReportedBalanceCents: 318699,
+            },
+          """.replace('            ', '      ')
+          if account_marker not in t:
+              raise SystemExit('âncora da conta no workbook não encontrada')
+          t = t.replace(account_marker, account_replacement, 1)
+          p.write_text(t)
+
+          # Home: referência real em vez de uma linha de meses sem dados no snapshot.
+          p = Path('src/product/pages/PortfolioPage.tsx')
+          t = p.read_text()
+          old = """        <div className=\"coverage-strip\" aria-label={portfolio.referenceLabel}>
+            <div className=\"coverage-strip__label\"><strong>Referência dos saldos</strong><span>{portfolio.referenceLabel}</span></div>
+            <div className=\"coverage-months\" aria-hidden=\"true\">
+              {['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'].map((month) => (
+                <span className=\"coverage-month\" key={month} data-observed=\"false\">{month}</span>
+              ))}
+            </div>
+          </div>"""
+          new = """        <div className=\"reference-note\" aria-label={portfolio.referenceLabel}>
+            <div>
+              <span className=\"reference-note__eyebrow\">Referência dos saldos</span>
+              <strong>{portfolio.referenceLabel}</strong>
+            </div>
+            <span className=\"reference-note__coverage\">{portfolio.metrics.accountsWithPosition} de {portfolio.metrics.accountsTotal} contas com posição nessa referência</span>
+          </div>"""
+          if old not in t:
+              raise SystemExit('coverage-strip da Home não encontrado')
+          p.write_text(t.replace(old, new, 1))
+
+          # Conta: métrica compacta 2x2, sem quatro números monumentais na coluna estreita.
+          p = Path('src/product/pages/SchoolPage.tsx')
+          t = p.read_text()
+          old = '<div className="metrics-band" style={{ marginBottom: \'1rem\' }}>'
+          if old not in t:
+              raise SystemExit('metrics-band da conta não encontrado')
+          p.write_text(t.replace(old, '<div className="account-metrics">', 1))
+
+          # CSS: referência editorial, account metrics compactas e escala mobile segura.
+          p = Path('src/product/design/components.css')
+          t = p.read_text()
+          start = t.index('.coverage-strip {')
+          end = t.index('.indicator-list {', start)
+          reference_css = """.reference-note {
+            margin-top: var(--space-8);
+            padding: var(--space-6) 0;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: var(--space-8);
+            border-bottom: 1px solid var(--ink-100);
+          }
+          .reference-note strong { display: block; max-width: 46rem; font-size: 0.94rem; }
+          .reference-note__eyebrow { display: block; margin-bottom: 0.22rem; color: var(--ink-500); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+          .reference-note__coverage { max-width: 19rem; color: var(--ink-600); font-size: 0.78rem; text-align: right; }
+          .account-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: var(--space-4);
+            border-top: 1px solid var(--ink-200);
+            border-bottom: 1px solid var(--ink-200);
+          }
+          .account-metrics .metric { padding: 1rem 1rem 1rem 0; border: 0; }
+          .account-metrics .metric + .metric { border-left: 0; }
+          .account-metrics .metric:nth-child(even) { padding-left: 1rem; border-left: 1px solid var(--ink-100); }
+          .account-metrics .metric:nth-child(n+3) { border-top: 1px solid var(--ink-100); }
+          .account-metrics .metric__label { min-height: 0; font-size: 0.75rem; }
+          .account-metrics .metric-value { font-size: clamp(1.35rem, 2.2vw, 1.9rem); white-space: nowrap; }
+          .account-metrics .metric__meta { margin-top: 0.4rem; }
+          """.replace('          ', '')
+          t = t[:start] + reference_css + t[end:]
+          p.write_text(t)
+
+          p = Path('src/product/design/layout.css')
+          t = p.read_text()
+          t = t.replace("""  .metric-value { font-size: clamp(1.7rem, 9vw, 2.6rem); }
+            .coverage-strip { display: block; }
+            .coverage-strip__label { min-width: 0; margin-bottom: 1.6rem; }
+            .coverage-months { gap: 0.1rem; }
+            .coverage-month { font-size: 0.56rem; }
+            .coverage-month::before { width: 0.56rem; height: 0.56rem; border-width: 1.5px; }
+          """.replace('            ', ''), """  .metric-value { font-size: clamp(1.32rem, 6.2vw, 2.1rem); letter-spacing: -0.055em; }
+            .reference-note { display: block; }
+            .reference-note__coverage { display: block; max-width: none; margin-top: 0.7rem; text-align: left; }
+            .account-metrics .metric-value { font-size: 1.35rem; }
+          """.replace('            ', ''), 1)
+          t = t.replace('  .metric-value { font-size: 1.72rem; }', '  .metric-value { font-size: 1.3rem; }\n  .account-metrics .metric-value { font-size: 1.22rem; }', 1)
+          p.write_text(t)
+
+          # Vite assets devem ser absolutos na raiz da futura aplicação.
+          p = Path('vite.config.ts')
+          t = p.read_text().replace("  base: './',", "  base: '/',")
+          p.write_text(t)
+
+          # Smoke: capture antes do assert e reporte exatamente quais elementos extrapolam.
+          p = Path('scripts/frontend-product-smoke.mjs')
+          t = p.read_text()
+          old = """async function assertNoMainOverflow(page) {
+            const overflow = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+            if (overflow.width > overflow.viewport + 2) throw new Error(`Overflow horizontal global: ${overflow.width}px > ${overflow.viewport}px`);
+          }""".replace('          ', '')
+          new = """async function assertNoMainOverflow(page) {
+            const overflow = await page.evaluate(() => {
+              const viewport = window.innerWidth;
+              const offenders = [...document.querySelectorAll('body *')]
+                .map((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return {
+                    tag: element.tagName.toLowerCase(),
+                    className: typeof element.className === 'string' ? element.className : '',
+                    text: (element.textContent ?? '').trim().replace(/\\s+/g, ' ').slice(0, 90),
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    width: Math.round(rect.width),
+                    scrollWidth: element.scrollWidth,
+                    clientWidth: element.clientWidth,
+                  };
+                })
+                .filter((item) => item.right > viewport + 2 || item.left < -2 || item.scrollWidth > item.clientWidth + 2)
+                .sort((a, b) => Math.max(b.right - viewport, b.scrollWidth - b.clientWidth) - Math.max(a.right - viewport, a.scrollWidth - a.clientWidth))
+                .slice(0, 12);
+              return { width: document.documentElement.scrollWidth, viewport, offenders };
+            });
+            if (overflow.width > overflow.viewport + 2) {
+              throw new Error(`Overflow horizontal global: ${overflow.width}px > ${overflow.viewport}px. Ofensores: ${JSON.stringify(overflow.offenders)}`);
+            }
+          }""".replace('          ', '')
+          if old not in t:
+              raise SystemExit('assertNoMainOverflow original não encontrado')
+          t = t.replace(old, new, 1)
+          t = t.replace("""  await assertNoTechnicalMetadata(page);
+            await assertNoMainOverflow(page);
+            await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
+          """.replace('            ', ''), """  await assertNoTechnicalMetadata(page);
+            await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
+            await assertNoMainOverflow(page);
+          """.replace('            ', ''), 1)
+          # Direct URL precisa renderizar a unidade no servidor com fallback SPA.
+          insert = """  const direct = await context.newPage();
+            await direct.goto(`${base}/unidades/33069093`, { waitUntil: 'networkidle' });
+            await direct.getByRole('heading', { name: 'EM ALBINO SOUZA CRUZ' }).waitFor();
+            await direct.close();
+          """.replace('            ', '')
+          anchor = "  await page.screenshot({ path: new URL(`school-${suffix}.png`, output).pathname, fullPage: true });\n"
+          if anchor not in t:
+              raise SystemExit('âncora de screenshot escolar não encontrada')
+          t = t.replace(anchor, anchor + insert, 1)
+          p.write_text(t)
+          PY
+
+          cat > src/vite-env.d.ts <<'EOF'
+          /// <reference types="vite/client" />
+          EOF
+
+          git rm src/main.ts src/styles.css
+      - name: Verificar tipos
+        run: npm run typecheck
+      - name: Gerar build
+        run: npm run build
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Rodar smoke visual corrigido
+        run: node scripts/frontend-product-smoke.mjs
+      - name: Preservar screenshots para inspeção
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-product-repair-smoke
+          path: artifacts/frontend-product-smoke/*.png
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remover workflow temporário e publicar correções
+        if: success()
+        run: |
+          rm .github/workflows/repair-frontend-product-gates.yml
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git add -A
+          git commit -m 'fix: refina responsividade e hierarquia financeira'
+          git push origin HEAD:feat/frontend-inteligencia-financeira-2026
