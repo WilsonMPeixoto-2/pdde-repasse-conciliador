@@ -28,6 +28,19 @@
   text-align: right;
 }
 
+/* O conteúdo largo da timeline não pode definir a largura mínima do grid pai. */
+.two-column > *,
+.two-column > div > *,
+.program-list,
+.disclosure,
+.disclosure__content,
+.timeline {
+  min-width: 0;
+}
+.timeline {
+  max-width: 100%;
+}
+
 /* Uma conta é um recorte mais estreito que a faixa executiva da página. */
 .disclosure__content > .metrics-band {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -74,4 +87,5 @@
 @media (max-width: 420px) {
   .metric-value { font-size: 1.28rem; }
   .disclosure__content > .metrics-band .metric-value { font-size: 1.18rem; }
+  .brand__name { max-width: 13.5rem; font-size: 0.92rem; }
 }
