@@ -49,7 +49,7 @@ jobs:
             --input artifacts/human-workbook-smoke/run/human-financial.json \
             --output artifacts/human-workbook-smoke/inteligencia-financeira-pdde-4cre-2026.xlsx
 
-      - name: Validar workbook gerado
+      - name: Validar visão humana e semântica das datas
         if: always()
         shell: bash
         run: |
@@ -66,6 +66,30 @@ jobs:
           }, null, 2));
           if (human.fiscalYear !== 2026) throw new Error('Visão humana fora de 2026.');
           if (human.indicators.some(x => x.count !== x.units.length)) throw new Error('Indicador sem lista nominal íntegra.');
+
+          const ema = human.schools.find((school) => school.school.inep === '33069247');
+          if (!ema) throw new Error('EM EMA NEGRAO DE LIMA não encontrada no smoke.');
+          const installments = ema.programs.flatMap((program) => program.installments);
+          const first = installments.find((item) => /1\s*ª|1a|primeira/i.test(item.installment ?? '') && item.paymentInformedCents > 0);
+          if (!first) throw new Error('1ª parcela paga da EM EMA NEGRAO DE LIMA não encontrada.');
+          if (first.paymentInformedDate !== '2026-08-05') {
+            throw new Error(`Data do pagamento informada inesperada: ${first.paymentInformedDate}.`);
+          }
+          if (first.paymentOrderDate !== '2026-08-04') {
+            throw new Error(`Ordem FNDE inesperada: ${first.paymentOrderDate}.`);
+          }
+          const second = installments.find((item) => /2\s*ª|2a|segunda/i.test(item.installment ?? ''));
+          if (second && second.paymentOrderDate !== null) {
+            throw new Error(`2ª parcela herdou indevidamente uma ordem FNDE: ${second.paymentOrderDate}.`);
+          }
+          console.log(JSON.stringify({
+            semanticDateCheck: {
+              school: ema.school.name,
+              firstInstallmentPaymentInformedDate: first.paymentInformedDate,
+              firstInstallmentPaymentOrderDate: first.paymentOrderDate,
+              secondInstallmentPaymentOrderDate: second?.paymentOrderDate ?? null,
+            },
+          }, null, 2));
           NODE
 
       - name: Preservar Excel e visão humana
