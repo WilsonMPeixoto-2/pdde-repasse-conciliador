@@ -1,3 +1,5 @@
+.brand__name--mobile { display: none; }
+
 .reference-note {
   margin-top: var(--space-8);
   padding: var(--space-6) 0;
@@ -70,6 +72,8 @@
 }
 
 @media (max-width: 700px) {
+  .brand__name--desktop { display: none; }
+  .brand__name--mobile { display: block; }
   .metric-value {
     font-size: clamp(1.32rem, 6.2vw, 2.1rem);
     letter-spacing: -0.055em;
