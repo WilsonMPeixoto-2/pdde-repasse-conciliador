@@ -1,0 +1,67 @@
+@import './components.css';
+
+.two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.85fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+}
+.sidebar-sticky { position: sticky; top: 104px; }
+
+@media (max-width: 960px) {
+  .metrics-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric:nth-child(3) { border-left: 0; border-top: 1px solid var(--ink-200); }
+  .metric:nth-child(4) { border-top: 1px solid var(--ink-200); }
+  .metric:nth-child(3) { padding-left: 0; }
+  .indicator-list, .account-grid { grid-template-columns: 1fr; }
+  .two-column { grid-template-columns: 1fr; }
+  .sidebar-sticky { position: static; }
+}
+
+@media (max-width: 700px) {
+  .app-header__inner { width: min(calc(100% - 1.25rem), var(--content-max)); min-height: 66px; gap: 0.6rem; }
+  .brand__eyebrow { font-size: 0.58rem; }
+  .brand__name { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
+  .main-nav a { padding: 0.48rem 0.55rem; font-size: 0.78rem; }
+  .year-pill { display: none; }
+  .page { width: min(calc(100% - 1.5rem), var(--content-max)); padding-top: 2.6rem; padding-bottom: 4rem; }
+  h1 { font-size: clamp(2.2rem, 12vw, 3.5rem); }
+  .lead { font-size: 1rem; }
+  .section { margin-top: 3.4rem; }
+  .section-heading { display: block; margin-bottom: 1.5rem; }
+  .section-heading .text-link { margin-top: 0.5rem; }
+  .metrics-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric { padding: 1.2rem 0.8rem; }
+  .metric:nth-child(odd) { padding-left: 0; }
+  .metric__label { min-height: 2.5em; font-size: 0.78rem; }
+  .metric-value { font-size: clamp(1.7rem, 9vw, 2.6rem); }
+  .coverage-strip { display: block; }
+  .coverage-strip__label { min-width: 0; margin-bottom: 1.6rem; }
+  .coverage-months { gap: 0.1rem; }
+  .coverage-month { font-size: 0.56rem; }
+  .coverage-month::before { width: 0.56rem; height: 0.56rem; border-width: 1.5px; }
+  .indicator-list { grid-template-columns: 1fr; }
+  .indicator-link { min-height: 132px; padding: 1.3rem 1.4rem; }
+  .indicator-link__count { font-size: 2.7rem; }
+  .indicator-link__label { font-size: 0.92rem; }
+  .school-row { min-height: 76px; gap: 1rem; }
+  .school-row__name { font-size: 0.92rem; }
+  .entity-header { gap: 1rem; padding-bottom: 1.8rem; }
+  .entity-title { font-size: 2.1rem; }
+  .entity-meta { font-size: 0.9rem; }
+  .info-button { width: 40px; height: 40px; }
+  .installment-row { gap: 1rem; }
+  .installment-row__title { font-size: 0.94rem; }
+  .account-panel { padding: 1.3rem; }
+  .timeline { overflow-x: auto; padding-top: 1rem; scrollbar-width: thin; }
+  .timeline svg { min-width: 720px; }
+  .timeline__detail { grid-template-columns: 1fr 1fr; gap: 1rem; }
+}
+
+@media (max-width: 420px) {
+  .main-nav a:first-child { display: none; }
+  .metrics-band { grid-template-columns: 1fr 1fr; }
+  .metric { padding-top: 1rem; padding-bottom: 1rem; }
+  .metric-value { font-size: 1.72rem; }
+  .timeline__detail { grid-template-columns: 1fr; }
+}
