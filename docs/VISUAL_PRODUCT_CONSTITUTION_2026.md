@@ -181,7 +181,8 @@ Exemplos de papéis:
 
 - **estrutural/institucional:** navegação, títulos, moldura da experiência;
 - **pagamento informado:** destaque consistente para valor pago informado;
-- **crédito localizado/confirmado pela evidência disponível:** estado distinto do simples pagamento informado;
+- **crédito compatível localizado:** estado visual próprio, sem ser confundido com pagamento informado ou com confirmação final do repasse;
+- **repasse confirmado:** reservado exclusivamente ao estado probatório que satisfaça os critérios de confirmação do domínio;
 - **atenção/acompanhamento:** situações que pedem verificação, sem sugerir irregularidade;
 - **erro técnico real:** reservado para falha efetiva do sistema;
 - **neutro/contextual:** informação complementar.
@@ -229,6 +230,8 @@ Exemplo conceitual:
 `Resumo → lista filtrada → unidade → programa → conta → período/movimentações → detalhe de evidência`
 
 Cada usuário pode parar no nível suficiente para sua tarefa.
+
+**Profundidade sob demanda não significa ocultar informação crítica.** Estado corrente, exceções relevantes, caveats que mudam a interpretação do dado e ações urgentes precisam permanecer perceptíveis mesmo quando painéis de detalhe estiverem recolhidos.
 
 ### 5.2 Três tipos de profundidade
 
@@ -345,6 +348,8 @@ Pontos e eventos devem poder ganhar detalhe por hover, foco ou clique, quando in
 
 A visualização nunca deve sugerir causalidade que as fontes não comprovem.
 
+**Lacunas precisam parecer lacunas.** Se um mês ou período não tiver dado disponível, a linha, área ou tendência não deve atravessá-lo silenciosamente como se houvesse continuidade observada. O desenho deve distinguir ausência de observação, zero e valor efetivamente conhecido.
+
 ### 7.3 Visão + investigação
 
 Uma boa visualização pode funcionar em duas camadas:
@@ -385,6 +390,7 @@ Exemplos:
 - **Pagamento informado** não significa crédito bancário confirmado.
 - **Ordem FNDE** é um evento distinto da data do pagamento informado.
 - **Crédito compatível localizado** deve ser apresentado como evidência própria.
+- **Repasse confirmado** só pode aparecer quando o domínio possuir evidência suficiente para esse estado.
 - **Saldo informado até DD/MM/AAAA** sempre carrega data de cobertura.
 - **Saldo aplicado** não é sinônimo de rendimento.
 - ausência de dado não é zero.
@@ -596,6 +602,8 @@ A experiência deve considerar:
 - suporte a redução de movimento;
 - escalabilidade de texto.
 
+**Toda visualização importante precisa ter um caminho não visual para sua informação essencial**, por meio de rótulos diretos, resumo textual, lista ou tabela acessível. Hover, cor, precisão do ponteiro, animação ou painel expandido não podem ser requisitos exclusivos para compreender a evidência principal.
+
 Acessibilidade não é um modo visual separado. É qualidade do produto principal.
 
 ---
@@ -635,6 +643,7 @@ Evitar deliberadamente:
 ### 16.5 Semântica financeira achatada
 
 - tratar pago informado como crédito confirmado;
+- tratar crédito compatível localizado como confirmação final sem critério probatório suficiente;
 - tratar ausência como zero;
 - tratar saldo aplicado como rendimento;
 - esconder data de cobertura;
@@ -710,6 +719,7 @@ Antes de implementar uma visualização, responder:
 6. **o comportamento continua compreensível no mobile?**
 7. **a estética reforça ou compete com o dado?**
 8. **a visualização preserva a semântica financeira?**
+9. **o mesmo significado continua disponível sem depender de hover, cor ou animação?**
 
 Se essas perguntas não tiverem resposta clara, o componente ainda não está pronto para implementação.
 
@@ -752,8 +762,10 @@ Toda tela, bloco ou relatório deve passar pelo seguinte teste:
 ### Semântica
 
 - Pago informado foi distinguido de crédito?
+- Crédito localizado foi distinguido de confirmação final?
 - Ausência foi distinguida de zero?
 - Data de cobertura está visível quando necessária?
+- Lacunas temporais estão explícitas?
 - 2025 está fora dos totais correntes de 2026?
 
 ### Responsividade e acessibilidade
@@ -761,6 +773,8 @@ Toda tela, bloco ou relatório deve passar pelo seguinte teste:
 - A composição funciona no mobile sem simplesmente comprimir o desktop?
 - Estados funcionam sem cor?
 - Interações funcionam com teclado e toque?
+- A informação principal continua disponível sem hover?
+- A visualização possui equivalente textual ou tabular para a evidência essencial?
 
 ---
 
