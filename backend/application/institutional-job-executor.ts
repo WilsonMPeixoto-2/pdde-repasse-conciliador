@@ -5,6 +5,7 @@ import { inspectSigefReleaseHtml } from '../adapters/sigef-release-inspector';
 import type { ExecutionJob } from '../core/execution-job';
 import type { ArtifactReference, ArtifactStore } from './artifact-store';
 import type { CurrentFiscalPublisher } from './current-fiscal-read-model';
+import type { CurrentMonitoringPublisher } from './current-monitoring-publisher';
 import {
   collectPddeInfo,
   type CollectPddeInfoOptions,
@@ -36,7 +37,11 @@ type CollectionRunner = (
 ) => Promise<{ status: 'COMPLETE' | 'PARTIAL' }>;
 type MonitoringRunner = (
   options: RunMonitoringOptions,
-) => Promise<{ status: 'COMPLETE' | 'PARTIAL'; fiscal?: unknown }>;
+) => Promise<{
+  status: 'COMPLETE' | 'PARTIAL';
+  fiscal?: unknown;
+  human?: unknown;
+}>;
 type ReconciliationRunner = (options: ReconcileFilesOptions) => Promise<unknown>;
 
 interface InstitutionalJobExecutorDependencies {
@@ -44,7 +49,9 @@ interface InstitutionalJobExecutorDependencies {
   schools: Array<{ inep: string; sme: string; nome: string }>;
   evidenceStore: EvidenceEventStore;
   artifactStore: ArtifactStore;
+  /** Compatibilidade temporária com o publisher fiscal anterior. */
   currentFiscalPublisher?: CurrentFiscalPublisher;
+  currentMonitoringPublisher?: CurrentMonitoringPublisher;
   collectPddeInfo?: CollectionRunner;
   runMonitoring?: MonitoringRunner;
   reconcileFiles?: ReconciliationRunner;
@@ -145,10 +152,29 @@ export class InstitutionalJobExecutor implements ExecutionJobExecutor {
       manageExecutionLifecycle: false,
       institutionalPathPrefix: 'run',
     });
-    if (result.status === 'COMPLETE' && schools.length === this.schools.length && this.dependencies.currentFiscalPublisher) {
-      if (result.fiscal === undefined) throw new Error('MONITORING completo não retornou a visão fiscal para publicação.');
+
+    const completeInstitutionalPortfolio = result.status === 'COMPLETE'
+      && schools.length === this.schools.length;
+    if (completeInstitutionalPortfolio && this.dependencies.currentMonitoringPublisher) {
+      if (result.fiscal === undefined || result.human === undefined) {
+        throw new Error('MONITORING completo não retornou a visão fiscal e humana para publicação.');
+      }
+      await this.dependencies.currentMonitoringPublisher.publish({
+        runId: job.runId,
+        expectedSchoolCount: this.schools.length,
+        fiscal: result.fiscal,
+        human: result.human,
+      });
+    } else if (completeInstitutionalPortfolio && this.dependencies.currentFiscalPublisher) {
+      // Compatibilidade com integrações antigas: o runtime institucional padrão
+      // já usa o publisher atômico e não entra neste caminho.
+      if (result.fiscal === undefined) {
+        throw new Error('MONITORING completo não retornou a visão fiscal para publicação.');
+      }
       await this.dependencies.currentFiscalPublisher.publish({
-        runId: job.runId, expectedSchoolCount: this.schools.length, fiscal: result.fiscal,
+        runId: job.runId,
+        expectedSchoolCount: this.schools.length,
+        fiscal: result.fiscal,
       });
     }
     return { status: result.status };
