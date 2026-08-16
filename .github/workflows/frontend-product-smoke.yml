@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'src/**'
+      - 'shared/**'
       - 'scripts/frontend-product-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'shared/**'
       - 'scripts/frontend-product-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'

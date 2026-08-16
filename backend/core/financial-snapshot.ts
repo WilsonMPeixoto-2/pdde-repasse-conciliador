@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CURRENT_FISCAL_YEAR } from './fiscal-scope';
+import { canonicalAccount } from './normalization';
 import { isoDateSchema } from './schemas';
 import { isoTimestampSchema } from './time';
 
@@ -39,9 +40,11 @@ export function financialSnapshotKey(rawSnapshot: FinancialAccountSnapshot): str
     snapshot.schoolInep,
     snapshot.uexCnpj,
     segment(snapshot.programName),
-    segment(snapshot.bank),
-    segment(snapshot.agency),
-    segment(snapshot.account),
+    canonicalAccount({
+      bank: snapshot.bank,
+      agency: snapshot.agency,
+      number: snapshot.account,
+    }),
     snapshot.referenceDate,
     snapshot.source,
   ].join('|');

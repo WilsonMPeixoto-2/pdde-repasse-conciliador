@@ -1,60 +1,24 @@
 import { z } from 'zod';
+import {
+  humanIndicatorSchema,
+  humanPortfolioMetricsSchema,
+  humanSchoolContentSchema,
+  humanSchoolIdentitySchema,
+  humanSourceSchema,
+  humanUnitSchema,
+} from '../../shared/human-financial-contract';
 import { evidenceIdentifierSchema } from '../core/evidence';
 
-const unitSchema = z.object({
-  sme: z.string().regex(/^\d{7}$/),
-  name: z.string().min(1),
-  inep: z.string().regex(/^\d{8}$/),
-}).strict();
-
-const sourceSchema = z.object({
-  name: z.string().min(1),
-  information: z.string().min(1),
-}).strict();
-
-const indicatorSchema = z.object({
-  label: z.string().min(1),
-  count: z.number().int().nonnegative(),
-  units: z.array(unitSchema),
-}).strict();
-
-export const humanPortfolioMetricsSchema = z.object({
-  schoolCount: z.number().int().positive(),
-  accountsTotal: z.number().int().nonnegative(),
-  accountsWithPosition: z.number().int().nonnegative(),
-  programmedCents: z.number().int().nonnegative(),
-  paymentInformedCents: z.number().int().nonnegative(),
-  creditLocatedCents: z.number().int().nonnegative(),
-  reportedBalanceCents: z.number().int().nullable(),
-  applicationsCents: z.number().int().nullable(),
-}).strict().refine((value) => value.accountsWithPosition <= value.accountsTotal, {
-  message: 'Contas com posição não podem exceder o total de contas.',
-});
-
-const schoolIdentitySchema = z.object({
-  inep: z.string().regex(/^\d{8}$/),
-  sme: z.string().regex(/^\d{7}$/),
-  name: z.string().min(1),
-  uex: z.string(),
-  cnpj: z.string(),
-}).strict();
-
-const humanSchoolSchema = z.object({
-  school: schoolIdentitySchema,
-  programs: z.array(z.unknown()),
-  accounts: z.array(z.unknown()),
-  accounting: z.array(z.unknown()),
-  followUp: z.array(z.string()),
-}).strict();
+export { humanPortfolioMetricsSchema } from '../../shared/human-financial-contract';
 
 const humanViewSchema = z.object({
   title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
   fiscalYear: z.literal(2026),
   referenceLabel: z.string().min(1),
   metrics: humanPortfolioMetricsSchema,
-  sources: z.array(sourceSchema).min(1),
-  indicators: z.array(indicatorSchema),
-  schools: z.array(humanSchoolSchema),
+  sources: z.array(humanSourceSchema).min(1),
+  indicators: z.array(humanIndicatorSchema),
+  schools: z.array(humanSchoolContentSchema),
 }).strict();
 
 const FORBIDDEN_KEY_PARTS = [
@@ -90,25 +54,25 @@ export interface CurrentHumanFinancialPortfolio {
   referenceLabel: string;
   schoolCount: number;
   metrics: z.infer<typeof humanPortfolioMetricsSchema>;
-  sources: z.infer<typeof sourceSchema>[];
-  indicators: z.infer<typeof indicatorSchema>[];
-  schools: z.infer<typeof unitSchema>[];
+  sources: z.infer<typeof humanSourceSchema>[];
+  indicators: z.infer<typeof humanIndicatorSchema>[];
+  schools: z.infer<typeof humanUnitSchema>[];
 }
 
 export interface CurrentHumanFinancialSchoolSnapshot {
   fiscalYear: 2026;
   runId: string;
-  school: z.infer<typeof schoolIdentitySchema>;
-  programs: unknown[];
-  accounts: unknown[];
-  accounting: unknown[];
+  school: z.infer<typeof humanSchoolIdentitySchema>;
+  programs: z.infer<typeof humanSchoolContentSchema>['programs'];
+  accounts: z.infer<typeof humanSchoolContentSchema>['accounts'];
+  accounting: z.infer<typeof humanSchoolContentSchema>['accounting'];
   followUp: string[];
 }
 
 export interface PreparedCurrentHumanFinancialSnapshot {
   portfolio: CurrentHumanFinancialPortfolio;
   schools: Array<{
-    school: z.infer<typeof schoolIdentitySchema>;
+    school: z.infer<typeof humanSchoolIdentitySchema>;
     snapshot: CurrentHumanFinancialSchoolSnapshot;
   }>;
 }

@@ -3,6 +3,7 @@ import {
   financialSnapshotKey,
   financialAccountSnapshotSchema,
 } from '../../backend/core/financial-snapshot';
+import { buildFinancialSeries } from '../../backend/application/build-financial-series';
 
 const base = {
   schoolInep: '33069247',
@@ -32,6 +33,34 @@ describe('financial account snapshot', () => {
       artifactSha256: 'a'.repeat(64),
     });
     expect(financialSnapshotKey(first)).toBe(financialSnapshotKey(second));
+  });
+
+  it('usa a mesma identidade bancária independentemente de zeros de preenchimento', () => {
+    const padded = financialAccountSnapshotSchema.parse(base);
+    const compact = financialAccountSnapshotSchema.parse({
+      ...base,
+      bank: '1',
+      agency: '249',
+      account: '546402',
+    });
+    expect(financialSnapshotKey(padded)).toBe(financialSnapshotKey(compact));
+  });
+
+  it('mantém meses com formatações bancárias equivalentes na mesma série', () => {
+    const january = financialAccountSnapshotSchema.parse({
+      ...base,
+      referenceDate: '2026-01-31',
+    });
+    const june = financialAccountSnapshotSchema.parse({
+      ...base,
+      bank: '1',
+      agency: '249',
+      account: '546402',
+      referenceDate: '2026-06-30',
+    });
+    const series = buildFinancialSeries([january, june]);
+    expect(series).toHaveLength(1);
+    expect(series[0].points.map((point) => point.referenceDate)).toEqual(['2026-01-31', '2026-06-30']);
   });
 
   it('rejeita snapshot corrente fora de 2026', () => {

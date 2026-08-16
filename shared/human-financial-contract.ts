@@ -1,0 +1,144 @@
+import { z } from 'zod';
+
+export const humanMoneySchema = z.number().int();
+export const humanNonNegativeMoneySchema = humanMoneySchema.nonnegative();
+
+function isReal2026Date(value: string): boolean {
+  const match = /^2026-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const date = new Date(Date.UTC(2026, month - 1, day));
+  return date.getUTCFullYear() === 2026
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+export const humanIsoDateSchema = z.string().refine(isReal2026Date, {
+  message: 'Data humana deve ser uma data calendário válida de 2026.',
+});
+
+export const humanUnitSchema = z.object({
+  sme: z.string().regex(/^\d{7}$/),
+  name: z.string().min(1),
+  inep: z.string().regex(/^\d{8}$/),
+}).strict();
+
+export const humanSourceSchema = z.object({
+  name: z.string().min(1),
+  information: z.string().min(1),
+}).strict();
+
+export const humanIndicatorSchema = z.object({
+  label: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  units: z.array(humanUnitSchema),
+}).strict().refine((value) => value.count === value.units.length, {
+  message: 'Indicador sem lista nominal correspondente.',
+});
+
+export const humanPortfolioMetricsSchema = z.object({
+  schoolCount: z.number().int().positive(),
+  accountsTotal: z.number().int().nonnegative(),
+  accountsWithPosition: z.number().int().nonnegative(),
+  programmedCents: humanNonNegativeMoneySchema,
+  paymentInformedCents: humanNonNegativeMoneySchema,
+  creditLocatedCents: humanNonNegativeMoneySchema,
+  reportedBalanceCents: humanMoneySchema.nullable(),
+  applicationsCents: humanMoneySchema.nullable(),
+}).strict().refine((value) => value.accountsWithPosition <= value.accountsTotal, {
+  message: 'Contas com posição não podem exceder o total.',
+});
+
+export const humanSchoolIdentitySchema = z.object({
+  inep: z.string().regex(/^\d{8}$/),
+  sme: z.string().regex(/^\d{7}$/),
+  name: z.string().min(1),
+  uex: z.string(),
+  cnpj: z.string(),
+}).strict();
+
+export const humanAccountRefSchema = z.object({
+  bank: z.string(),
+  agency: z.string(),
+  number: z.string(),
+}).strict();
+
+export const humanCreditEvidenceSchema = z.object({
+  status: z.string().min(1),
+  date: humanIsoDateSchema.nullable(),
+  amountCents: humanNonNegativeMoneySchema.nullable(),
+  document: z.string().nullable(),
+}).strict();
+
+export const humanInstallmentSchema = z.object({
+  installment: z.string().nullable(),
+  programmedCents: humanNonNegativeMoneySchema,
+  paymentInformedCents: humanNonNegativeMoneySchema,
+  paymentInformedDate: humanIsoDateSchema.nullable(),
+  paymentOrderDate: humanIsoDateSchema.nullable(),
+  account: humanAccountRefSchema.nullable(),
+  creditEvidence: humanCreditEvidenceSchema,
+  note: z.string().nullable(),
+}).strict();
+
+export const humanProgramSchema = z.object({
+  name: z.string().min(1),
+  installments: z.array(humanInstallmentSchema),
+}).strict();
+
+export const humanPositionSchema = z.object({
+  referenceDate: humanIsoDateSchema,
+  checkingBalanceCents: humanMoneySchema.nullable(),
+  applications: z.object({
+    fundsCents: humanMoneySchema.nullable(),
+    savingsCents: humanMoneySchema.nullable(),
+    rdbCdbCents: humanMoneySchema.nullable(),
+    totalCents: humanMoneySchema.nullable(),
+  }).strict(),
+  totalReportedBalanceCents: humanMoneySchema.nullable(),
+}).strict();
+
+export const humanCounterpartySchema = z.object({
+  document: z.string().nullable(),
+  name: z.string().nullable(),
+  bank: z.string().nullable(),
+  agency: z.string().nullable(),
+  account: z.string().nullable(),
+}).strict();
+
+export const humanMovementSchema = z.object({
+  date: humanIsoDateSchema,
+  description: z.string().min(1),
+  document: z.string().nullable(),
+  category: z.string().nullable(),
+  creditCents: humanMoneySchema.nullable(),
+  debitCents: humanMoneySchema.nullable(),
+  counterparty: humanCounterpartySchema.nullable(),
+}).strict();
+
+export const humanAccountSchema = z.object({
+  program: z.string().min(1),
+  bank: z.string(),
+  agency: z.string(),
+  account: z.string(),
+  positions: z.array(humanPositionSchema),
+  latestPosition: humanPositionSchema.nullable(),
+  movements: z.array(humanMovementSchema),
+  note: z.string().nullable(),
+}).strict();
+
+export const humanAccountingSchema = z.object({
+  program: z.string().min(1),
+  status: z.string(),
+  paymentSuspended: z.boolean(),
+  expectedTotalCents: humanNonNegativeMoneySchema,
+}).strict();
+
+export const humanSchoolContentSchema = z.object({
+  school: humanSchoolIdentitySchema,
+  programs: z.array(humanProgramSchema),
+  accounts: z.array(humanAccountSchema),
+  accounting: z.array(humanAccountingSchema),
+  followUp: z.array(z.string()),
+}).strict();

@@ -3,6 +3,7 @@ import {
   financialSnapshotKey,
   type FinancialAccountSnapshot,
 } from '../core/financial-snapshot';
+import { canonicalAccount } from '../core/normalization';
 
 export interface FinancialSeries {
   schoolInep: string;
@@ -20,9 +21,11 @@ function accountSeriesKey(snapshot: FinancialAccountSnapshot): string {
     snapshot.schoolInep,
     snapshot.uexCnpj,
     snapshot.programName.trim().toUpperCase(),
-    snapshot.bank.trim().toUpperCase(),
-    snapshot.agency.trim().toUpperCase(),
-    snapshot.account.trim().toUpperCase(),
+    canonicalAccount({
+      bank: snapshot.bank,
+      agency: snapshot.agency,
+      number: snapshot.account,
+    }),
     snapshot.source,
   ].join('|');
 }

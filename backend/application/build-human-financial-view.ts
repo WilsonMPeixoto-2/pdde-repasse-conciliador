@@ -1,4 +1,5 @@
 import { assertCurrentFiscalYear } from '../core/fiscal-scope';
+import { canonicalAccount } from '../core/normalization';
 import type { PddeInfoPublicPortfolioResult } from './collect-pddeinfo-public-portfolio';
 import type {
   FiscalCreditPresentationStatus,
@@ -170,8 +171,7 @@ function creditStatusLabel(status: FiscalCreditPresentationStatus): string {
 }
 
 function accountKey(bank: string, agency: string, account: string): string {
-  const clean = (value: string) => value.replace(/[^0-9A-Z]/gi, '').toUpperCase();
-  return `${clean(bank)}|${clean(agency)}|${clean(account)}`;
+  return canonicalAccount({ bank, agency, number: account });
 }
 
 function latestReference(publicReports: PddeInfoPublicPortfolioResult): string | null {
