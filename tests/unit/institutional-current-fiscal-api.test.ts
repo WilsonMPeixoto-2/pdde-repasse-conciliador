@@ -46,11 +46,15 @@ function fixture() {
   return { api, readService };
 }
 
+function adminGet(url: string): Request {
+  return new Request(url, { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } });
+}
+
 describe('API do retrato fiscal corrente', () => {
   test('expõe a carteira financeira 2026 sem misturar histórico de execução', async () => {
     const { api, readService } = fixture();
 
-    const response = await api(new Request('http://localhost/api/current/portfolio'));
+    const response = await api(adminGet('http://localhost/api/current/portfolio'));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -64,14 +68,14 @@ describe('API do retrato fiscal corrente', () => {
   test('expõe o prontuário fiscal corrente por INEP e retorna 404 quando ainda não publicado', async () => {
     const { api, readService } = fixture();
 
-    const found = await api(new Request(`http://localhost/api/current/schools/${school.inep}`));
+    const found = await api(adminGet(`http://localhost/api/current/schools/${school.inep}`));
     expect(found.status).toBe(200);
     await expect(found.json()).resolves.toMatchObject({
       fiscalYear: 2026,
       school: { inep: school.inep },
     });
 
-    const missing = await api(new Request('http://localhost/api/current/schools/99999999'));
+    const missing = await api(adminGet('http://localhost/api/current/schools/99999999'));
     expect(missing.status).toBe(404);
     expect(readService.getCurrentFiscalSchool).toHaveBeenCalledWith('99999999');
   });

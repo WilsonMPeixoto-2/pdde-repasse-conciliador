@@ -264,6 +264,7 @@ export function createInstitutionalApi(
           return school ? json(school) : errorResponse(404, 'Retrato financeiro humano corrente da escola ainda não publicado.');
         }
         if (segments.length === 3 && segments[2] === 'portfolio') {
+          if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
           if (!dependencies.readService.getCurrentFiscalPortfolio) {
             return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');
           }
@@ -271,6 +272,7 @@ export function createInstitutionalApi(
           return portfolio ? json(portfolio) : errorResponse(404, 'Retrato fiscal corrente ainda não publicado.');
         }
         if (segments.length === 4 && segments[2] === 'schools') {
+          if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
           if (!dependencies.readService.getCurrentFiscalSchool) {
             return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');
           }
@@ -281,11 +283,13 @@ export function createInstitutionalApi(
 
       if (segments.length === 2 && segments[1] === 'schools') {
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
         return json(dependencies.readService.listSchools());
       }
 
       if (segments[1] === 'schools' && segments.length >= 3) {
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
         const inep = segments[2];
         if (segments.length === 3) {
           const school = dependencies.readService.getSchool(inep);
@@ -311,6 +315,7 @@ export function createInstitutionalApi(
 
       if (segments.length === 2 && segments[1] === 'executions') {
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
         return json(await dependencies.readService.listExecutions({
           limit: numericQuery(url, 'limit'),
           cursor: queryString(url, 'cursor'),
@@ -346,6 +351,7 @@ export function createInstitutionalApi(
         }
 
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
         const runId = segments[2];
         if (segments.length === 3) {
           const detail = await dependencies.readService.getExecution(runId);
@@ -381,6 +387,7 @@ export function createInstitutionalApi(
 
       if (segments.length === 2 && segments[1] === 'findings') {
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');
         return json(await dependencies.readService.listFindings({
           limit: numericQuery(url, 'limit'),
           cursor: queryString(url, 'cursor'),

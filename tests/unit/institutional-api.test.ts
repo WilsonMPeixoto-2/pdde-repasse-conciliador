@@ -90,6 +90,10 @@ function fixture() {
   return { api, readService, commandService, artifactStore, artifactIntakeService };
 }
 
+function adminGet(url: string): Request {
+  return new Request(url, { headers: { authorization: `Bearer ${COMMAND_TOKEN}` } });
+}
+
 async function json(response: Response): Promise<Record<string, any>> {
   return response.json() as Promise<Record<string, any>>;
 }
@@ -125,24 +129,22 @@ describe('API institucional', () => {
     const meta = await api(new Request('http://localhost/api/meta'));
     expect(await json(meta)).toMatchObject({ version: '0.5.0', schools: 1 });
 
-    expect(await json(await api(new Request('http://localhost/api/schools')))).toMatchObject({
+    expect(await json(await api(adminGet('http://localhost/api/schools')))).toMatchObject({
       items: [school], total: 1,
     });
-    expect(await json(await api(new Request(`http://localhost/api/schools/${school.inep}`))))
+    expect(await json(await api(adminGet(`http://localhost/api/schools/${school.inep}`))))
       .toEqual(school);
-    expect(await json(await api(new Request(
-      `http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`,
-    ))))
+    expect(await json(await api(adminGet(`http://localhost/api/schools/${school.inep}/history?limit=25&cursor=100`))))
       .toMatchObject({ school, executions: [execution] });
     expect(readService.getSchoolHistory).toHaveBeenCalledWith(school.inep, {
       limit: 25,
       cursor: '100',
     });
-    await api(new Request(`http://localhost/api/schools/${school.inep}/findings?review=true`));
+    await api(adminGet(`http://localhost/api/schools/${school.inep}/findings?review=true`));
     expect(readService.listFindings).toHaveBeenCalledWith(expect.objectContaining({
       schoolInep: school.inep, requiresHumanReview: true,
     }));
-    expect((await api(new Request('http://localhost/api/schools/99999999'))).status).toBe(404);
+    expect((await api(adminGet('http://localhost/api/schools/99999999'))).status).toBe(404);
   });
 
   test('coalesce verificações concorrentes do health e renova o resultado após o TTL', async () => {
@@ -179,16 +181,16 @@ describe('API institucional', () => {
 
   test('expõe execuções, achados, artefatos e relatório por URL curta assinada', async () => {
     const { api, artifactStore } = fixture();
-    expect(await json(await api(new Request('http://localhost/api/executions?limit=20'))))
+    expect(await json(await api(adminGet('http://localhost/api/executions?limit=20'))))
       .toMatchObject({ items: [execution] });
-    expect(await json(await api(new Request('http://localhost/api/executions/run-1'))))
+    expect(await json(await api(adminGet('http://localhost/api/executions/run-1'))))
       .toMatchObject({ execution });
-    expect(await json(await api(new Request('http://localhost/api/findings?review=true'))))
+    expect(await json(await api(adminGet('http://localhost/api/findings?review=true'))))
       .toMatchObject({ total: 1 });
-    expect(await json(await api(new Request('http://localhost/api/executions/run-1/artifacts'))))
+    expect(await json(await api(adminGet('http://localhost/api/executions/run-1/artifacts'))))
       .toEqual({ items: [report], total: 1 });
 
-    const download = await api(new Request('http://localhost/api/executions/run-1/report'));
+    const download = await api(adminGet('http://localhost/api/executions/run-1/report'));
     expect(download.status).toBe(302);
     expect(download.headers.get('location')).toBe('https://storage.example/signed-report');
     expect(download.headers.get('cache-control')).toBe('no-store');
@@ -241,7 +243,7 @@ describe('API institucional', () => {
     const { api, readService, artifactStore } = fixture();
     readService.getCurrentReport.mockResolvedValueOnce(null);
 
-    const response = await api(new Request('http://localhost/api/executions/run-1/report'));
+    const response = await api(adminGet('http://localhost/api/executions/run-1/report'));
 
     expect(response.status).toBe(404);
     expect(artifactStore.createSignedDownload).not.toHaveBeenCalled();
