@@ -39,10 +39,16 @@ const indicatorSchema = z.object({
   }
 });
 
+const sourceSchema = z.object({
+  name: z.string().min(1),
+  information: z.string().min(1),
+}).strict();
+
 const viewSchema = z.object({
   title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
   fiscalYear: z.literal(2026),
   referenceLabel: z.string().min(1),
+  sources: z.array(sourceSchema).min(1),
   indicators: z.array(indicatorSchema),
   schools: z.array(z.unknown()),
 }).passthrough();
