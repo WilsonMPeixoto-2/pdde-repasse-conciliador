@@ -1,0 +1,42 @@
+name: Run Frontend Product Repair
+on:
+  push:
+    branches:
+      - feat/frontend-inteligencia-financeira-2026
+    paths:
+      - '.github/workflows/run-frontend-product-repair.yml'
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/frontend-inteligencia-financeira-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: python scripts/apply-frontend-product-repair.py
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/frontend-product-smoke.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-product-repair-smoke
+          path: artifacts/frontend-product-smoke/*.png
+          if-no-files-found: warn
+          retention-days: 7
+      - if: success()
+        run: |
+          rm .github/workflows/run-frontend-product-repair.yml scripts/apply-frontend-product-repair.py
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git add -A
+          git commit -m 'fix: fecha gates tipados e responsivos do frontend'
+          git push origin HEAD:feat/frontend-inteligencia-financeira-2026
