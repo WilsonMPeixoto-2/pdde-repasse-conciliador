@@ -92,4 +92,18 @@ describe('prepareCurrentHumanFinancialSnapshot', () => {
       },
     })).toThrow(/fora do portfólio/i);
   });
+
+  it('rejeita programas, contas e prestação semanticamente malformados antes da persistência', () => {
+    const malformedSchool = {
+      ...human.schools[0],
+      programs: [{ nonsense: true }],
+      accounts: [{ program: 'PDDE', account: '123' }],
+      accounting: [{ program: 'PDDE', status: 42 }],
+    };
+    expect(() => prepareCurrentHumanFinancialSnapshot({
+      runId: 'monitoring-full-2026',
+      expectedSchoolCount: 2,
+      human: { ...human, schools: [malformedSchool, human.schools[1]] },
+    })).toThrow();
+  });
 });
