@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type {
+  HumanFinancialIndicator,
   HumanFinancialPortfolioView,
   HumanFinancialSchoolView,
 } from '../application/build-human-financial-view';
@@ -10,6 +11,7 @@ const BLUE = '2F6F91';
 const PALE = 'EAF2F6';
 const PALE_GREEN = 'E7F4EC';
 const PALE_YELLOW = 'FFF5DD';
+const PAID_GREEN = '18724B';
 const WHITE = 'FFFFFF';
 const DARK = '203746';
 const MUTED = '617784';
@@ -82,6 +84,10 @@ function moneyColumns(sheet: ExcelJS.Worksheet, columns: readonly number[]): voi
   for (const column of columns) sheet.getColumn(column).numFmt = MONEY;
 }
 
+function internalLink(text: string, sheetName: string, row = 1): ExcelJS.CellHyperlinkValue {
+  return { text, hyperlink: `#'${sheetName}'!A${row}` };
+}
+
 function uniquePrograms(school: HumanFinancialSchoolView): string[] {
   return [...new Set(school.programs.map((program) => program.name))]
     .sort((left, right) => left.localeCompare(right, 'pt-BR'));
@@ -103,8 +109,38 @@ function latestSchoolPosition(
   };
 }
 
-function overview(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
-  const sheet = workbook.addWorksheet('Visão Geral', { views: [{ state: 'frozen', ySplit: 2 }] });
+function buildFollowUp(
+  sheet: ExcelJS.Worksheet,
+  indicators: readonly HumanFinancialIndicator[],
+): Map<string, number> {
+  title(sheet, 'Acompanhamento · listas nominais', 4);
+  subtitle(sheet, 'Todo número destacado na Visão Geral pode ser conferido aqui pelas unidades que compõem o total.', 4);
+  header(sheet.addRow(['Situação', 'SME', 'Unidade escolar', 'INEP']));
+  const firstRows = new Map<string, number>();
+  for (const indicator of indicators) {
+    for (const unit of indicator.units) {
+      const row = sheet.addRow([
+        safeText(indicator.label),
+        safeText(unit.sme),
+        safeText(unit.name),
+        safeText(unit.inep),
+      ]);
+      if (!firstRows.has(indicator.label)) firstRows.set(indicator.label, row.number);
+    }
+  }
+  formatData(sheet);
+  sheet.columns = [
+    { width: 42 }, { width: 12 }, { width: 42 }, { width: 13 },
+  ];
+  sheet.autoFilter = { from: 'A3', to: 'D3' };
+  return firstRows;
+}
+
+function buildOverview(
+  sheet: ExcelJS.Worksheet,
+  view: HumanFinancialPortfolioView,
+  indicatorRows: ReadonlyMap<string, number>,
+): void {
   title(sheet, 'Plataforma de Inteligência Financeira das Verbas do PDDE/2026', 6);
   subtitle(sheet, `4ª Coordenadoria Regional de Educação · ${view.referenceLabel}`, 6);
 
@@ -116,14 +152,15 @@ function overview(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView)
   const latestBalances = view.schools.map(latestSchoolPosition);
 
   sheet.addRow([]);
-  header(sheet.addRow([
-    'Unidades',
-    'Contas acompanhadas',
-    'Movimentações em 2026',
-    'Previsto',
-    'Pagamento informado',
-    'Saldo informado mais recente',
-  ]));
+  const metricHeader = sheet.addRow([
+    internalLink('Unidades', 'Unidades'),
+    internalLink('Contas acompanhadas', 'Contas e Saldos'),
+    internalLink('Movimentações em 2026', 'Movimentações'),
+    internalLink('Previsto', 'Repasses'),
+    internalLink('Pagamento informado', 'Repasses'),
+    internalLink('Saldo informado mais recente', 'Contas e Saldos'),
+  ]);
+  header(metricHeader);
   const metrics = sheet.addRow([
     view.schools.length,
     accounts.length,
@@ -136,11 +173,36 @@ function overview(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView)
   metrics.alignment = { horizontal: 'center', vertical: 'middle' };
   metrics.height = 28;
   moneyColumns(sheet, [4, 5, 6]);
+  metrics.getCell(5).font = { bold: true, color: { argb: PAID_GREEN }, size: 14 };
+
+  sheet.addRow([]);
+  const followUpTitle = sheet.addRow(['Acompanhamento']);
+  sheet.mergeCells(followUpTitle.number, 1, followUpTitle.number, 6);
+  followUpTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+  followUpTitle.getCell(1).font = { bold: true, color: { argb: NAVY }, size: 11 };
+  const followUpHeader = sheet.addRow(['Situação', 'Unidades', 'Abrir lista']);
+  sheet.mergeCells(followUpHeader.number, 3, followUpHeader.number, 6);
+  header(followUpHeader);
+  for (const indicator of view.indicators) {
+    const row = sheet.addRow([indicator.label, indicator.count]);
+    sheet.mergeCells(row.number, 3, row.number, 6);
+    const targetRow = indicatorRows.get(indicator.label);
+    row.getCell(2).value = targetRow
+      ? internalLink(String(indicator.count), 'Acompanhamento', targetRow)
+      : indicator.count;
+    row.getCell(3).value = targetRow
+      ? internalLink('Ver unidades', 'Acompanhamento', targetRow)
+      : 'Nenhuma unidade';
+    row.alignment = { vertical: 'middle', wrapText: true };
+    row.getCell(1).font = { color: { argb: DARK } };
+    row.getCell(2).font = { bold: true, color: { argb: NAVY } };
+    row.getCell(3).font = { color: { argb: BLUE }, underline: Boolean(targetRow) };
+  }
 
   sheet.addRow([]);
   const sourceTitle = sheet.addRow(['Como ler as informações']);
   sheet.mergeCells(sourceTitle.number, 1, sourceTitle.number, 6);
-  sourceTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+  sourceTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE } };
   sourceTitle.getCell(1).font = { bold: true, color: { argb: NAVY } };
   const notes: Array<[string, string]> = [
     ['PDDEInfo', 'Repasses informados, contas vinculadas, posição de saldo e aplicações e situação da prestação de contas.'],
@@ -156,11 +218,11 @@ function overview(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView)
     row.alignment = { vertical: 'top', wrapText: true };
   }
   sheet.columns = [
-    { width: 21 }, { width: 24 }, { width: 24 }, { width: 21 }, { width: 22 }, { width: 25 },
+    { width: 30 }, { width: 18 }, { width: 18 }, { width: 21 }, { width: 22 }, { width: 25 },
   ];
 }
 
-function units(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+function buildUnits(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Unidades', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Unidades escolares · PDDE 2026', 9);
   subtitle(sheet, 'Visão resumida da carteira. Use as demais abas para detalhar repasses, contas e movimentações.', 9);
@@ -192,7 +254,7 @@ function units(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): v
   sheet.autoFilter = { from: 'A3', to: 'I3' };
 }
 
-function transfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Repasses', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Repasses e parcelas · PDDE 2026', 10);
   subtitle(sheet, '“Pagamento informado” é o registro do PDDEInfo. A evidência de crédito é apresentada separadamente.', 10);
@@ -217,6 +279,14 @@ function transfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView
   }
   moneyColumns(sheet, [5, 6, 10]);
   formatData(sheet);
+  for (let rowNumber = 4; rowNumber <= sheet.rowCount; rowNumber += 1) {
+    const paidCell = sheet.getCell(rowNumber, 6);
+    paidCell.font = { bold: true, color: { argb: PAID_GREEN }, size: 10 };
+    const paid = paidCell.value;
+    if (typeof paid === 'number' && paid > 0) {
+      paidCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+    }
+  }
   sheet.columns = [
     { width: 12 }, { width: 38 }, { width: 38 }, { width: 17 }, { width: 18 },
     { width: 20 }, { width: 16 }, { width: 35 }, { width: 46 }, { width: 20 },
@@ -224,7 +294,7 @@ function transfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView
   sheet.autoFilter = { from: 'A3', to: 'J3' };
 }
 
-function balances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Contas e Saldos', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Contas, saldos e aplicações · PDDE 2026', 10);
   subtitle(sheet, 'Os valores de aplicação representam posição financeira na data indicada, não rendimento acumulado.', 10);
@@ -255,7 +325,7 @@ function balances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView)
   sheet.autoFilter = { from: 'A3', to: 'J3' };
 }
 
-function movements(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+function buildMovements(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Movimentações', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Movimentações financeiras · 2026', 9);
   subtitle(sheet, 'Extrato organizado para leitura. As categorias são auxiliares e não representam juízo automático de regularidade.', 9);
@@ -282,7 +352,7 @@ function movements(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView
   sheet.autoFilter = { from: 'A3', to: 'I3' };
 }
 
-function accounting(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+function buildAccounting(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Prestação de Contas', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Situação da prestação de contas · 2026', 7);
   subtitle(sheet, 'Situação informada na fonte pública na data da coleta. Cada programa é acompanhado separadamente.', 7);
@@ -317,11 +387,14 @@ export function buildHumanFinancialWorkbook(view: HumanFinancialPortfolioView): 
   workbook.created = new Date();
   workbook.calcProperties.fullCalcOnLoad = true;
 
-  overview(workbook, view);
-  units(workbook, view);
-  transfers(workbook, view);
-  balances(workbook, view);
-  movements(workbook, view);
-  accounting(workbook, view);
+  const overviewSheet = workbook.addWorksheet('Visão Geral', { views: [{ state: 'frozen', ySplit: 2 }] });
+  const followUpSheet = workbook.addWorksheet('Acompanhamento', { views: [{ state: 'frozen', ySplit: 3 }] });
+  const indicatorRows = buildFollowUp(followUpSheet, view.indicators);
+  buildOverview(overviewSheet, view, indicatorRows);
+  buildUnits(workbook, view);
+  buildTransfers(workbook, view);
+  buildBalances(workbook, view);
+  buildMovements(workbook, view);
+  buildAccounting(workbook, view);
   return workbook;
 }
