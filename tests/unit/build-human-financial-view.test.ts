@@ -59,7 +59,14 @@ const fiscalView = {
         document: '12345',
         creditCents: null,
         debitCents: 50000,
-        counterparty: null,
+        counterparty: {
+          document: '12345678000199',
+          name: 'FORNECEDOR EXEMPLO',
+          bank: '001',
+          agency: '1234',
+          account: '56789',
+          internalTraceId: 'counterparty-secret-id',
+        },
         neutralCategory: 'Pagamento / transferência',
         technicalClassification: 'PAGAMENTO_TRANSFERENCIA',
         sourceUrl: 'https://tecnico.example/raw',
@@ -114,6 +121,13 @@ describe('buildHumanFinancialView', () => {
       school: expect.objectContaining({ name: 'EM EMA NEGRAO DE LIMA' }),
       accounting: [expect.objectContaining({ status: 'Aguardando análise' })],
     }));
+    expect(view.schools[0].accounts[0].movements[0].counterparty).toEqual({
+      document: '12345678000199',
+      name: 'FORNECEDOR EXEMPLO',
+      bank: '001',
+      agency: '1234',
+      account: '56789',
+    });
 
     const serialized = JSON.stringify(view).toLowerCase();
     for (const forbidden of [
@@ -127,6 +141,8 @@ describe('buildHumanFinancialView', () => {
       'payload',
       'attempts',
       'internal-id',
+      'internaltraceid',
+      'counterparty-secret-id',
       'tecnico.example',
     ]) {
       expect(serialized).not.toContain(forbidden);
