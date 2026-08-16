@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadMasterSchools } from '../backend/application/school-catalog';
-import { runMonitoring } from '../backend/application/run-monitoring';
+import { runFinancialIntelligenceMonitoring } from '../backend/application/run-financial-intelligence-monitoring';
 
 const DEFAULT_INEPS = [
   '33069247', '33069093', '33069433', '33069379', '33069271',
@@ -55,7 +55,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return school;
   });
 
-  const result = await runMonitoring({
+  const result = await runFinancialIntelligenceMonitoring({
     schools: selected,
     workspacePath: opt.workspace,
     fiscalYear: opt.year,
@@ -70,8 +70,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     status: result.status,
     output: opt.output,
     workspace: opt.workspace,
+    publicBalanceReference: result.raw.publicReports.coverageThrough,
     coverage: result.raw.coverage,
     summary: result.raw.summary,
+    humanView: result.paths.human,
   }, null, 2));
 
   if (result.status !== 'COMPLETE') process.exitCode = 2;
