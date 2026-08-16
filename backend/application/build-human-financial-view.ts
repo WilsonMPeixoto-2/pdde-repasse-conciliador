@@ -5,6 +5,14 @@ import type {
   FiscalSchoolView,
 } from './build-fiscal-human-view';
 
+export interface HumanFinancialCounterparty {
+  document: string | null;
+  name: string | null;
+  bank: string | null;
+  agency: string | null;
+  account: string | null;
+}
+
 export interface HumanFinancialMovement {
   date: string;
   description: string;
@@ -12,7 +20,7 @@ export interface HumanFinancialMovement {
   category: string | null;
   creditCents: number | null;
   debitCents: number | null;
-  counterparty: unknown;
+  counterparty: HumanFinancialCounterparty | null;
 }
 
 export interface HumanFinancialPosition {
@@ -195,6 +203,25 @@ function schoolPrograms(school: FiscalSchoolView): HumanFinancialProgram[] {
   }));
 }
 
+function humanCounterparty(value: {
+  document: string | null;
+  name: string | null;
+  bank: string | null;
+  agency: string | null;
+  account: string | null;
+}): HumanFinancialCounterparty | null {
+  const counterparty: HumanFinancialCounterparty = {
+    document: value.document,
+    name: value.name,
+    bank: value.bank,
+    agency: value.agency,
+    account: value.account,
+  };
+  return Object.values(counterparty).some((item) => item !== null && item !== '')
+    ? counterparty
+    : null;
+}
+
 function schoolAccounts(
   school: FiscalSchoolView,
   publicReports: PddeInfoPublicPortfolioResult,
@@ -226,7 +253,7 @@ function schoolAccounts(
         category: entry.neutralCategory,
         creditCents: entry.creditCents,
         debitCents: entry.debitCents,
-        counterparty: entry.counterparty,
+        counterparty: humanCounterparty(entry.counterparty),
       })),
       note: accountNote(latestPosition),
     });
