@@ -9,6 +9,7 @@ import { SupabaseEvidenceStore } from '../adapters/supabase-evidence-store';
 import { SupabaseExecutionQueue } from '../adapters/supabase-execution-queue';
 import { SupabaseInstitutionalReadRepository } from '../adapters/supabase-institutional-read-repository';
 import { SupabaseCurrentFiscalPublisher } from '../adapters/supabase-current-fiscal-publisher';
+import { SupabaseFinancialSnapshotStore } from '../adapters/supabase-financial-snapshot-store';
 import {
   administrativeCommandTokenSchema,
   createInstitutionalApi,
@@ -18,6 +19,7 @@ import { ArtifactIntakeService } from '../application/artifact-intake-service';
 import { ExecutionWorker } from '../application/execution-worker';
 import { InstitutionalJobExecutor } from '../application/institutional-job-executor';
 import { InstitutionalReadService } from '../application/institutional-read-service';
+import { runFinancialIntelligenceMonitoring } from '../application/run-financial-intelligence-monitoring';
 import { loadMasterSchools } from '../application/school-catalog';
 
 type Environment = Record<string, string | undefined>;
@@ -36,6 +38,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
   const schools = await loadMasterSchools();
   const evidenceStore = new SupabaseEvidenceStore(client);
   const artifactStore = new SupabaseArtifactStore(client);
+  const financialSnapshotStore = new SupabaseFinancialSnapshotStore(client);
   const artifactIntakeService = new ArtifactIntakeService(artifactStore, evidenceStore);
   const queue = new SupabaseExecutionQueue(client);
   const commandService = new ExecutionCommandService(queue, { artifactEvidence: evidenceStore });
@@ -47,6 +50,7 @@ async function dataServices(environment: Environment, clientOverride?: unknown) 
     schools,
     evidenceStore,
     artifactStore,
+    financialSnapshotStore,
     artifactIntakeService,
     queue,
     commandService,
@@ -90,6 +94,10 @@ export async function createInstitutionalWorkerRuntime(
     evidenceStore: services.evidenceStore,
     artifactStore: services.artifactStore,
     currentFiscalPublisher: services.currentFiscalPublisher,
+    runMonitoring: (options) => runFinancialIntelligenceMonitoring({
+      ...options,
+      financialSnapshotStore: services.financialSnapshotStore,
+    }),
   });
   const worker = new ExecutionWorker(services.queue, executor);
   // O escopo institucional usa uma única instância do runner. Se o processo
