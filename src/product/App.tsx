@@ -7,6 +7,7 @@ import { PortfolioPage } from './pages/PortfolioPage';
 import { SchoolPage } from './pages/SchoolPage';
 import { SchoolsPage } from './pages/SchoolsPage';
 import './design/layout.css';
+import './design/refinements.css';
 
 export function App() {
   return (
