@@ -88,6 +88,12 @@ export interface PddeInfoPublicReportResult extends ParsedPddeInfoPublicReport {
   coverageThrough: string | null;
 }
 
+export interface DiscoverPddeInfoBalanceMonthsOptions {
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
 function appendCommonSchoolParams(url: URL, filter: z.output<typeof yearSchoolFilterSchema>): void {
   url.searchParams.set('ano', String(filter.fiscalYear));
   url.searchParams.set('cnpj', '');
@@ -187,6 +193,46 @@ function coverageThrough(filter: z.output<typeof reportFilterSchema>): string | 
   const [month, year] = filter.month.split('-').map(Number);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+}
+
+function monthRank(value: string): number {
+  const [month, year] = value.split('-').map(Number);
+  return year * 100 + month;
+}
+
+export async function discoverPddeInfoBalanceMonths(
+  options: DiscoverPddeInfoBalanceMonthsOptions = {},
+): Promise<string[]> {
+  options.signal?.throwIfAborted();
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 25_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+  const response = await fetchImpl(BASE_URLS.BALANCE, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Public-Reports/0.5)',
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+    },
+    signal,
+  });
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!response.ok) {
+    throw new AcquisitionUnavailableError(
+      `Formulário público de saldos PDDEInfo retornou HTTP ${response.status}.`,
+    );
+  }
+  const html = decodeHtml(bytes, response.headers.get('content-type'));
+  const error = sourceErrorMessage(html);
+  if (error) {
+    throw new PddeInfoPublicReportSourceError(`Formulário público do FNDE retornou erro da fonte: ${error}`);
+  }
+  const $ = load(html);
+  const months = new Set<string>();
+  $('select[name="mes"] option').each((_index, option) => {
+    const value = cleanText($(option).attr('value') ?? $(option).text());
+    if (/^(0[1-9]|1[0-2])-2026$/.test(value)) months.add(value);
+  });
+  return [...months].sort((left, right) => monthRank(right) - monthRank(left));
 }
 
 export async function fetchPddeInfoPublicReport(
