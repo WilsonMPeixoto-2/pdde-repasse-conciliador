@@ -6,6 +6,16 @@ const view: HumanFinancialPortfolioView = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+  sources: [
+    {
+      name: 'PDDEInfo',
+      information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
+    },
+    {
+      name: 'SIGEF',
+      information: 'Movimentações das contas e créditos compatíveis localizados no extrato.',
+    },
+  ],
   indicators: [{
     label: '1ª parcela com pagamento informado',
     count: 1,
@@ -117,5 +127,6 @@ describe('Excel humano da inteligência financeira', () => {
     expect(visible).toContain('2026');
     expect(visible).toContain('saldo total informado');
     expect(visible).toContain('posição');
+    expect(visible).toContain('repasses informados, contas vinculadas, saldos e situação da prestação de contas.');
   });
 });
