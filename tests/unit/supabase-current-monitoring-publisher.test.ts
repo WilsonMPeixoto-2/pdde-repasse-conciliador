@@ -20,6 +20,16 @@ const fiscal = {
 const human = {
   title: 'Inteligência Financeira PDDE | 4ª CRE', fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+  metrics: {
+    schoolCount: 1,
+    accountsTotal: 0,
+    accountsWithPosition: 0,
+    programmedCents: 0,
+    paymentInformedCents: 0,
+    creditLocatedCents: 0,
+    reportedBalanceCents: 0,
+    applicationsCents: 0,
+  },
   sources: [{ name: 'PDDEInfo', information: 'Repasses informados e saldos.' }],
   indicators: [{ label: 'Informação parcial', count: 0, units: [] }],
   schools: [{
@@ -46,7 +56,11 @@ describe('SupabaseCurrentMonitoringPublisher', () => {
         portfolio: expect.objectContaining({ runId: 'monitoring-full-2026', fiscalYear: 2026 }),
       }),
       p_human_snapshot: expect.objectContaining({
-        portfolio: expect.objectContaining({ runId: 'monitoring-full-2026', fiscalYear: 2026 }),
+        portfolio: expect.objectContaining({
+          runId: 'monitoring-full-2026',
+          fiscalYear: 2026,
+          metrics: human.metrics,
+        }),
       }),
     });
   });

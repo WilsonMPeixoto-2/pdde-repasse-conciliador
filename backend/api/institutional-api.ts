@@ -48,6 +48,8 @@ interface ReadServiceApi {
   } | null>;
   getCurrentFiscalPortfolio?(): Promise<unknown | null>;
   getCurrentFiscalSchool?(inep: string): Promise<unknown | null>;
+  getCurrentHumanPortfolio?(): Promise<unknown | null>;
+  getCurrentHumanSchool?(inep: string): Promise<unknown | null>;
 }
 
 interface CommandServiceApi {
@@ -247,6 +249,20 @@ export function createInstitutionalApi(
 
       if (segments[1] === 'current') {
         if (request.method !== 'GET') return methodNotAllowed('GET');
+        if (segments.length === 4 && segments[2] === 'human' && segments[3] === 'portfolio') {
+          if (!dependencies.readService.getCurrentHumanPortfolio) {
+            return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');
+          }
+          const portfolio = await dependencies.readService.getCurrentHumanPortfolio();
+          return portfolio ? json(portfolio) : errorResponse(404, 'Retrato financeiro humano corrente ainda não publicado.');
+        }
+        if (segments.length === 5 && segments[2] === 'human' && segments[3] === 'schools') {
+          if (!dependencies.readService.getCurrentHumanSchool) {
+            return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');
+          }
+          const school = await dependencies.readService.getCurrentHumanSchool(segments[4]);
+          return school ? json(school) : errorResponse(404, 'Retrato financeiro humano corrente da escola ainda não publicado.');
+        }
         if (segments.length === 3 && segments[2] === 'portfolio') {
           if (!dependencies.readService.getCurrentFiscalPortfolio) {
             return errorResponse(503, 'Read model fiscal corrente não configurado neste runtime.');

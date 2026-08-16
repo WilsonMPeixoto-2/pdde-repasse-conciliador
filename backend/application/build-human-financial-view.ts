@@ -45,6 +45,7 @@ export interface HumanFinancialAccount {
   bank: string;
   agency: string;
   account: string;
+  positions: HumanFinancialPosition[];
   latestPosition: HumanFinancialPosition | null;
   movements: HumanFinancialMovement[];
   note: string | null;
@@ -104,10 +105,22 @@ export interface HumanFinancialIndicator {
   units: HumanIndicatorUnit[];
 }
 
+export interface HumanFinancialPortfolioMetrics {
+  schoolCount: number;
+  accountsTotal: number;
+  accountsWithPosition: number;
+  programmedCents: number;
+  paymentInformedCents: number;
+  creditLocatedCents: number;
+  reportedBalanceCents: number | null;
+  applicationsCents: number | null;
+}
+
 export interface HumanFinancialPortfolioView {
   title: 'Inteligência Financeira PDDE | 4ª CRE';
   fiscalYear: 2026;
   referenceLabel: string;
+  metrics: HumanFinancialPortfolioMetrics;
   sources: HumanSourceDescription[];
   indicators: HumanFinancialIndicator[];
   schools: HumanFinancialSchoolView[];
@@ -169,31 +182,29 @@ function latestReference(publicReports: PddeInfoPublicPortfolioResult): string |
     .at(-1) ?? publicReports.coverageThrough;
 }
 
-function positionFor(
+function positionsFor(
   schoolInep: string,
   bank: string,
   agency: string,
   account: string,
   publicReports: PddeInfoPublicPortfolioResult,
-): HumanFinancialPosition | null {
+): HumanFinancialPosition[] {
   const wanted = accountKey(bank, agency, account);
-  const candidates = publicReports.balances
+  return publicReports.balances
     .filter((balance) => balance.schoolIneps.includes(schoolInep))
     .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)
-    .sort((left, right) => right.coverageThrough.localeCompare(left.coverageThrough));
-  const latest = candidates[0];
-  if (!latest) return null;
-  return {
-    referenceDate: latest.coverageThrough,
-    checkingBalanceCents: latest.checkingBalanceCents,
-    applications: {
-      fundsCents: latest.fundBalanceCents,
-      savingsCents: latest.savingsBalanceCents,
-      rdbCdbCents: latest.rdbCdbBalanceCents,
-      totalCents: latest.investmentBalanceCents,
-    },
-    totalReportedBalanceCents: latest.totalReportedBalanceCents,
-  };
+    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough))
+    .map((position) => ({
+      referenceDate: position.coverageThrough,
+      checkingBalanceCents: position.checkingBalanceCents,
+      applications: {
+        fundsCents: position.fundBalanceCents,
+        savingsCents: position.savingsBalanceCents,
+        rdbCdbCents: position.rdbCdbBalanceCents,
+        totalCents: position.investmentBalanceCents,
+      },
+      totalReportedBalanceCents: position.totalReportedBalanceCents,
+    }));
 }
 
 function accountNote(position: HumanFinancialPosition | null): string | null {
@@ -324,13 +335,14 @@ function schoolAccounts(
   const accounts = new Map<string, HumanFinancialAccount>();
 
   for (const statement of school.statements) {
-    const latestPosition = positionFor(
+    const positions = positionsFor(
       school.school.inep,
       statement.account.bank,
       statement.account.agency,
       statement.account.number,
       publicReports,
     );
+    const latestPosition = positions.at(-1) ?? null;
     accounts.set(accountKey(
       statement.account.bank,
       statement.account.agency,
@@ -340,6 +352,7 @@ function schoolAccounts(
       bank: statement.account.bank,
       agency: statement.account.agency,
       account: statement.account.number,
+      positions,
       latestPosition,
       movements: statement.entries.map((entry) => ({
         date: entry.date,
@@ -361,18 +374,20 @@ function schoolAccounts(
   for (const balance of publicBalances) {
     const key = accountKey(balance.bank, balance.agency, balance.account);
     if (accounts.has(key)) continue;
-    const latestPosition = positionFor(
+    const positions = positionsFor(
       school.school.inep,
       balance.bank,
       balance.agency,
       balance.account,
       publicReports,
     );
+    const latestPosition = positions.at(-1) ?? null;
     accounts.set(key, {
       program: balance.programName,
       bank: balance.bank,
       agency: balance.agency,
       account: balance.account,
+      positions,
       latestPosition,
       movements: [],
       note: accountNote(latestPosition),
@@ -440,6 +455,55 @@ function indicator(
   return { label, count: units.length, units };
 }
 
+function buildPortfolioMetrics(
+  schools: readonly HumanFinancialSchoolView[],
+  referenceDate: string | null,
+): HumanFinancialPortfolioMetrics {
+  let accountsTotal = 0;
+  let accountsWithPosition = 0;
+  let programmedCents = 0;
+  let paymentInformedCents = 0;
+  let creditLocatedCents = 0;
+  let reportedBalanceCents = 0;
+  let applicationsCents = 0;
+
+  for (const school of schools) {
+    for (const program of school.programs) {
+      for (const installment of program.installments) {
+        programmedCents += installment.programmedCents;
+        paymentInformedCents += installment.paymentInformedCents;
+        if (installment.creditEvidence.status === 'Crédito localizado'
+          && installment.creditEvidence.amountCents !== null) {
+          creditLocatedCents += installment.creditEvidence.amountCents;
+        }
+      }
+    }
+    accountsTotal += school.accounts.length;
+    for (const account of school.accounts) {
+      if (!account.latestPosition || !referenceDate
+        || account.latestPosition.referenceDate !== referenceDate) continue;
+      accountsWithPosition += 1;
+      if (account.latestPosition.totalReportedBalanceCents !== null) {
+        reportedBalanceCents += account.latestPosition.totalReportedBalanceCents;
+      }
+      if (account.latestPosition.applications.totalCents !== null) {
+        applicationsCents += account.latestPosition.applications.totalCents;
+      }
+    }
+  }
+
+  return {
+    schoolCount: schools.length,
+    accountsTotal,
+    accountsWithPosition,
+    programmedCents,
+    paymentInformedCents,
+    creditLocatedCents,
+    reportedBalanceCents: referenceDate ? reportedBalanceCents : null,
+    applicationsCents: referenceDate ? applicationsCents : null,
+  };
+}
+
 function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {
   return [
     indicator('1ª parcela com pagamento informado', schools, (school) => (
@@ -486,6 +550,7 @@ export function buildHumanFinancialView(
     referenceLabel: reference
       ? `Posição financeira pública disponível até ${brDate(reference)}`
       : 'Posição de saldo público ainda não disponível para 2026',
+    metrics: buildPortfolioMetrics(schools, reference),
     sources: HUMAN_SOURCES.map((source) => ({ ...source })),
     indicators: buildIndicators(schools),
     schools,

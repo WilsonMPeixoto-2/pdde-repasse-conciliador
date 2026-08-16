@@ -18,6 +18,19 @@ const indicatorSchema = z.object({
   units: z.array(unitSchema),
 }).strict();
 
+export const humanPortfolioMetricsSchema = z.object({
+  schoolCount: z.number().int().positive(),
+  accountsTotal: z.number().int().nonnegative(),
+  accountsWithPosition: z.number().int().nonnegative(),
+  programmedCents: z.number().int().nonnegative(),
+  paymentInformedCents: z.number().int().nonnegative(),
+  creditLocatedCents: z.number().int().nonnegative(),
+  reportedBalanceCents: z.number().int().nullable(),
+  applicationsCents: z.number().int().nullable(),
+}).strict().refine((value) => value.accountsWithPosition <= value.accountsTotal, {
+  message: 'Contas com posição não podem exceder o total de contas.',
+});
+
 const schoolIdentitySchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
   sme: z.string().regex(/^\d{7}$/),
@@ -38,6 +51,7 @@ const humanViewSchema = z.object({
   title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
   fiscalYear: z.literal(2026),
   referenceLabel: z.string().min(1),
+  metrics: humanPortfolioMetricsSchema,
   sources: z.array(sourceSchema).min(1),
   indicators: z.array(indicatorSchema),
   schools: z.array(humanSchoolSchema),
@@ -75,6 +89,7 @@ export interface CurrentHumanFinancialPortfolio {
   runId: string;
   referenceLabel: string;
   schoolCount: number;
+  metrics: z.infer<typeof humanPortfolioMetricsSchema>;
   sources: z.infer<typeof sourceSchema>[];
   indicators: z.infer<typeof indicatorSchema>[];
   schools: z.infer<typeof unitSchema>[];
@@ -119,6 +134,9 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
   if (human.schools.length !== expectedSchoolCount) {
     throw new Error(`Retrato humano incompleto: ${human.schools.length}/${expectedSchoolCount} escolas.`);
   }
+  if (human.metrics.schoolCount !== human.schools.length) {
+    throw new Error(`Métricas humanas inconsistentes: ${human.metrics.schoolCount}/${human.schools.length} escolas.`);
+  }
   const knownIneps = new Set(human.schools.map((item) => item.school.inep));
   if (knownIneps.size !== human.schools.length) {
     throw new Error('Retrato humano contém INEP duplicado.');
@@ -156,6 +174,7 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
       runId,
       referenceLabel: human.referenceLabel,
       schoolCount: schools.length,
+      metrics: human.metrics,
       sources: human.sources,
       indicators: human.indicators,
       schools: schools.map((item) => ({
