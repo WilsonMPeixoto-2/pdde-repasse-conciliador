@@ -1,0 +1,45 @@
+name: Audit Fix Account Canonicalization
+on:
+  push:
+    paths:
+      - '.github/workflows/audit-fix-account-canonicalization.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/revisao-tecnica-integral-2026-08-16
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Aplicar canonização central
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('backend/application/build-human-financial-view.ts')
+          s = p.read_text()
+          old_import = "import { assertCurrentFiscalYear } from '../core/fiscal-scope';"
+          new_import = old_import + "\nimport { canonicalAccount } from '../core/normalization';"
+          old_fn = """function accountKey(bank: string, agency: string, account: string): string {\n  const clean = (value: string) => value.replace(/[^0-9A-Z]/gi, '').toUpperCase();\n  return `${clean(bank)}|${clean(agency)}|${clean(account)}`;\n}"""
+          new_fn = """function accountKey(bank: string, agency: string, account: string): string {\n  return canonicalAccount({ bank, agency, number: account });\n}"""
+          if old_import not in s or old_fn not in s:
+              raise SystemExit('Âncora esperada não encontrada')
+          s = s.replace(old_import, new_import, 1).replace(old_fn, new_fn, 1)
+          p.write_text(s)
+          PY
+      - name: Teste de regressão focado
+        run: npx vitest run tests/unit/build-human-financial-history.test.ts
+      - name: Remover workflow temporário e publicar correção
+        run: |
+          rm .github/workflows/audit-fix-account-canonicalization.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/application/build-human-financial-view.ts tests/unit/build-human-financial-history.test.ts .github/workflows/audit-fix-account-canonicalization.yml
+          git commit -m 'fix: unifica identidade bancária na visão humana'
+          git push origin HEAD:audit/revisao-tecnica-integral-2026-08-16
