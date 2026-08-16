@@ -25,8 +25,8 @@ export const humanPortfolioMetricsSchema = z.object({
   programmedCents: z.number().int().nonnegative(),
   paymentInformedCents: z.number().int().nonnegative(),
   creditLocatedCents: z.number().int().nonnegative(),
-  reportedBalanceCents: z.number().int(),
-  applicationsCents: z.number().int(),
+  reportedBalanceCents: z.number().int().nullable(),
+  applicationsCents: z.number().int().nullable(),
 }).strict().refine((value) => value.accountsWithPosition <= value.accountsTotal, {
   message: 'Contas com posição não podem exceder o total de contas.',
 });

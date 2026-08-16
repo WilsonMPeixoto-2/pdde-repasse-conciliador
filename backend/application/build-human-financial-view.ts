@@ -112,8 +112,8 @@ export interface HumanFinancialPortfolioMetrics {
   programmedCents: number;
   paymentInformedCents: number;
   creditLocatedCents: number;
-  reportedBalanceCents: number;
-  applicationsCents: number;
+  reportedBalanceCents: number | null;
+  applicationsCents: number | null;
 }
 
 export interface HumanFinancialPortfolioView {
@@ -467,6 +467,7 @@ function indicator(
 
 function buildPortfolioMetrics(
   schools: readonly HumanFinancialSchoolView[],
+  referenceDate: string | null,
 ): HumanFinancialPortfolioMetrics {
   let accountsTotal = 0;
   let accountsWithPosition = 0;
@@ -489,7 +490,8 @@ function buildPortfolioMetrics(
     }
     accountsTotal += school.accounts.length;
     for (const account of school.accounts) {
-      if (!account.latestPosition) continue;
+      if (!account.latestPosition || !referenceDate
+        || account.latestPosition.referenceDate !== referenceDate) continue;
       accountsWithPosition += 1;
       if (account.latestPosition.totalReportedBalanceCents !== null) {
         reportedBalanceCents += account.latestPosition.totalReportedBalanceCents;
@@ -507,8 +509,8 @@ function buildPortfolioMetrics(
     programmedCents,
     paymentInformedCents,
     creditLocatedCents,
-    reportedBalanceCents,
-    applicationsCents,
+    reportedBalanceCents: referenceDate ? reportedBalanceCents : null,
+    applicationsCents: referenceDate ? applicationsCents : null,
   };
 }
 
@@ -558,7 +560,7 @@ export function buildHumanFinancialView(
     referenceLabel: reference
       ? `Posição financeira pública disponível até ${brDate(reference)}`
       : 'Posição de saldo público ainda não disponível para 2026',
-    metrics: buildPortfolioMetrics(schools),
+    metrics: buildPortfolioMetrics(schools, reference),
     sources: HUMAN_SOURCES.map((source) => ({ ...source })),
     indicators: buildIndicators(schools),
     schools,
