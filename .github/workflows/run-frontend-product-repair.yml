@@ -1,4 +1,5 @@
 name: Run Frontend Product Repair
+# Validação final após confinar a timeline larga ao próprio contêiner mobile.
 on:
   push:
     branches:
