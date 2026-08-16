@@ -186,8 +186,14 @@ async function smoke(viewport, suffix) {
   await indicator.focus();
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '3' }).waitFor();
-  await page.getByText('0410002 · EM ALBINO SOUZA CRUZ').click();
+  await page.evaluate(() => window.scrollTo(0, 240));
+  await page.evaluate(() => {
+    const link = document.querySelector('a[href="/unidades/33069093"]');
+    if (!(link instanceof HTMLElement)) throw new Error('Link da unidade piloto não encontrado.');
+    link.click();
+  });
   await page.getByRole('heading', { name: 'EM ALBINO SOUZA CRUZ' }).waitFor();
+  await page.waitForFunction(() => window.scrollY <= 2 && document.activeElement?.tagName === 'MAIN');
   await assertNoTechnicalMetadata(page);
   await assertNoMainOverflow(page);
 
@@ -200,6 +206,7 @@ async function smoke(viewport, suffix) {
   await page.keyboard.press('Enter');
   await page.getByText('31/03/2026').last().waitFor();
   await page.screenshot({ path: new URL(`school-${suffix}.png`, output).pathname, fullPage: true });
+
   const direct = await context.newPage();
   await direct.goto(`${base}/unidades/33069093`, { waitUntil: 'networkidle' });
   await direct.getByRole('heading', { name: 'EM ALBINO SOUZA CRUZ' }).waitFor();
