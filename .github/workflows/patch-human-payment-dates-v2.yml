@@ -1,0 +1,230 @@
+name: Patch semântico das datas financeiras v2
+
+on:
+  push:
+    branches:
+      - feat/inteligencia-financeira-2026-foundation
+    paths:
+      - '.github/workflows/patch-human-payment-dates-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar alterações controladas
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: esperado 1 trecho, encontrados {count}')
+              return text.replace(old, new, 1)
+
+          human_path = Path('backend/application/build-human-financial-view.ts')
+          text = human_path.read_text()
+          text = replace_once(
+              text,
+              '  paymentOrderDate: string | null;\n',
+              '  paymentInformedDate: string | null;\n  paymentOrderDate: string | null;\n',
+              'interface de datas',
+          )
+
+          credit_pattern = re.compile(
+              r"function creditStatusLabel\(status: FiscalCreditPresentationStatus\): string \{.*?\n\}\n\nfunction accountKey",
+              re.S,
+          )
+          credit_replacement = '''function creditStatusLabel(status: FiscalCreditPresentationStatus): string {
+            switch (status) {
+              case 'CREDITO_LOCALIZADO':
+                return 'Crédito localizado';
+              case 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA':
+                return 'Crédito não localizado';
+              case 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO':
+                return 'Conta não exibida';
+              case 'MAIS_DE_UM_CREDITO_COMPATIVEL':
+                return 'Requer conferência';
+              case 'CONSULTA_DA_CONTA_INCONCLUSIVA':
+                return 'Consulta inconclusiva';
+              case 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO':
+                return 'Pagamento não informado';
+            }
+          }
+
+          function accountKey'''
+          text, count = credit_pattern.subn(lambda _match: credit_replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'creditStatusLabel: esperado 1 trecho, encontrados {count}')
+
+          programs_pattern = re.compile(
+              r"function schoolPrograms\(school: FiscalSchoolView\): HumanFinancialProgram\[] \{.*?\n\}\n\nfunction humanCounterparty",
+              re.S,
+          )
+          programs_replacement = r'''function normalizedMatchText(value: string): string {
+            return value
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toUpperCase()
+              .replace(/[^A-Z0-9]+/g, ' ')
+              .trim();
+          }
+
+          function installmentMarker(value: string | null): '1' | '2' | 'P1' | 'P2' | null {
+            const normalized = normalizedMatchText(value ?? '');
+            if (/\bP1\b/.test(normalized)) return 'P1';
+            if (/\bP2\b/.test(normalized)) return 'P2';
+            if (/\b1\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '1';
+            if (/\b2\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '2';
+            if (/\bPRIMEIRA PARCELA\b/.test(normalized)) return '1';
+            if (/\bSEGUNDA PARCELA\b/.test(normalized)) return '2';
+            return null;
+          }
+
+          function destinationInstallmentMarker(value: string): '1' | '2' | 'P1' | 'P2' | null {
+            const normalized = normalizedMatchText(value);
+            if (/\bP1\b/.test(normalized)) return 'P1';
+            if (/\bP2\b/.test(normalized)) return 'P2';
+            if (/\b1\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '1';
+            if (/\b2\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '2';
+            if (/\bPRIMEIRA PARCELA\b/.test(normalized)) return '1';
+            if (/\bSEGUNDA PARCELA\b/.test(normalized)) return '2';
+            return null;
+          }
+
+          const ACTION_STOPWORDS = new Set([
+            'PDDE', 'BASICO', 'QUALIDADE', 'EQUIDADE', 'PARCELA',
+            'PRIMEIRA', 'SEGUNDA', '2026', 'DE', 'DA', 'DO', 'DAS', 'DOS', 'E',
+          ]);
+
+          function meaningfulActionTokens(action: string): string[] {
+            return normalizedMatchText(action)
+              .split(' ')
+              .filter((token) => token.length >= 4 && !ACTION_STOPWORDS.has(token));
+          }
+
+          function publicOrderDateFor(input: {
+            schoolInep: string;
+            action: string;
+            installment: string | null;
+            programmedCents: number;
+            publicReports: PddeInfoPublicPortfolioResult;
+          }): string | null {
+            const marker = installmentMarker(input.installment);
+            const actionTokens = meaningfulActionTokens(input.action);
+            const candidates = input.publicReports.attendance.filter((item) => {
+              if (item.schoolInep !== input.schoolInep) return false;
+              if (item.totalCents !== input.programmedCents) return false;
+              if (!item.paymentOrderDate) return false;
+              if (marker && destinationInstallmentMarker(item.destination) !== marker) return false;
+              const destination = normalizedMatchText(item.destination);
+              return actionTokens.every((token) => destination.includes(token));
+            });
+            const dates = [...new Set(
+              candidates
+                .map((item) => item.paymentOrderDate)
+                .filter((date): date is string => Boolean(date)),
+            )];
+            return dates.length === 1 ? dates[0] : null;
+          }
+
+          function schoolPrograms(
+            school: FiscalSchoolView,
+            publicReports: PddeInfoPublicPortfolioResult,
+          ): HumanFinancialProgram[] {
+            return school.repasses.map((repasse) => ({
+              name: repasse.action,
+              installments: repasse.installments.map((installment) => ({
+                installment: installment.installment,
+                programmedCents: installment.amountProgrammedCents,
+                paymentInformedCents: installment.amountPaidInformedCents,
+                paymentInformedDate: installment.pddeInfoDate,
+                paymentOrderDate: publicOrderDateFor({
+                  schoolInep: school.school.inep,
+                  action: repasse.action,
+                  installment: installment.installment,
+                  programmedCents: installment.amountProgrammedCents,
+                  publicReports,
+                }),
+                account: installment.account,
+                creditEvidence: {
+                  status: creditStatusLabel(installment.bankCredit.presentationStatus),
+                  date: installment.bankCredit.date,
+                  amountCents: installment.bankCredit.amountCents,
+                  document: installment.bankCredit.document,
+                },
+                note: installment.note,
+              })),
+            }));
+          }
+
+          function humanCounterparty'''
+          text, count = programs_pattern.subn(lambda _match: programs_replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'schoolPrograms: esperado 1 trecho, encontrados {count}')
+
+          text = replace_once(
+              text,
+              '      programs: schoolPrograms(school),\n',
+              '      programs: schoolPrograms(school, options.publicReports),\n',
+              'chamada schoolPrograms',
+          )
+          human_path.write_text(text)
+
+          workbook_path = Path('backend/report/human-financial-workbook.ts')
+          text = workbook_path.read_text()
+          text = replace_once(
+              text,
+              "  header(sheet.addRow([\n    'SME', 'Unidade escolar', 'Programa / ação', 'Parcela', 'Previsto',\n    'Pagamento informado', 'Data da ordem', 'Conta', 'Situação do crédito', 'Crédito localizado',\n  ]));",
+              "  header(sheet.addRow([\n    'SME', 'Unidade escolar', 'Programa / ação', 'Parcela', 'Previsto',\n    'Pagamento informado', 'Data do pagamento', 'Ordem FNDE', 'Conta', 'Situação do crédito',\n  ]));",
+              'cabeçalho Repasses',
+          )
+          text = replace_once(
+              text,
+              "        sheet.addRow([\n          safeText(school.school.sme), safeText(school.school.name), safeText(program.name),\n          safeText(installment.installment ?? 'Sem divisão'), reais(installment.programmedCents),\n          reais(installment.paymentInformedCents), brDate(installment.paymentOrderDate), safeText(account),\n          safeText(installment.creditEvidence.status), reais(installment.creditEvidence.amountCents),\n        ]);",
+              "        sheet.addRow([\n          safeText(school.school.sme), safeText(school.school.name), safeText(program.name),\n          safeText(installment.installment ?? 'Sem divisão'), reais(installment.programmedCents),\n          reais(installment.paymentInformedCents), brDate(installment.paymentInformedDate),\n          brDate(installment.paymentOrderDate), safeText(account),\n          safeText(installment.creditEvidence.status),\n        ]);",
+              'linha Repasses',
+          )
+          text = replace_once(text, '  moneyColumns(sheet, [5, 6, 10]);\n', '  moneyColumns(sheet, [5, 6]);\n', 'money columns Repasses')
+          text = replace_once(
+              text,
+              "  sheet.columns = [\n    { width: 12 }, { width: 38 }, { width: 38 }, { width: 17 }, { width: 18 },\n    { width: 20 }, { width: 16 }, { width: 35 }, { width: 46 }, { width: 20 },\n  ];",
+              "  sheet.columns = [\n    { width: 12 }, { width: 38 }, { width: 34 }, { width: 17 }, { width: 18 },\n    { width: 20 }, { width: 17 }, { width: 15 }, { width: 32 }, { width: 24 },\n  ];",
+              'larguras Repasses',
+          )
+          workbook_path.write_text(text)
+
+          fixture_path = Path('tests/unit/human-financial-workbook.test.ts')
+          text = fixture_path.read_text()
+          text = replace_once(
+              text,
+              "        paymentOrderDate: '2026-08-04',\n",
+              "        paymentInformedDate: '2026-08-05', paymentOrderDate: '2026-08-04',\n",
+              'fixture workbook datas',
+          )
+          fixture_path.write_text(text)
+          PY
+
+      - name: Conferir diff e testes focados
+        run: |
+          git diff --check
+          npm ci
+          npx vitest run tests/unit/build-human-payment-dates.test.ts tests/unit/human-financial-workbook.test.ts
+
+      - name: Commitar correção e limpar workflows de patch
+        run: |
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git rm .github/workflows/patch-human-payment-dates.yml .github/workflows/patch-human-payment-dates-v2.yml
+          git add backend/application/build-human-financial-view.ts backend/report/human-financial-workbook.ts tests/unit/human-financial-workbook.test.ts
+          git commit -m 'fix: separa pagamento informado de ordem FNDE'
+          git push origin HEAD:feat/inteligencia-financeira-2026-foundation
