@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppHeader } from './components/AppHeader';
+import { RouteEffects } from './components/RouteEffects';
 import { PortfolioProvider } from './PortfolioContext';
 import { IndicatorPage } from './pages/IndicatorPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -13,6 +14,7 @@ export function App() {
   return (
     <BrowserRouter>
       <PortfolioProvider>
+        <RouteEffects />
         <div className="app-shell">
           <AppHeader />
           <Routes>
