@@ -1,0 +1,51 @@
+name: Aplicar rota humana corrente na API
+on:
+  push:
+    branches:
+      - feat/frontend-inteligencia-financeira-2026
+    paths:
+      - '.github/workflows/apply-human-api-patch.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/frontend-inteligencia-financeira-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Aplicar patch pequeno e verificável
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('backend/api/institutional-api.ts')
+          text = path.read_text()
+
+          old = """  getCurrentFiscalPortfolio?(): Promise<unknown | null>;\n  getCurrentFiscalSchool?(inep: string): Promise<unknown | null>;\n}"""
+          new = """  getCurrentFiscalPortfolio?(): Promise<unknown | null>;\n  getCurrentFiscalSchool?(inep: string): Promise<unknown | null>;\n  getCurrentHumanPortfolio?(): Promise<unknown | null>;\n  getCurrentHumanSchool?(inep: string): Promise<unknown | null>;\n}"""
+          if old not in text:
+              raise SystemExit('âncora da interface ReadServiceApi não encontrada')
+          text = text.replace(old, new, 1)
+
+          old_route = """      if (segments[1] === 'current') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (segments.length === 3 && segments[2] === 'portfolio') {"""
+          new_route = """      if (segments[1] === 'current') {\n        if (request.method !== 'GET') return methodNotAllowed('GET');\n        if (segments.length === 4 && segments[2] === 'human' && segments[3] === 'portfolio') {\n          if (!dependencies.readService.getCurrentHumanPortfolio) {\n            return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');\n          }\n          const portfolio = await dependencies.readService.getCurrentHumanPortfolio();\n          return portfolio ? json(portfolio) : errorResponse(404, 'Retrato financeiro humano corrente ainda não publicado.');\n        }\n        if (segments.length === 5 && segments[2] === 'human' && segments[3] === 'schools') {\n          if (!dependencies.readService.getCurrentHumanSchool) {\n            return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');\n          }\n          const school = await dependencies.readService.getCurrentHumanSchool(segments[4]);\n          return school ? json(school) : errorResponse(404, 'Retrato financeiro humano corrente da escola ainda não publicado.');\n        }\n        if (segments.length === 3 && segments[2] === 'portfolio') {"""
+          if old_route not in text:
+              raise SystemExit('âncora das rotas current não encontrada')
+          text = text.replace(old_route, new_route, 1)
+          path.write_text(text)
+          PY
+      - name: Verificar o TDD focado
+        run: npx vitest run tests/unit/institutional-human-read-api.test.ts
+      - name: Remover workflow temporário e publicar patch
+        run: |
+          rm .github/workflows/apply-human-api-patch.yml
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git add backend/api/institutional-api.ts .github/workflows/apply-human-api-patch.yml
+          git commit -m 'feat: expoe read model humano na api'
+          git push origin HEAD:feat/frontend-inteligencia-financeira-2026
