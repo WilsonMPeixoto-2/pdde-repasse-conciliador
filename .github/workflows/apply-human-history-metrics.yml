@@ -1,0 +1,62 @@
+name: Implementar série histórica e métricas humanas
+on:
+  push:
+    branches:
+      - feat/frontend-inteligencia-financeira-2026
+    paths:
+      - '.github/workflows/apply-human-history-metrics.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/frontend-inteligencia-financeira-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Aplicar implementação
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('backend/application/build-human-financial-view.ts')
+          t = p.read_text()
+
+          t = t.replace("""export interface HumanFinancialAccount {\n  program: string;\n  bank: string;\n  agency: string;\n  account: string;\n  latestPosition: HumanFinancialPosition | null;\n""", """export interface HumanFinancialAccount {\n  program: string;\n  bank: string;\n  agency: string;\n  account: string;\n  positions: HumanFinancialPosition[];\n  latestPosition: HumanFinancialPosition | null;\n""", 1)
+
+          t = t.replace("""export interface HumanFinancialPortfolioView {\n  title: 'Inteligência Financeira PDDE | 4ª CRE';\n  fiscalYear: 2026;\n  referenceLabel: string;\n""", """export interface HumanFinancialPortfolioMetrics {\n  schoolCount: number;\n  accountsTotal: number;\n  accountsWithPosition: number;\n  programmedCents: number;\n  paymentInformedCents: number;\n  creditLocatedCents: number;\n  reportedBalanceCents: number;\n  applicationsCents: number;\n}\n\nexport interface HumanFinancialPortfolioView {\n  title: 'Inteligência Financeira PDDE | 4ª CRE';\n  fiscalYear: 2026;\n  referenceLabel: string;\n  metrics: HumanFinancialPortfolioMetrics;\n""", 1)
+
+          old = """function positionFor(\n  schoolInep: string,\n  bank: string,\n  agency: string,\n  account: string,\n  publicReports: PddeInfoPublicPortfolioResult,\n): HumanFinancialPosition | null {\n  const wanted = accountKey(bank, agency, account);\n  const candidates = publicReports.balances\n    .filter((balance) => balance.schoolIneps.includes(schoolInep))\n    .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)\n    .sort((left, right) => right.coverageThrough.localeCompare(left.coverageThrough));\n  const latest = candidates[0];\n  if (!latest) return null;\n  return {\n    referenceDate: latest.coverageThrough,\n    checkingBalanceCents: latest.checkingBalanceCents,\n    applications: {\n      fundsCents: latest.fundBalanceCents,\n      savingsCents: latest.savingsBalanceCents,\n      rdbCdbCents: latest.rdbCdbBalanceCents,\n      totalCents: latest.investmentBalanceCents,\n    },\n    totalReportedBalanceCents: latest.totalReportedBalanceCents,\n  };\n}\n"""
+          new = """function positionsFor(\n  schoolInep: string,\n  bank: string,\n  agency: string,\n  account: string,\n  publicReports: PddeInfoPublicPortfolioResult,\n): HumanFinancialPosition[] {\n  const wanted = accountKey(bank, agency, account);\n  return publicReports.balances\n    .filter((balance) => balance.schoolIneps.includes(schoolInep))\n    .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)\n    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough))\n    .map((position) => ({\n      referenceDate: position.coverageThrough,\n      checkingBalanceCents: position.checkingBalanceCents,\n      applications: {\n        fundsCents: position.fundBalanceCents,\n        savingsCents: position.savingsBalanceCents,\n        rdbCdbCents: position.rdbCdbBalanceCents,\n        totalCents: position.investmentBalanceCents,\n      },\n      totalReportedBalanceCents: position.totalReportedBalanceCents,\n    }));\n}\n\nfunction positionFor(\n  schoolInep: string,\n  bank: string,\n  agency: string,\n  account: string,\n  publicReports: PddeInfoPublicPortfolioResult,\n): HumanFinancialPosition | null {\n  return positionsFor(schoolInep, bank, agency, account, publicReports).at(-1) ?? null;\n}\n"""
+          if old not in t: raise SystemExit('positionFor original não encontrado')
+          t = t.replace(old, new, 1)
+
+          t = t.replace("""    const latestPosition = positionFor(\n      school.school.inep,\n      statement.account.bank,\n      statement.account.agency,\n      statement.account.number,\n      publicReports,\n    );\n""", """    const positions = positionsFor(\n      school.school.inep,\n      statement.account.bank,\n      statement.account.agency,\n      statement.account.number,\n      publicReports,\n    );\n    const latestPosition = positions.at(-1) ?? null;\n""", 1)
+          t = t.replace("""      account: statement.account.number,\n      latestPosition,\n""", """      account: statement.account.number,\n      positions,\n      latestPosition,\n""", 1)
+
+          t = t.replace("""    const latestPosition = positionFor(\n      school.school.inep,\n      balance.bank,\n      balance.agency,\n      balance.account,\n      publicReports,\n    );\n""", """    const positions = positionsFor(\n      school.school.inep,\n      balance.bank,\n      balance.agency,\n      balance.account,\n      publicReports,\n    );\n    const latestPosition = positions.at(-1) ?? null;\n""", 1)
+          t = t.replace("""      account: balance.account,\n      latestPosition,\n""", """      account: balance.account,\n      positions,\n      latestPosition,\n""", 1)
+
+          anchor = """function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {\n"""
+          metrics_fn = """function buildPortfolioMetrics(\n  schools: readonly HumanFinancialSchoolView[],\n): HumanFinancialPortfolioMetrics {\n  let accountsTotal = 0;\n  let accountsWithPosition = 0;\n  let programmedCents = 0;\n  let paymentInformedCents = 0;\n  let creditLocatedCents = 0;\n  let reportedBalanceCents = 0;\n  let applicationsCents = 0;\n\n  for (const school of schools) {\n    for (const program of school.programs) {\n      for (const installment of program.installments) {\n        programmedCents += installment.programmedCents;\n        paymentInformedCents += installment.paymentInformedCents;\n        if (installment.creditEvidence.status === 'Crédito localizado'\n          && installment.creditEvidence.amountCents !== null) {\n          creditLocatedCents += installment.creditEvidence.amountCents;\n        }\n      }\n    }\n    accountsTotal += school.accounts.length;\n    for (const account of school.accounts) {\n      if (!account.latestPosition) continue;\n      accountsWithPosition += 1;\n      if (account.latestPosition.totalReportedBalanceCents !== null) {\n        reportedBalanceCents += account.latestPosition.totalReportedBalanceCents;\n      }\n      if (account.latestPosition.applications.totalCents !== null) {\n        applicationsCents += account.latestPosition.applications.totalCents;\n      }\n    }\n  }\n\n  return {\n    schoolCount: schools.length,\n    accountsTotal,\n    accountsWithPosition,\n    programmedCents,\n    paymentInformedCents,\n    creditLocatedCents,\n    reportedBalanceCents,\n    applicationsCents,\n  };\n}\n\n"""
+          if anchor not in t: raise SystemExit('âncora buildIndicators não encontrada')
+          t = t.replace(anchor, metrics_fn + anchor, 1)
+
+          t = t.replace("""    referenceLabel: reference\n      ? `Posição financeira pública disponível até ${brDate(reference)}`\n      : 'Posição de saldo público ainda não disponível para 2026',\n    sources: HUMAN_SOURCES.map((source) => ({ ...source })),\n""", """    referenceLabel: reference\n      ? `Posição financeira pública disponível até ${brDate(reference)}`\n      : 'Posição de saldo público ainda não disponível para 2026',\n    metrics: buildPortfolioMetrics(schools),\n    sources: HUMAN_SOURCES.map((source) => ({ ...source })),\n""", 1)
+
+          p.write_text(t)
+          PY
+      - name: Verificar testes focados
+        run: npx vitest run tests/unit/build-human-financial-history.test.ts tests/unit/build-human-financial-view.test.ts tests/unit/build-human-financial-public-accounts.test.ts
+      - name: Remover workflow e publicar
+        run: |
+          rm .github/workflows/apply-human-history-metrics.yml
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git add backend/application/build-human-financial-view.ts .github/workflows/apply-human-history-metrics.yml
+          git commit -m 'feat: adiciona serie historica e metricas humanas'
+          git push origin HEAD:feat/frontend-inteligencia-financeira-2026
