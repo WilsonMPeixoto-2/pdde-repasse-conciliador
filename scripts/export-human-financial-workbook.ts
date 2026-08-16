@@ -20,10 +20,30 @@ function parseArgs(argv: string[]): { input: string; output: string } {
   };
 }
 
+const unitSchema = z.object({
+  sme: z.string().min(1),
+  name: z.string().min(1),
+  inep: z.string().regex(/^\d{8}$/),
+}).strict();
+
+const indicatorSchema = z.object({
+  label: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  units: z.array(unitSchema),
+}).strict().superRefine((value, context) => {
+  if (value.count !== value.units.length) {
+    context.addIssue({
+      code: 'custom',
+      message: `Indicador "${value.label}" informa ${value.count}, mas contém ${value.units.length} unidades.`,
+    });
+  }
+});
+
 const viewSchema = z.object({
   title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
   fiscalYear: z.literal(2026),
   referenceLabel: z.string().min(1),
+  indicators: z.array(indicatorSchema),
   schools: z.array(z.unknown()),
 }).passthrough();
 
@@ -34,7 +54,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const workbook = buildHumanFinancialWorkbook(raw as HumanFinancialPortfolioView);
   await mkdir(dirname(options.output), { recursive: true });
   await workbook.xlsx.writeFile(options.output);
-  console.log(JSON.stringify({ output: options.output, fiscalYear: 2026, sheets: workbook.worksheets.map((sheet) => sheet.name) }, null, 2));
+  console.log(JSON.stringify({
+    output: options.output,
+    fiscalYear: 2026,
+    sheets: workbook.worksheets.map((sheet) => sheet.name),
+  }, null, 2));
 }
 
 const executedAsScript = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
