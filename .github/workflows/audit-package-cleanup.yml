@@ -18,9 +18,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Remover pacotes sem uso e corrigir alias fiscal
+      - name: Remover pilha CSS inativa e corrigir alias fiscal
         run: |
           npm uninstall lucide tailwindcss @tailwindcss/postcss postcss
+          rm postcss.config.js tailwind.config.js
           npm pkg set 'scripts.monitor:fiscal:xlsx=node --import tsx scripts/export-fiscal-workbook.ts'
       - name: Verificar peer do fast-check
         run: npm ls fast-check @fast-check/vitest
@@ -31,6 +32,6 @@ jobs:
           rm .github/workflows/audit-package-cleanup.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json .github/workflows/audit-package-cleanup.yml
-          git commit -m 'chore: remove dependências inativas e corrige script fiscal'
+          git add package.json package-lock.json postcss.config.js tailwind.config.js .github/workflows/audit-package-cleanup.yml
+          git commit -m 'chore: remove dependências CSS inativas e corrige script fiscal'
           git push origin HEAD:audit/revisao-tecnica-integral-2026-08-16
