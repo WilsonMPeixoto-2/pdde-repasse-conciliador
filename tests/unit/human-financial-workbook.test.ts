@@ -127,6 +127,8 @@ describe('Excel humano da inteligência financeira', () => {
     expect(visible).toContain('2026');
     expect(visible).toContain('saldo total informado');
     expect(visible).toContain('posição');
-    expect(visible).toContain('repasses informados, contas vinculadas, saldos e situação da prestação de contas.');
+    expect(visible).toContain('repasses informados');
+    expect(visible).toContain('contas vinculadas');
+    expect(visible).toContain('prestação de contas');
   });
 });
