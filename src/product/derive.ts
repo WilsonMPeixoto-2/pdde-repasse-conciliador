@@ -44,10 +44,13 @@ export function deriveSchoolSummary(school: HumanSchool): SchoolFinancialSummary
     .map((position) => position.referenceDate)
     .sort()
     .at(-1) ?? null;
-  const knownBalances = positions
+  const alignedPositions = balanceReferenceDate === null
+    ? []
+    : positions.filter((position) => position.referenceDate === balanceReferenceDate);
+  const knownBalances = alignedPositions
     .map((position) => position.totalReportedBalanceCents)
     .filter((value): value is number => value !== null);
-  const knownApplications = positions
+  const knownApplications = alignedPositions
     .map((position) => position.applications.totalCents)
     .filter((value): value is number => value !== null);
 
@@ -55,10 +58,10 @@ export function deriveSchoolSummary(school: HumanSchool): SchoolFinancialSummary
     programmedCents,
     paymentInformedCents,
     creditLocatedCents,
-    reportedBalanceCents: knownBalances.length > 0
+    reportedBalanceCents: alignedPositions.length > 0 && knownBalances.length === alignedPositions.length
       ? knownBalances.reduce((total, value) => total + value, 0)
       : null,
-    applicationsCents: knownApplications.length > 0
+    applicationsCents: alignedPositions.length > 0 && knownApplications.length === alignedPositions.length
       ? knownApplications.reduce((total, value) => total + value, 0)
       : null,
     balanceReferenceDate,
