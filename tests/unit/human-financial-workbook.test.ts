@@ -2,10 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { buildHumanFinancialWorkbook } from '../../backend/report/human-financial-workbook';
 import type { HumanFinancialPortfolioView } from '../../backend/application/build-human-financial-view';
 
+const latestPosition = {
+  referenceDate: '2026-06-30', checkingBalanceCents: 0,
+  applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
+  totalReportedBalanceCents: 318699,
+};
+
 const view: HumanFinancialPortfolioView = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+  metrics: {
+    schoolCount: 1,
+    accountsTotal: 1,
+    accountsWithPosition: 1,
+    programmedCents: 418500,
+    paymentInformedCents: 418500,
+    creditLocatedCents: 418500,
+    reportedBalanceCents: 318699,
+    applicationsCents: 318699,
+  },
   sources: [
     {
       name: 'PDDEInfo',
@@ -41,11 +57,8 @@ const view: HumanFinancialPortfolioView = {
     }],
     accounts: [{
       program: 'PDDE QUALIDADE', bank: '001', agency: '0249', account: '0000546402',
-      latestPosition: {
-        referenceDate: '2026-06-30', checkingBalanceCents: 0,
-        applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
-        totalReportedBalanceCents: 318699,
-      },
+      positions: [latestPosition],
+      latestPosition,
       movements: [{
         date: '2026-06-10', description: 'PAGAMENTO FORNECEDOR', document: '12345',
         category: 'Pagamento / transferência', creditCents: null, debitCents: 50000,
