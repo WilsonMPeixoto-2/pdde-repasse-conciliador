@@ -20,6 +20,7 @@
     "preview": "vite preview",
     "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
     "monitor:live": "node --import tsx scripts/monitor-live-2026.ts",
+    "monitor:backfill:2026": "node --import tsx scripts/backfill-public-balances-2026.ts",
     "monitor:operational": "node --import tsx scripts/build-monitoring-operational-view.ts",
     "monitor:fiscal": "node --import tsx scripts/build-fiscal-human-view.ts",
     "monitor:human:xlsx": "node --import tsx scripts/export-human-financial-workbook.ts",
