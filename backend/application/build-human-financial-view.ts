@@ -78,10 +78,23 @@ export interface HumanFinancialSchoolView {
   followUp: string[];
 }
 
+export interface HumanIndicatorUnit {
+  sme: string;
+  name: string;
+  inep: string;
+}
+
+export interface HumanFinancialIndicator {
+  label: string;
+  count: number;
+  units: HumanIndicatorUnit[];
+}
+
 export interface HumanFinancialPortfolioView {
   title: 'Inteligência Financeira PDDE | 4ª CRE';
   fiscalYear: 2026;
   referenceLabel: string;
+  indicators: HumanFinancialIndicator[];
   schools: HumanFinancialSchoolView[];
 }
 
@@ -285,6 +298,49 @@ function followUpFor(
   return [...new Set(messages)];
 }
 
+function unitOf(school: HumanFinancialSchoolView): HumanIndicatorUnit {
+  return {
+    sme: school.school.sme,
+    name: school.school.name,
+    inep: school.school.inep,
+  };
+}
+
+function indicator(
+  label: string,
+  schools: readonly HumanFinancialSchoolView[],
+  predicate: (school: HumanFinancialSchoolView) => boolean,
+): HumanFinancialIndicator {
+  const units = schools
+    .filter(predicate)
+    .map(unitOf)
+    .sort((left, right) => left.sme.localeCompare(right.sme) || left.name.localeCompare(right.name, 'pt-BR'));
+  return { label, count: units.length, units };
+}
+
+function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {
+  return [
+    indicator('1ª parcela com pagamento informado', schools, (school) => (
+      school.programs.some((program) => program.installments.some((installment) => (
+        /1\s*ª|1a|primeira/i.test(installment.installment ?? '')
+        && installment.paymentInformedCents > 0
+      )))
+    )),
+    indicator('Conta do repasse não exibida', schools, (school) => (
+      school.programs.some((program) => program.installments.some((installment) => (
+        installment.programmedCents > 0 && installment.account === null
+      )))
+    )),
+    indicator('Conta sem posição pública de saldo', schools, (school) => (
+      school.accounts.some((account) => account.latestPosition === null)
+    )),
+    indicator('Prestação com pagamento suspenso', schools, (school) => (
+      school.accounting.some((item) => item.paymentSuspended)
+    )),
+    indicator('Informação parcial', schools, (school) => school.followUp.length > 0),
+  ];
+}
+
 export function buildHumanFinancialView(
   options: BuildHumanFinancialViewOptions,
 ): HumanFinancialPortfolioView {
@@ -308,6 +364,7 @@ export function buildHumanFinancialView(
     referenceLabel: reference
       ? `Posição financeira pública disponível até ${brDate(reference)}`
       : 'Posição de saldo público ainda não disponível para 2026',
+    indicators: buildIndicators(schools),
     schools,
   };
 }
