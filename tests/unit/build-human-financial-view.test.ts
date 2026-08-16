@@ -117,6 +117,17 @@ describe('buildHumanFinancialView', () => {
     expect(view.title).toBe('Inteligência Financeira PDDE | 4ª CRE');
     expect(view.fiscalYear).toBe(2026);
     expect(view.referenceLabel).toContain('30/06/2026');
+    expect(view.sources).toEqual([
+      {
+        name: 'PDDEInfo',
+        information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
+      },
+      {
+        name: 'SIGEF',
+        information: 'Movimentações das contas e créditos compatíveis localizados no extrato.',
+      },
+    ]);
+    expect(view.sources.map((source) => source.information).join(' ')).not.toMatch(/\bHTTP\b|\bAPI\b|parser|hash|retry/i);
     expect(view.schools[0]).toEqual(expect.objectContaining({
       school: expect.objectContaining({ name: 'EM EMA NEGRAO DE LIMA' }),
       accounting: [expect.objectContaining({ status: 'Aguardando análise' })],
