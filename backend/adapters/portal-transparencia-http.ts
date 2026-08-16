@@ -60,6 +60,10 @@ export interface PortalTransparenciaClientOptions {
   rateLimit?: RateLimitedQueueOptions;
 }
 
+export type PortalTransparenciaBridge =
+  | { enabled: false; client: null }
+  | { enabled: true; client: PortalTransparenciaClient };
+
 const BASE_URL = 'https://api.portaldatransparencia.gov.br/api-de-dados';
 
 function defaultSleep(milliseconds: number): Promise<void> {
@@ -108,6 +112,10 @@ export class PortalTransparenciaClient {
       intervalMs: 60_000,
       strict: true,
     });
+  }
+
+  toJSON(): { type: 'PortalTransparenciaClient'; configured: true } {
+    return { type: 'PortalTransparenciaClient', configured: true };
   }
 
   private async request(path: string, params: URLSearchParams, signal?: AbortSignal): Promise<PortalTransparenciaResponse> {
@@ -204,4 +212,15 @@ export class PortalTransparenciaClient {
     params.set('pagina', String(query.pagina));
     return this.request('/despesas/recursos-recebidos', params, signal);
   }
+}
+
+export function createPortalTransparenciaClientFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): PortalTransparenciaBridge {
+  const apiKey = env.PORTAL_TRANSPARENCIA_API_KEY?.trim();
+  if (!apiKey) return { enabled: false, client: null };
+  return {
+    enabled: true,
+    client: new PortalTransparenciaClient({ apiKey }),
+  };
 }
