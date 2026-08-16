@@ -38,11 +38,13 @@ jobs:
         run: npm run build
       - name: Navegar e validar desktop/mobile
         run: node scripts/frontend-product-smoke.mjs
-      - name: Preservar screenshots
+      - name: Preservar build e screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-product-smoke-2026
-          path: artifacts/frontend-product-smoke/*.png
+          path: |
+            artifacts/frontend-product-smoke/*.png
+            dist/**
           if-no-files-found: warn
           retention-days: 7
