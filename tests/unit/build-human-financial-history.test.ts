@@ -75,4 +75,27 @@ describe('série histórica e métricas do read model humano', () => {
       applicationsCents: 415032,
     });
   });
+
+  it('une saldo público e extrato quando a mesma conta usa zeros de preenchimento diferentes', () => {
+    const differentlyFormattedReports = {
+      ...publicReports,
+      balances: publicReports.balances.map((balance) => ({
+        ...balance,
+        bank: '1',
+        agency: '249',
+        account: '549797',
+      })),
+    };
+
+    const view = buildHumanFinancialView({
+      fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never,
+      publicReports: differentlyFormattedReports as never,
+    });
+
+    expect(view.schools[0].accounts).toHaveLength(1);
+    expect(view.schools[0].accounts[0].positions).toHaveLength(3);
+    expect(view.schools[0].accounts[0].latestPosition?.totalReportedBalanceCents).toBe(415143);
+    expect(view.metrics.accountsTotal).toBe(1);
+    expect(view.metrics.reportedBalanceCents).toBe(415143);
+  });
 });
