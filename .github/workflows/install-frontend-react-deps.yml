@@ -1,0 +1,33 @@
+name: Preparar dependências React do frontend
+on:
+  push:
+    branches:
+      - feat/frontend-inteligencia-financeira-2026
+    paths:
+      - '.github/workflows/install-frontend-react-deps.yml'
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/frontend-inteligencia-financeira-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Instalar dependências exatas
+        run: |
+          npm install --save-exact react react-dom react-router-dom
+          npm install --save-dev --save-exact @vitejs/plugin-react @types/react @types/react-dom
+      - name: Remover workflow temporário e publicar lockfile
+        run: |
+          rm .github/workflows/install-frontend-react-deps.yml
+          git config user.name 'Wilson Malafaia Peixoto'
+          git config user.email 'wilsonmp2@gmail.com'
+          git add package.json package-lock.json .github/workflows/install-frontend-react-deps.yml
+          git commit -m 'build: adiciona dependencias react ao frontend'
+          git push origin HEAD:feat/frontend-inteligencia-financeira-2026
