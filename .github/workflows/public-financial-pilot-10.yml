@@ -1,0 +1,96 @@
+name: Piloto financeiro público 10 UEs
+
+on:
+  push:
+    branches:
+      - feat/inteligencia-financeira-2026-foundation
+    paths:
+      - '.github/workflows/public-financial-pilot-10.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar backfill público 2026 em 10 UEs
+        id: backfill
+        shell: bash
+        run: |
+          set +e
+          npm run monitor:backfill:2026 -- \
+            --output artifacts/public-financial-pilot-10-2026.json \
+            --workspace artifacts/public-financial-pilot-10-raw
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Backfill terminou com código $code. O artefato será preservado para inspeção."
+          exit 0
+
+      - name: Resumir artefato normalizado
+        if: always()
+        shell: bash
+        run: |
+          if [ -f artifacts/public-financial-pilot-10-2026.json ]; then
+            node - <<'NODE'
+          const fs = require('fs');
+          const p = 'artifacts/public-financial-pilot-10-2026.json';
+          const x = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const months = [...new Set((x.balances || []).map(v => v.coverageThrough))].sort();
+          const cnpjs = new Set((x.attendance || []).map(v => v.uexCnpj));
+          console.log(JSON.stringify({
+            fiscalYear: x.fiscalYear,
+            selectedSchools: x.selectedSchools,
+            balanceReferenceMonth: x.balanceReferenceMonth,
+            coverageThrough: x.coverageThrough,
+            attendanceRows: (x.attendance || []).length,
+            accountingRows: (x.accounting || []).length,
+            balanceRows: (x.balances || []).length,
+            uniqueCnpjs: cnpjs.size,
+            balanceCoverageDates: months,
+            failures: x.failures || [],
+            preservedRawArtifacts: x.preservedRawArtifacts,
+          }, null, 2));
+          NODE
+          else
+            echo 'Artefato normalizado não foi produzido.'
+            exit 1
+          fi
+
+      - name: Preservar piloto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-financial-pilot-10-2026
+          path: |
+            artifacts/public-financial-pilot-10-2026.json
+            artifacts/public-financial-pilot-10-raw
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Falhar somente após preservar o diagnóstico
+        if: always()
+        shell: bash
+        run: |
+          code='${{ steps.backfill.outputs.exit_code }}'
+          if [ -z "$code" ]; then
+            echo 'Execução não produziu código de saída.'
+            exit 1
+          fi
+          if [ "$code" != '0' ]; then
+            echo "Piloto encontrou falhas de fonte ou coleta (código $code). Consulte o artefato antes de promover para 163 UEs."
+            exit "$code"
+          fi
