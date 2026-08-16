@@ -6,7 +6,8 @@ export function AppHeader() {
       <div className="app-header__inner">
         <NavLink className="brand" to="/" aria-label="Inteligência Financeira PDDE, início">
           <span className="brand__eyebrow">4ª Coordenadoria Regional de Educação</span>
-          <span className="brand__name">Inteligência Financeira PDDE</span>
+          <span className="brand__name brand__name--desktop">Inteligência Financeira PDDE</span>
+          <span className="brand__name brand__name--mobile">Inteligência PDDE</span>
         </NavLink>
         <nav className="main-nav" aria-label="Navegação principal">
           <NavLink to="/" end>Visão geral</NavLink>
