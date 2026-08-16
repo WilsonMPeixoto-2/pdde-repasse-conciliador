@@ -1,0 +1,48 @@
+name: Frontend Product Smoke 2026
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'scripts/frontend-product-smoke.mjs'
+      - '.github/workflows/frontend-product-smoke.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'index.html'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/frontend-product-smoke.mjs'
+      - '.github/workflows/frontend-product-smoke.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'index.html'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Gerar build do produto
+        run: npm run build
+      - name: Navegar e validar desktop/mobile
+        run: node scripts/frontend-product-smoke.mjs
+      - name: Preservar screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-product-smoke-2026
+          path: artifacts/frontend-product-smoke/*.png
+          if-no-files-found: warn
+          retention-days: 7
