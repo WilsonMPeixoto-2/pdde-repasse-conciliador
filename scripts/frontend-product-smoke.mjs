@@ -147,8 +147,30 @@ async function assertNoTechnicalMetadata(page) {
 }
 
 async function assertNoMainOverflow(page) {
-  const overflow = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
-  if (overflow.width > overflow.viewport + 2) throw new Error(`Overflow horizontal global: ${overflow.width}px > ${overflow.viewport}px`);
+  const overflow = await page.evaluate(() => {
+    const viewport = window.innerWidth;
+    const offenders = [...document.querySelectorAll('body *')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: typeof element.className === 'string' ? element.className : '',
+          text: (element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 90),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        };
+      })
+      .filter((item) => item.right > viewport + 2 || item.left < -2 || item.scrollWidth > item.clientWidth + 2)
+      .sort((a, b) => Math.max(b.right - viewport, b.scrollWidth - b.clientWidth) - Math.max(a.right - viewport, a.scrollWidth - a.clientWidth))
+      .slice(0, 12);
+    return { width: document.documentElement.scrollWidth, viewport, offenders };
+  });
+  if (overflow.width > overflow.viewport + 2) {
+    throw new Error(`Overflow horizontal global: ${overflow.width}px > ${overflow.viewport}px. Ofensores: ${JSON.stringify(overflow.offenders)}`);
+  }
 }
 
 async function smoke(viewport, suffix) {
@@ -157,8 +179,8 @@ async function smoke(viewport, suffix) {
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
   await assertNoTechnicalMetadata(page);
-  await assertNoMainOverflow(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
+  await assertNoMainOverflow(page);
 
   const indicator = page.getByRole('link', { name: /3 unidades: Conta do repasse não exibida/i });
   await indicator.focus();
@@ -178,6 +200,10 @@ async function smoke(viewport, suffix) {
   await page.keyboard.press('Enter');
   await page.getByText('31/03/2026').last().waitFor();
   await page.screenshot({ path: new URL(`school-${suffix}.png`, output).pathname, fullPage: true });
+  const direct = await context.newPage();
+  await direct.goto(`${base}/unidades/33069093`, { waitUntil: 'networkidle' });
+  await direct.getByRole('heading', { name: 'EM ALBINO SOUZA CRUZ' }).waitFor();
+  await direct.close();
   await context.close();
 }
 

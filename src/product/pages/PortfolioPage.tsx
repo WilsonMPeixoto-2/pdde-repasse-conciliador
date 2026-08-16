@@ -41,13 +41,12 @@ export function PortfolioPage() {
           <MetricValue label="Crédito compatível localizado" valueCents={portfolio.metrics.creditLocatedCents} tone="credit" meta="Evidência localizada no extrato" />
           <MetricValue label="Saldo informado" valueCents={portfolio.metrics.reportedBalanceCents} tone="balance" meta={portfolio.referenceLabel.replace(/^Posição financeira pública disponível /, '')} />
         </div>
-        <div className="coverage-strip" aria-label={portfolio.referenceLabel}>
-          <div className="coverage-strip__label"><strong>Referência dos saldos</strong><span>{portfolio.referenceLabel}</span></div>
-          <div className="coverage-months" aria-hidden="true">
-            {['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'].map((month) => (
-              <span className="coverage-month" key={month} data-observed="false">{month}</span>
-            ))}
+        <div className="reference-note" aria-label={portfolio.referenceLabel}>
+          <div>
+            <span className="reference-note__eyebrow">Referência dos saldos</span>
+            <strong>{portfolio.referenceLabel}</strong>
           </div>
+          <span className="reference-note__coverage">{portfolio.metrics.accountsWithPosition} de {portfolio.metrics.accountsTotal} contas com posição nessa referência</span>
         </div>
       </section>
 

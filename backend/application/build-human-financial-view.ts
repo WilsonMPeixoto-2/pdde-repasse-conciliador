@@ -207,16 +207,6 @@ function positionsFor(
     }));
 }
 
-function positionFor(
-  schoolInep: string,
-  bank: string,
-  agency: string,
-  account: string,
-  publicReports: PddeInfoPublicPortfolioResult,
-): HumanFinancialPosition | null {
-  return positionsFor(schoolInep, bank, agency, account, publicReports).at(-1) ?? null;
-}
-
 function accountNote(position: HumanFinancialPosition | null): string | null {
   if (!position) return 'Posição de saldo do FNDE ainda não disponível para esta conta.';
   return `Saldo informado pelo FNDE com posição até ${brDate(position.referenceDate)}.`;
