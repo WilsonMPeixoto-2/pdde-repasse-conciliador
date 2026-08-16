@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { runMonitoring } from '../../backend/application/run-monitoring';
+import { runFinancialIntelligenceMonitoring } from '../../backend/application/run-financial-intelligence-monitoring';
 
 const temporaryPaths: string[] = [];
 afterEach(async () => {
@@ -75,7 +75,7 @@ const publicResult = {
 describe('MONITORING + relatórios públicos FNDE', () => {
   test('incorpora dados públicos e produz uma saída humana separada', async () => {
     const publicCollector = vi.fn(async () => publicResult);
-    const result = await runMonitoring({
+    const result = await runFinancialIntelligenceMonitoring({
       schools: [school],
       workspacePath: await workspace(),
       fiscalYear: 2026,
