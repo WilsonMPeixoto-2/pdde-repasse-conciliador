@@ -1,0 +1,78 @@
+import { describe, expect, it } from 'vitest';
+import { buildHumanFinancialView } from '../../backend/application/build-human-financial-view';
+
+const fiscalSchool = {
+  school: { inep: '33069093', sme: '0410002', name: 'EM ALBINO SOUZA CRUZ', uex: 'CEC ALBINO', cnpj: '12345678000190' },
+  repasses: [{
+    programCode: '02',
+    action: 'PDDE / PDDE Básico',
+    installments: [{
+      installment: '1ª Parcela',
+      amountProgrammedCents: 506500,
+      amountPaidInformedCents: 506500,
+      pddeInfoDate: '2026-08-05',
+      account: { bank: '001', agency: '0249', number: '0000549797' },
+      bankCredit: {
+        presentationStatus: 'CREDITO_LOCALIZADO', technicalStatus: 'CONFIRMADO',
+        date: '2026-08-06', amountCents: 506500, document: 'OB123',
+      },
+      note: null,
+    }],
+  }],
+  statements: [{
+    programCode: '02', programLabel: 'PDDE',
+    account: { bank: '001', agency: '0249', number: '0000549797' },
+    entries: [],
+  }],
+};
+
+const baseBalance = {
+  schoolIneps: ['33069093'],
+  cnpj: '12345678000190', bank: '001', agency: '0249', account: '0000549797',
+  programName: 'PDDE', checkingBalanceCents: 111, fundBalanceCents: 0,
+  savingsBalanceCents: 0, rdbCdbBalanceCents: 0, investmentBalanceCents: 0,
+  totalReportedBalanceCents: 111,
+};
+
+const publicReports = {
+  attendance: [{
+    fiscalYear: 2026, schoolInep: '33069093', uexCnpj: '12345678000190',
+    programName: 'PDDE', destination: 'PDDE Básico - 1ª Parcela',
+    costCents: 126625, capitalCents: 379875, totalCents: 506500,
+    paymentOrderDate: '2026-08-04',
+  }],
+  accounting: [],
+  balances: [
+    { ...baseBalance, coverageThrough: '2026-01-31', checkingBalanceCents: 111, totalReportedBalanceCents: 111 },
+    { ...baseBalance, coverageThrough: '2026-03-31', checkingBalanceCents: 2400, fundBalanceCents: 100000, investmentBalanceCents: 100000, totalReportedBalanceCents: 102400 },
+    { ...baseBalance, coverageThrough: '2026-06-30', checkingBalanceCents: 111, fundBalanceCents: 415032, investmentBalanceCents: 415032, totalReportedBalanceCents: 415143 },
+  ],
+  artifacts: [], failures: [], balanceReferenceMonth: '06-2026', coverageThrough: '2026-06-30',
+};
+
+describe('série histórica e métricas do read model humano', () => {
+  it('preserva todas as posições observadas da conta, sem inventar fevereiro', () => {
+    const view = buildHumanFinancialView({ fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never, publicReports: publicReports as never });
+    const account = view.schools[0].accounts[0];
+
+    expect(account.positions.map((item) => item.referenceDate)).toEqual([
+      '2026-01-31', '2026-03-31', '2026-06-30',
+    ]);
+    expect(account.latestPosition?.referenceDate).toBe('2026-06-30');
+  });
+
+  it('calcula totais executivos somente a partir do read model humano e mantém saldo/aplicação separados', () => {
+    const view = buildHumanFinancialView({ fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never, publicReports: publicReports as never });
+
+    expect(view.metrics).toEqual({
+      schoolCount: 1,
+      accountsTotal: 1,
+      accountsWithPosition: 1,
+      programmedCents: 506500,
+      paymentInformedCents: 506500,
+      creditLocatedCents: 506500,
+      reportedBalanceCents: 415143,
+      applicationsCents: 415032,
+    });
+  });
+});
