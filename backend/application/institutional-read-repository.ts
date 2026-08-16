@@ -1,6 +1,10 @@
 import type { PersistedEvidenceEvent } from '../core/evidence';
 import type { EvidenceRunProjection } from './evidence-history';
 import type { CurrentFiscalPortfolio, CurrentFiscalSchoolSnapshot } from './current-fiscal-read-model';
+import type {
+  CurrentHumanFinancialPortfolio,
+  CurrentHumanFinancialSchoolSnapshot,
+} from './current-human-financial-read-model';
 
 export interface ExecutionPage {
   items: EvidenceRunProjection[];
@@ -51,6 +55,8 @@ export interface InstitutionalReadRepository {
   listExecutionsByRuns(runIds: string[]): Promise<EvidenceRunProjection[]>;
   getCurrentFiscalPortfolio?(): Promise<CurrentFiscalPortfolio | null>;
   getCurrentFiscalSchool?(inep: string): Promise<CurrentFiscalSchoolSnapshot | null>;
+  getCurrentHumanPortfolio?(): Promise<CurrentHumanFinancialPortfolio | null>;
+  getCurrentHumanSchool?(inep: string): Promise<CurrentHumanFinancialSchoolSnapshot | null>;
 }
 
 export function toFindingReadModel(event: PersistedEvidenceEvent): FindingReadModel {
