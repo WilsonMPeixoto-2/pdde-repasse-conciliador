@@ -1,0 +1,118 @@
+name: Backfill financeiro público 163 UEs
+
+on:
+  push:
+    branches:
+      - feat/inteligencia-financeira-2026-foundation
+    paths:
+      - '.github/workflows/public-financial-backfill-163.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar backfill público 2026 nas 163 UEs
+        id: backfill
+        shell: bash
+        run: |
+          set +e
+          npm run monitor:backfill:2026 -- \
+            --ineps all \
+            --output artifacts/public-financial-backfill-163-2026.json \
+            --workspace artifacts/public-financial-backfill-163-raw
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Backfill terminou com código $code. O artefato será preservado antes de qualquer falha do job."
+          exit 0
+
+      - name: Validar cobertura e consistência
+        if: always()
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'artifacts/public-financial-backfill-163-2026.json';
+          if (!fs.existsSync(path)) throw new Error('Artefato normalizado não foi produzido.');
+          const x = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const balances = x.balances || [];
+          const attendance = x.attendance || [];
+          const accounting = x.accounting || [];
+          const failures = x.failures || [];
+          const cnpjs = new Set(attendance.map(v => v.uexCnpj));
+          const months = [...new Set(balances.map(v => v.coverageThrough))].sort();
+          const keys = new Set();
+          const duplicates = [];
+          const inconsistent = [];
+          for (const item of balances) {
+            const schools = [...(item.schoolIneps || [])].sort().join(',');
+            const key = [schools, item.uexCnpj, item.programName, item.bank, item.agency, item.account, item.coverageThrough].join('|');
+            if (keys.has(key)) duplicates.push(key);
+            keys.add(key);
+            const investment = item.fundBalanceCents + item.savingsBalanceCents + item.rdbCdbBalanceCents;
+            const total = item.checkingBalanceCents + investment;
+            if (investment !== item.investmentBalanceCents || total !== item.totalReportedBalanceCents) {
+              inconsistent.push(key);
+            }
+          }
+          const summary = {
+            fiscalYear: x.fiscalYear,
+            selectedSchools: x.selectedSchools,
+            balanceReferenceMonth: x.balanceReferenceMonth,
+            coverageThrough: x.coverageThrough,
+            attendanceRows: attendance.length,
+            accountingRows: accounting.length,
+            balanceRows: balances.length,
+            uniqueCnpjs: cnpjs.size,
+            balanceCoverageDates: months,
+            failures: failures.length,
+            duplicateLogicalBalances: duplicates.length,
+            inconsistentBalanceRows: inconsistent.length,
+            preservedRawArtifacts: x.preservedRawArtifacts,
+          };
+          console.log(JSON.stringify(summary, null, 2));
+          if (x.fiscalYear !== 2026) throw new Error('Backfill fora de 2026.');
+          if (x.selectedSchools !== 163) throw new Error(`Carteira incompleta: ${x.selectedSchools}/163.`);
+          if (duplicates.length) throw new Error(`Duplicidades lógicas: ${duplicates.length}.`);
+          if (inconsistent.length) throw new Error(`Linhas de saldo inconsistentes: ${inconsistent.length}.`);
+          NODE
+
+      - name: Preservar backfill integral
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-financial-backfill-163-2026
+          path: |
+            artifacts/public-financial-backfill-163-2026.json
+            artifacts/public-financial-backfill-163-raw
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Falhar somente após preservar o diagnóstico
+        if: always()
+        shell: bash
+        run: |
+          code='${{ steps.backfill.outputs.exit_code }}'
+          if [ -z "$code" ]; then
+            echo 'Execução não produziu código de saída.'
+            exit 1
+          fi
+          if [ "$code" != '0' ]; then
+            echo "Backfill encontrou falhas de fonte/coleta (código $code). Consulte o artefato preservado."
+            exit "$code"
+          fi
