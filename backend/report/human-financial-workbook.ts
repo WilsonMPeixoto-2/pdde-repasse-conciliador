@@ -260,7 +260,7 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
   subtitle(sheet, '“Pagamento informado” é o registro do PDDEInfo. A evidência de crédito é apresentada separadamente.', 10);
   header(sheet.addRow([
     'SME', 'Unidade escolar', 'Programa / ação', 'Parcela', 'Previsto',
-    'Pagamento informado', 'Data da ordem', 'Conta', 'Situação do crédito', 'Crédito localizado',
+    'Pagamento informado', 'Data do pagamento', 'Ordem FNDE', 'Conta', 'Situação do crédito',
   ]));
   for (const school of view.schools) {
     for (const program of school.programs) {
@@ -271,13 +271,14 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
         sheet.addRow([
           safeText(school.school.sme), safeText(school.school.name), safeText(program.name),
           safeText(installment.installment ?? 'Sem divisão'), reais(installment.programmedCents),
-          reais(installment.paymentInformedCents), brDate(installment.paymentOrderDate), safeText(account),
-          safeText(installment.creditEvidence.status), reais(installment.creditEvidence.amountCents),
+          reais(installment.paymentInformedCents), brDate(installment.paymentInformedDate),
+          brDate(installment.paymentOrderDate), safeText(account),
+          safeText(installment.creditEvidence.status),
         ]);
       }
     }
   }
-  moneyColumns(sheet, [5, 6, 10]);
+  moneyColumns(sheet, [5, 6]);
   formatData(sheet);
   for (let rowNumber = 4; rowNumber <= sheet.rowCount; rowNumber += 1) {
     const paidCell = sheet.getCell(rowNumber, 6);
@@ -288,8 +289,8 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
     }
   }
   sheet.columns = [
-    { width: 12 }, { width: 38 }, { width: 38 }, { width: 17 }, { width: 18 },
-    { width: 20 }, { width: 16 }, { width: 35 }, { width: 46 }, { width: 20 },
+    { width: 12 }, { width: 38 }, { width: 34 }, { width: 17 }, { width: 18 },
+    { width: 20 }, { width: 17 }, { width: 15 }, { width: 32 }, { width: 24 },
   ];
   sheet.autoFilter = { from: 'A3', to: 'J3' };
 }

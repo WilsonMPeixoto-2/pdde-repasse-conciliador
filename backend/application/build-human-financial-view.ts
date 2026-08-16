@@ -54,6 +54,7 @@ export interface HumanFinancialInstallment {
   installment: string | null;
   programmedCents: number;
   paymentInformedCents: number;
+  paymentInformedDate: string | null;
   paymentOrderDate: string | null;
   account: { bank: string; agency: string; number: string } | null;
   creditEvidence: {
@@ -141,17 +142,17 @@ function brDate(value: string): string {
 function creditStatusLabel(status: FiscalCreditPresentationStatus): string {
   switch (status) {
     case 'CREDITO_LOCALIZADO':
-      return 'Crédito compatível localizado no extrato SIGEF';
+      return 'Crédito localizado';
     case 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA':
-      return 'Pagamento informado no PDDEInfo; crédito ainda não localizado nesta consulta';
+      return 'Crédito não localizado';
     case 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO':
-      return 'Pagamento informado no PDDEInfo; conta não exibida na consulta atual';
+      return 'Conta não exibida';
     case 'MAIS_DE_UM_CREDITO_COMPATIVEL':
-      return 'Mais de um crédito compatível localizado; requer conferência';
+      return 'Requer conferência';
     case 'CONSULTA_DA_CONTA_INCONCLUSIVA':
-      return 'Consulta da conta inconclusiva';
+      return 'Consulta inconclusiva';
     case 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO':
-      return 'Pagamento ainda não informado no PDDEInfo';
+      return 'Pagamento não informado';
   }
 }
 
@@ -200,14 +201,91 @@ function accountNote(position: HumanFinancialPosition | null): string | null {
   return `Saldo informado pelo FNDE com posição até ${brDate(position.referenceDate)}.`;
 }
 
-function schoolPrograms(school: FiscalSchoolView): HumanFinancialProgram[] {
+function normalizedMatchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+}
+
+function installmentMarker(value: string | null): '1' | '2' | 'P1' | 'P2' | null {
+  const normalized = normalizedMatchText(value ?? '');
+  if (/\bP1\b/.test(normalized)) return 'P1';
+  if (/\bP2\b/.test(normalized)) return 'P2';
+  if (/\b1\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '1';
+  if (/\b2\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '2';
+  if (/\bPRIMEIRA PARCELA\b/.test(normalized)) return '1';
+  if (/\bSEGUNDA PARCELA\b/.test(normalized)) return '2';
+  return null;
+}
+
+function destinationInstallmentMarker(value: string): '1' | '2' | 'P1' | 'P2' | null {
+  const normalized = normalizedMatchText(value);
+  if (/\bP1\b/.test(normalized)) return 'P1';
+  if (/\bP2\b/.test(normalized)) return 'P2';
+  if (/\b1\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '1';
+  if (/\b2\b/.test(normalized) && /\bPARCELA\b/.test(normalized)) return '2';
+  if (/\bPRIMEIRA PARCELA\b/.test(normalized)) return '1';
+  if (/\bSEGUNDA PARCELA\b/.test(normalized)) return '2';
+  return null;
+}
+
+const ACTION_STOPWORDS = new Set([
+  'PDDE', 'BASICO', 'QUALIDADE', 'EQUIDADE', 'PARCELA',
+  'PRIMEIRA', 'SEGUNDA', '2026', 'DE', 'DA', 'DO', 'DAS', 'DOS', 'E',
+]);
+
+function meaningfulActionTokens(action: string): string[] {
+  return normalizedMatchText(action)
+    .split(' ')
+    .filter((token) => token.length >= 4 && !ACTION_STOPWORDS.has(token));
+}
+
+function publicOrderDateFor(input: {
+  schoolInep: string;
+  action: string;
+  installment: string | null;
+  programmedCents: number;
+  publicReports: PddeInfoPublicPortfolioResult;
+}): string | null {
+  const marker = installmentMarker(input.installment);
+  const actionTokens = meaningfulActionTokens(input.action);
+  const candidates = input.publicReports.attendance.filter((item) => {
+    if (item.schoolInep !== input.schoolInep) return false;
+    if (item.totalCents !== input.programmedCents) return false;
+    if (!item.paymentOrderDate) return false;
+    if (marker && destinationInstallmentMarker(item.destination) !== marker) return false;
+    const destination = normalizedMatchText(item.destination);
+    return actionTokens.every((token) => destination.includes(token));
+  });
+  const dates = [...new Set(
+    candidates
+      .map((item) => item.paymentOrderDate)
+      .filter((date): date is string => Boolean(date)),
+  )];
+  return dates.length === 1 ? dates[0] : null;
+}
+
+function schoolPrograms(
+  school: FiscalSchoolView,
+  publicReports: PddeInfoPublicPortfolioResult,
+): HumanFinancialProgram[] {
   return school.repasses.map((repasse) => ({
     name: repasse.action,
     installments: repasse.installments.map((installment) => ({
       installment: installment.installment,
       programmedCents: installment.amountProgrammedCents,
       paymentInformedCents: installment.amountPaidInformedCents,
-      paymentOrderDate: installment.pddeInfoDate,
+      paymentInformedDate: installment.pddeInfoDate,
+      paymentOrderDate: publicOrderDateFor({
+        schoolInep: school.school.inep,
+        action: repasse.action,
+        installment: installment.installment,
+        programmedCents: installment.amountProgrammedCents,
+        publicReports,
+      }),
       account: installment.account,
       creditEvidence: {
         status: creditStatusLabel(installment.bankCredit.presentationStatus),
@@ -395,7 +473,7 @@ export function buildHumanFinancialView(
     const accounts = schoolAccounts(school, options.publicReports);
     return {
       school: { ...school.school },
-      programs: schoolPrograms(school),
+      programs: schoolPrograms(school, options.publicReports),
       accounts,
       accounting: accountingFor(school.school.inep, options.publicReports),
       followUp: followUpFor(school, accounts, options.publicReports),
