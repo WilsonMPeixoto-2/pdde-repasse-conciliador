@@ -3,6 +3,10 @@ import type { PersistedEvidenceEvent } from '../core/evidence';
 import { evidenceIdentifierSchema } from '../core/evidence';
 import type { EvidenceEventStore } from './evidence-store';
 import type { CurrentFiscalPortfolio, CurrentFiscalSchoolSnapshot } from './current-fiscal-read-model';
+import type {
+  CurrentHumanFinancialPortfolio,
+  CurrentHumanFinancialSchoolSnapshot,
+} from './current-human-financial-read-model';
 import {
   projectEvidenceRun,
   type EvidenceRunProjection,
@@ -276,6 +280,17 @@ export class InstitutionalReadService {
     z.string().regex(/^\d{8}$/, 'INEP inválido').parse(inep);
     if (!this.schoolByInep.has(inep) || !this.repository?.getCurrentFiscalSchool) return null;
     return this.repository.getCurrentFiscalSchool(inep);
+  }
+
+  async getCurrentHumanPortfolio(): Promise<CurrentHumanFinancialPortfolio | null> {
+    if (!this.repository?.getCurrentHumanPortfolio) return null;
+    return this.repository.getCurrentHumanPortfolio();
+  }
+
+  async getCurrentHumanSchool(inep: string): Promise<CurrentHumanFinancialSchoolSnapshot | null> {
+    z.string().regex(/^\d{8}$/, 'INEP inválido').parse(inep);
+    if (!this.schoolByInep.has(inep) || !this.repository?.getCurrentHumanSchool) return null;
+    return this.repository.getCurrentHumanSchool(inep);
   }
 
   async listArtifacts(runId: string): Promise<ArtifactReadModel[]> {
