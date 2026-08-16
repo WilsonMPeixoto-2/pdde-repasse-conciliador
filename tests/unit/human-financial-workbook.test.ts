@@ -6,6 +6,11 @@ const view: HumanFinancialPortfolioView = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+  indicators: [{
+    label: '1ª parcela com pagamento informado',
+    count: 1,
+    units: [{ sme: '0410001', name: 'EM EMA NEGRAO DE LIMA', inep: '33069247' }],
+  }],
   schools: [{
     school: {
       inep: '33069247', sme: '0410001', name: 'EM EMA NEGRAO DE LIMA',
@@ -51,6 +56,7 @@ describe('Excel humano da inteligência financeira', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
       'Visão Geral',
+      'Acompanhamento',
       'Unidades',
       'Repasses',
       'Contas e Saldos',
@@ -60,6 +66,38 @@ describe('Excel humano da inteligência financeira', () => {
     for (const sheet of workbook.worksheets) {
       expect(sheet.columnCount).toBeLessThanOrEqual(10);
     }
+  });
+
+  it('faz indicadores apontarem para a lista nominal em vez de deixar números órfãos', () => {
+    const workbook = buildHumanFinancialWorkbook(view);
+    const overview = workbook.getWorksheet('Visão Geral');
+    const followUp = workbook.getWorksheet('Acompanhamento');
+    expect(overview).toBeDefined();
+    expect(followUp).toBeDefined();
+
+    const hyperlinks: string[] = [];
+    overview?.eachRow((row) => row.eachCell((cell) => {
+      const value = cell.value;
+      if (value && typeof value === 'object' && 'hyperlink' in value) {
+        hyperlinks.push(String(value.hyperlink));
+      }
+    }));
+    expect(hyperlinks.some((value) => value.includes('Acompanhamento'))).toBe(true);
+
+    const visibleFollowUp: string[] = [];
+    followUp?.eachRow((row) => row.eachCell((cell) => visibleFollowUp.push(String(cell.value ?? ''))));
+    expect(visibleFollowUp.join(' ')).toContain('EM EMA NEGRAO DE LIMA');
+    expect(visibleFollowUp.join(' ')).toContain('1ª parcela com pagamento informado');
+  });
+
+  it('diferencia visualmente pagamento informado do valor previsto', () => {
+    const workbook = buildHumanFinancialWorkbook(view);
+    const sheet = workbook.getWorksheet('Repasses');
+    expect(sheet).toBeDefined();
+    const paidCell = sheet?.getCell(4, 6);
+    const plannedCell = sheet?.getCell(4, 5);
+    expect(paidCell?.font?.color?.argb).toBeDefined();
+    expect(paidCell?.font?.color?.argb).not.toBe(plannedCell?.font?.color?.argb);
   });
 
   it('não expõe metadados ou vocabulário técnico do backend', () => {
