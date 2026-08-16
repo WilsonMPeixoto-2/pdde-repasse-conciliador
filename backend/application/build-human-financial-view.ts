@@ -186,7 +186,9 @@ function schoolAccounts(
   school: FiscalSchoolView,
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanFinancialAccount[] {
-  return school.statements.map((statement) => {
+  const accounts = new Map<string, HumanFinancialAccount>();
+
+  for (const statement of school.statements) {
     const latestPosition = positionFor(
       school.school.inep,
       statement.account.bank,
@@ -194,7 +196,11 @@ function schoolAccounts(
       statement.account.number,
       publicReports,
     );
-    return {
+    accounts.set(accountKey(
+      statement.account.bank,
+      statement.account.agency,
+      statement.account.number,
+    ), {
       program: statement.programLabel,
       bank: statement.account.bank,
       agency: statement.account.agency,
@@ -210,8 +216,40 @@ function schoolAccounts(
         counterparty: entry.counterparty,
       })),
       note: accountNote(latestPosition),
-    };
-  });
+    });
+  }
+
+  const publicBalances = publicReports.balances
+    .filter((balance) => balance.schoolIneps.includes(school.school.inep))
+    .sort((left, right) => right.coverageThrough.localeCompare(left.coverageThrough));
+
+  for (const balance of publicBalances) {
+    const key = accountKey(balance.bank, balance.agency, balance.account);
+    if (accounts.has(key)) continue;
+    const latestPosition = positionFor(
+      school.school.inep,
+      balance.bank,
+      balance.agency,
+      balance.account,
+      publicReports,
+    );
+    accounts.set(key, {
+      program: balance.programName,
+      bank: balance.bank,
+      agency: balance.agency,
+      account: balance.account,
+      latestPosition,
+      movements: [],
+      note: accountNote(latestPosition),
+    });
+  }
+
+  return [...accounts.values()].sort((left, right) => (
+    left.program.localeCompare(right.program, 'pt-BR')
+    || left.bank.localeCompare(right.bank)
+    || left.agency.localeCompare(right.agency)
+    || left.account.localeCompare(right.account)
+  ));
 }
 
 function accountingFor(
