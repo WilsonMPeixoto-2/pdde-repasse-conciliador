@@ -2,7 +2,21 @@ import { z } from 'zod';
 
 export const humanMoneySchema = z.number().int();
 export const humanNonNegativeMoneySchema = humanMoneySchema.nonnegative();
-export const humanIsoDateSchema = z.string().regex(/^2026-\d{2}-\d{2}$/);
+
+function isReal2026Date(value: string): boolean {
+  const match = /^2026-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const date = new Date(Date.UTC(2026, month - 1, day));
+  return date.getUTCFullYear() === 2026
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+export const humanIsoDateSchema = z.string().refine(isReal2026Date, {
+  message: 'Data humana deve ser uma data calendário válida de 2026.',
+});
 
 export const humanUnitSchema = z.object({
   sme: z.string().regex(/^\d{7}$/),
@@ -53,7 +67,7 @@ export const humanAccountRefSchema = z.object({
 export const humanCreditEvidenceSchema = z.object({
   status: z.string().min(1),
   date: humanIsoDateSchema.nullable(),
-  amountCents: humanMoneySchema.nullable(),
+  amountCents: humanNonNegativeMoneySchema.nullable(),
   document: z.string().nullable(),
 }).strict();
 
@@ -118,7 +132,7 @@ export const humanAccountingSchema = z.object({
   program: z.string().min(1),
   status: z.string(),
   paymentSuspended: z.boolean(),
-  expectedTotalCents: humanMoneySchema,
+  expectedTotalCents: humanNonNegativeMoneySchema,
 }).strict();
 
 export const humanSchoolContentSchema = z.object({
