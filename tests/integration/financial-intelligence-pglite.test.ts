@@ -24,7 +24,9 @@ beforeAll(async () => {
     '20260813050000_evidence_events.sql',
     '20260813064845_institutional_backend.sql',
     '20260814225500_monitoring_job_kind.sql',
+    '20260815033500_current_fiscal_read_model.sql',
     '20260816013000_financial_intelligence_2026.sql',
+    '20260816020000_current_human_financial_read_model.sql',
   ]) {
     const sql = await readFile(new URL(`../../supabase/migrations/${filename}`, import.meta.url), 'utf8');
     await database.exec(sql);
@@ -60,6 +62,67 @@ async function append(values = parameters) {
       $12::bigint, $13::bigint, $14::text, $15::timestamptz, $16::text
     )
   `, values);
+}
+
+function fiscalSnapshot(runId: string) {
+  const school = {
+    inep: '33069247', sme: '0410001', name: 'ESCOLA A', uex: 'CEC A', cnpj: '01872287000102',
+  };
+  const metrics = {
+    accounts: 0, movements: 0, programmedCents: 0,
+    paidInformedCents: 0, creditedCents: 0, reportedBalanceCents: 0,
+  };
+  return {
+    sourceStatus: 'COMPLETE',
+    portfolio: {
+      fiscalYear: 2026,
+      runId,
+      generatedAt: '2026-08-16T02:00:00Z',
+      sourceGeneratedAt: '2026-08-16T01:59:00Z',
+      sourceObservations: [],
+      coverage: {},
+      metrics: { schools: 1, ...metrics },
+      schools: [{ inep: school.inep, sme: school.sme, name: school.name, metrics }],
+    },
+    schools: [{
+      school,
+      metrics,
+      snapshot: { fiscalYear: 2026, runId, school, repasses: [], statements: [] },
+    }],
+  };
+}
+
+function humanSnapshot(runId: string, indicatorCount = 1) {
+  const school = {
+    inep: '33069247', sme: '0410001', name: 'ESCOLA A', uex: 'CEC A', cnpj: '01872287000102',
+  };
+  const unit = { inep: school.inep, sme: school.sme, name: school.name };
+  return {
+    portfolio: {
+      title: 'Inteligência Financeira PDDE | 4ª CRE',
+      fiscalYear: 2026,
+      runId,
+      referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+      schoolCount: 1,
+      sources: [{ name: 'PDDEInfo', information: 'Repasses informados e saldos.' }],
+      indicators: [{ label: '1ª parcela com pagamento informado', count: indicatorCount, units: [unit] }],
+      schools: [unit],
+    },
+    schools: [{
+      school,
+      snapshot: {
+        fiscalYear: 2026, runId, school,
+        programs: [], accounts: [], accounting: [], followUp: [],
+      },
+    }],
+  };
+}
+
+async function publishMonitoring(runId: string, humanCount = 1) {
+  return database.query(
+    `select public.publish_current_monitoring_snapshot($1::text, $2::jsonb, $3::jsonb)`,
+    [runId, JSON.stringify(fiscalSnapshot(runId)), JSON.stringify(humanSnapshot(runId, humanCount))],
+  );
 }
 
 describe('persistência financeira 2026', () => {
@@ -126,6 +189,47 @@ describe('persistência financeira 2026', () => {
     try {
       await expect(database.query('select * from public.financial_account_snapshots'))
         .rejects.toThrow(/permission denied/i);
+      await expect(database.query('select * from public.current_human_financial_schools'))
+        .rejects.toThrow(/permission denied/i);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
+  test('publica retratos fiscal e humano no mesmo run', async () => {
+    await database.exec('set role service_role');
+    try {
+      await publishMonitoring('monitoring-atomic-a');
+      const state = await database.query<{ fiscal_run: string; human_run: string; school_count: number }>(`
+        select f.run_id as fiscal_run, h.run_id as human_run, h.school_count
+        from public.current_fiscal_snapshots f
+        cross join public.current_human_financial_snapshots h
+        where f.fiscal_year = 2026 and h.fiscal_year = 2026
+      `);
+      expect(state.rows).toEqual([{
+        fiscal_run: 'monitoring-atomic-a',
+        human_run: 'monitoring-atomic-a',
+        school_count: 1,
+      }]);
+    } finally {
+      await database.exec('reset role');
+    }
+  });
+
+  test('falha humana desfaz também a atualização fiscal da mesma chamada', async () => {
+    await database.exec('set role service_role');
+    try {
+      await expect(publishMonitoring('monitoring-atomic-b', 2)).rejects.toThrow(/indicador humano inconsistente/i);
+      const state = await database.query<{ fiscal_run: string; human_run: string }>(`
+        select f.run_id as fiscal_run, h.run_id as human_run
+        from public.current_fiscal_snapshots f
+        cross join public.current_human_financial_snapshots h
+        where f.fiscal_year = 2026 and h.fiscal_year = 2026
+      `);
+      expect(state.rows).toEqual([{
+        fiscal_run: 'monitoring-atomic-a',
+        human_run: 'monitoring-atomic-a',
+      }]);
     } finally {
       await database.exec('reset role');
     }
