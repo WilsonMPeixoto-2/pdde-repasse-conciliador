@@ -1,0 +1,55 @@
+name: Technical Integrity Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/technical-integrity-audit.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/revisao-tecnica-integral-2026-08-16
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Preparar diretório
+        run: mkdir -p artifacts/technical-audit
+      - name: npm audit
+        run: npm audit --json > artifacts/technical-audit/npm-audit.json || true
+      - name: npm outdated
+        run: npm outdated --json > artifacts/technical-audit/npm-outdated.json || true
+      - name: árvore de dependências
+        run: npm ls --all --json > artifacts/technical-audit/npm-tree.json || true
+      - name: Knip
+        run: npx --yes knip@latest --reporter json > artifacts/technical-audit/knip.json 2> artifacts/technical-audit/knip.stderr || true
+      - name: Ciclos de importação
+        run: npx --yes madge@latest --circular --extensions ts,tsx backend src scripts > artifacts/technical-audit/cycles.txt 2>&1 || true
+      - name: Marcadores de dívida técnica
+        run: |
+          grep -RInE 'TODO|FIXME|HACK|@ts-ignore|@ts-expect-error|eslint-disable' backend src scripts tests supabase > artifacts/technical-audit/markers.txt || true
+      - name: Resumo de scripts e pacotes
+        run: |
+          node - <<'NODE' > artifacts/technical-audit/package-summary.json
+          const p=require('./package.json');
+          console.log(JSON.stringify({engines:p.engines,scripts:p.scripts,dependencies:p.dependencies,devDependencies:p.devDependencies},null,2));
+          NODE
+      - name: Preservar auditoria
+        uses: actions/upload-artifact@v4
+        with:
+          name: technical-integrity-audit
+          path: artifacts/technical-audit
+          retention-days: 7
+      - name: Remover workflow temporário
+        run: |
+          rm .github/workflows/technical-integrity-audit.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/technical-integrity-audit.yml
+          git commit -m 'chore: remove auditoria técnica temporária'
+          git push origin HEAD:audit/revisao-tecnica-integral-2026-08-16
