@@ -1,141 +1,267 @@
-# Plataforma PDDE — 4ª CRE
+# Inteligência Financeira PDDE | 4ª CRE
 
-Este repositório é a **fonte canônica de implementação** do projeto de coleta, validação, conciliação, monitoramento e rastreabilidade financeira do PDDE para as 163 unidades da 4ª CRE/SME-Rio.
+**Plataforma de Inteligência Financeira das Verbas do PDDE/2026**  
+**4ª Coordenadoria Regional de Educação · SME-Rio**
 
-O produto distingue o que cada fonte realmente comprova e evita transformar ausência, atraso, histórico ou indisponibilidade em conclusões financeiras indevidas.
+Este repositório é a fonte canônica de implementação do monitoramento financeiro do PDDE para as **163 unidades escolares da 4ª CRE**.
 
-## Estado atual
+O produto coleta, preserva, cruza e apresenta fatos de fontes independentes sem transformar ausência, atraso de cobertura, histórico ou indisponibilidade em conclusões inventadas.
 
-Marco atual: **v0.5.0**, com baseline técnico consolidado em **14/08/2026** e evolução posterior do monitoramento institucional.
+## Foco operacional
 
-A camada de dados já avançou além do antigo extrator de planilha. Estão implementados no repositório canônico:
+A plataforma trabalha, neste momento, **exclusivamente com o exercício de 2026**.
 
-- coleta autônoma do PDDEInfo das 163 escolas por INEP;
-- preservação de HTML bruto, JSON normalizado, URL, data/hora, SHA-256 e versão do parser;
-- retries, timeout, lotes conservadores e isolamento de falhas por escola;
-- consulta pública direta do extrato SIGEF a partir da identidade bancária já conhecida;
-- validação de CNPJ/programa/conta devolvidos pela fonte SIGEF;
-- tratamento de conta alfanumérica e dígito `X`;
-- preservação de histórico, documento e contraparte das movimentações;
-- filtro operacional pelo exercício de **2026**;
-- visão operacional de repasses e movimentações;
-- visão fiscal humana por escola, programa/ação, parcela, conta e extrato;
-- Excel Fiscal v3 em camadas;
-- trilha append-only de evidências;
-- backend institucional em código com API, fila, worker, idempotência e Storage privado;
-- job institucional `MONITORING` para PDDEInfo + SIGEF + visão operacional + visão fiscal;
-- migrations Postgres/Supabase versionadas e testadas, inclusive suporte a `MONITORING`;
-- motor determinístico de conciliação;
-- Assistente de Liberações incremental e idempotente;
-- testes unitários, integrações opcionais e validações live controladas.
+- **2026** é o exercício corrente da coleta, dos indicadores, do site e dos relatórios destinados ao usuário.
+- **2025** pode ser consultado apenas como contexto histórico excepcional, por exemplo para investigar reprogramação de saldo ou mudança de conta.
+- Dados anteriores não completam lacunas de 2026 e não entram silenciosamente em totais atuais.
 
-## O que ainda NÃO está implantado
-
-É obrigatório distinguir **código existente** de **plataforma publicada**.
-
-Em 14/08/2026:
-
-- **não existe projeto Supabase dedicado conectado a esta aplicação**;
-- as migrations institucionais ainda não foram aplicadas a um banco canônico;
-- **não existe frontend fiscal novo publicado**;
-- **não existe site desta plataforma publicado no Vercel**;
-- o backend institucional existe em código, mas ainda não opera como serviço implantado;
-- `MONITORING` existe em código e é validável por worker/API/CLI, mas ainda não persiste o estado corrente em um banco institucional implantado.
-
-O `index.html`, `src/main.ts` e o runtime AppDeploy presentes no repositório representam uma geração anterior do extrator e **não devem ser confundidos com o frontend fiscal que ainda será construído**.
-
-## Baseline real das 163 UEs — 14/08/2026
-
-A rodada integral validada produziu:
-
-- **163/163** escolas coletadas no PDDEInfo;
-- **0** falhas PDDEInfo;
-- **284/284** contas mapeadas com consulta SIGEF completa;
-- **0** consultas parciais ou falhas de conta;
-- **520** registros de repasse/parcela;
-- **394** movimentações SIGEF pertencentes a 2026;
-- **51.547** movimentos históricos recebidos das páginas brutas, preservados sem serem misturados à visão corrente;
-- **R$ 2.182.050,00** programados no PDDEInfo;
-- **R$ 827.615,00** com pagamento informado no PDDEInfo;
-- **R$ 409.010,00** em créditos compatíveis localizados no extrato SIGEF;
-- **137** registros selecionados para conferência, sem juízo automático de irregularidade.
-
-Detalhes e limites: [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md).
-
-## Regra temporal principal
-
-O produto operacional atual trabalha com o exercício de **2026**.
-
-Dados anteriores podem ser preservados como evidência bruta ou usados numa investigação histórica separada, mas não podem preencher lacunas nem compor a visão operacional corrente de 2026.
-
-Essa regra agora também é validada no contrato do job institucional `MONITORING`: pedidos para outro exercício são recusados.
+O contrato temporal é validado em código e no banco.
 
 ## Regra central de evidência
 
-O projeto separa fatos que não são equivalentes:
+O sistema mantém separados fatos que não são equivalentes:
 
-1. pagamento informado no PDDEInfo;
-2. ordem bancária/liberação registrada por fonte adequada;
-3. crédito compatível localizado no extrato SIGEF;
-4. eventual evidência bancária direta/autorizada;
-5. **achado derivado pelo nosso motor de conciliação**.
+1. valor programado;
+2. pagamento informado no PDDEInfo;
+3. data da ordem de pagamento informada pelo FNDE;
+4. liberação/ordem bancária em fonte adequada;
+5. crédito compatível localizado no extrato SIGEF;
+6. movimentação bancária;
+7. posição de saldo e aplicações na data de referência;
+8. situação de prestação de contas informada pela fonte;
+9. achados derivados pelo motor de conciliação.
 
-Uma fonte não sobrescreve silenciosamente outra. Cobertura insuficiente produz estado inconclusivo, não uma resposta inventada.
+**Pagamento informado não significa crédito bancário confirmado.**  
+**Saldo publicado para 30/06/2026 não significa saldo bancário de agosto.**  
+**Saldo aplicado não significa rendimento.**
 
-Na apresentação humana, evitar linguagem mais forte que a prova disponível. Por exemplo, preferir **“Crédito compatível localizado no extrato SIGEF”** a uma afirmação genérica de crédito “confirmado”.
+Uma fonte não sobrescreve silenciosamente outra. Ausência continua sendo ausência.
 
-## Monitoramento 2026
+## Estado atual da fundação de dados
 
-Fluxo implementado como serviço reutilizável e validado com fontes reais:
+A versão de código **v0.5.0** já contém:
+
+- coleta do PDDEInfo principal por INEP para a lista institucional das 163 UEs;
+- relatórios públicos complementares do FNDE para atendimento/repasses, prestação de contas e saldos;
+- descoberta automática do mês de saldo mais recente publicado pela fonte;
+- backfill dos meses disponíveis de 2026 para construir série histórica;
+- consulta do extrato público SIGEF para as contas elegíveis já identificadas;
+- preservação de HTML/JSON/evidências brutas com rastreabilidade técnica interna;
+- normalização monetária em centavos inteiros;
+- snapshots financeiros mensais por escola/CNPJ/programa/conta;
+- série histórica de saldos e aplicações;
+- Portal da Transparência preparado como fonte opcional mediante credencial oficial;
+- fallback de navegador assistido para fontes públicas quando o HTTP direto não basta;
+- fila, worker, API institucional, idempotência, Storage privado e trilha append-only;
+- read model fiscal técnico e read model financeiro humano separados;
+- publicação atômica dos dois read models no PostgreSQL;
+- Excel humano orientado ao trabalho fiscal;
+- Excel de auditoria técnica preservado separadamente;
+- testes unitários, propriedades, PGlite/Postgres e validações live controladas.
+
+## Baseline público comprovado nas 163 UEs
+
+Em **16/08/2026**, o backfill dos relatórios públicos complementares do FNDE foi executado para a carteira integral:
+
+| Medida | Resultado |
+|---|---:|
+| Unidades processadas | **163/163** |
+| CNPJs únicos localizados | **163** |
+| Registros de atendimento/repasse | **169** |
+| Registros de prestação de contas | **311** |
+| Posições mensais de saldo | **2.690** |
+| Séries conta/programa distintas | **461** |
+| Cobertura mensal | **jan–jun/2026** |
+| Falhas de coleta | **0** |
+| Duplicidades lógicas | **0** |
+| Inconsistências aritméticas | **0** |
+
+A posição pública mais recente dessa fonte, na data da coleta, era **30/06/2026**.
+
+Na fotografia de 30/06/2026 foram encontradas 444 posições conta/programa, somando:
+
+- saldo em conta: **R$ 278.017,30**;
+- saldo em fundos: **R$ 1.364.017,11**;
+- poupança: **R$ 0,00**;
+- RDB/CDB: **R$ 0,00**;
+- saldo total informado: **R$ 1.642.034,41**.
+
+Foram observadas pequenas posições negativas de conta corrente em duas UEs. Elas são preservadas como **fatos a conferir**, sem inferência automática de irregularidade.
+
+Detalhes, distribuições e limites semânticos: [`docs/BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](docs/BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md).
+
+O baseline anterior de PDDEInfo principal + SIGEF continua documentado em [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md).
+
+## Monitoramento institucional
+
+O fluxo institucional mantém o coletor PDDEInfo+SIGEF já validado e acrescenta a camada pública FNDE:
 
 ```text
-Lista-mestre 163 UEs
+Lista-mestre · 163 UEs
         │
         ▼
-MONITORING
+MONITORING · exercício 2026
         │
-        ├── PDDEInfo por INEP
+        ├── PDDEInfo principal
         │     ├── UEx / CNPJ
-        │     ├── contas atuais
+        │     ├── contas exibidas
         │     └── repasses / parcelas
         │
-        ├── SIGEF Extrato público direto
-        │     ├── créditos
-        │     ├── débitos
-        │     ├── aplicações / resgates
-        │     ├── documento / histórico
-        │     └── contraparte
+        ├── Relatórios públicos FNDE
+        │     ├── atendimento / ordem de pagamento
+        │     ├── prestação de contas
+        │     └── saldos / aplicações por data de referência
+        │
+        ├── SIGEF
+        │     └── movimentações e créditos compatíveis
         │
         ▼
-Visão operacional 2026
+Fatos financeiros normalizados
         │
-        ▼
-Visão fiscal humana
-        │
-        ├── monitoring.json
-        ├── operational.json
-        └── fiscal.json
+        ├── read model técnico / auditoria
+        └── read model humano / produto
 ```
 
-O serviço central é `backend/application/run-monitoring.ts`. O worker institucional despacha jobs `MONITORING`, a API possui `POST /api/executions/monitoring` e o antigo `scripts/monitor-live-2026.ts` agora é somente uma CLI sobre o mesmo motor.
+O runtime institucional usa `backend/application/run-financial-intelligence-monitoring.ts` e publica os read models técnico e humano **na mesma transação** quando uma execução completa cobre toda a carteira institucional.
 
-Detalhes: [`docs/MONITORING_INSTITUCIONAL.md`](docs/MONITORING_INSTITUCIONAL.md).
+Uma coleta parcial ou um subconjunto de escolas nunca substitui o retrato corrente oficial.
 
-## Excel Fiscal v3
+## Design da informação para pessoas, não para tabelas do banco
 
-O gerador `monitor:fiscal:xlsx` produz nove abas:
+A estrutura interna pode ser extensa. A experiência do gestor/fiscal não deve ser.
+
+### Metadados técnicos ficam fora da experiência comum
+
+Hash, SHA-256, parser, versão do parser, URL bruta, tentativas, payloads, IDs internos, número de páginas, logs e regras técnicas permanecem disponíveis para rastreabilidade e diagnóstico no backend, mas **não aparecem em telas, Excel ou PDF destinados ao usuário comum**.
+
+### Dados financeiros devem manter continuidade visual
+
+Uma sequência como:
+
+```text
+Programa → Banco → Agência → Conta → Previsto → Pagamento informado → Data → Crédito
+```
+
+não pode ser interrompida por parágrafos explicando histórico, método de coleta ou regra de associação.
+
+Explicações realmente necessárias ficam em ajuda contextual, detalhe sob demanda ou área administrativa.
+
+### Indicador quantitativo precisa levar ao detalhe
+
+Se o sistema mostra “47 unidades” ou “111 unidades”, o usuário precisa conseguir identificar imediatamente **quais são essas unidades**.
+
+O read model humano já implementa cada indicador como:
+
+```text
+rótulo + quantidade + lista nominal das unidades
+```
+
+No site, isso deve virar filtro/drill-down. No Excel, os números apontam para uma lista nominal na aba `Acompanhamento`.
+
+### Cor tem função semântica
+
+A apresentação diferencia visualmente `Previsto` de `Pagamento informado`. O Excel humano usa verde de forma consistente para a dimensão de pagamento informado, sem depender exclusivamente da cor para transmitir o estado.
+
+As decisões de produto que ainda exigem deliberação estão em [`docs/PRODUCT_DECISION_GATE_2026.md`](docs/PRODUCT_DECISION_GATE_2026.md).
+
+## Excel humano 2026
+
+A exportação padrão destinada ao trabalho fiscal é derivada do **read model humano**, não do JSON técnico.
+
+```bash
+npm run monitor:human:xlsx -- \
+  --input /caminho/human-financial.json \
+  --output /caminho/inteligencia-financeira-pdde-4cre-2026.xlsx
+```
+
+`monitor:fiscal:xlsx` aponta para o mesmo gerador humano por compatibilidade.
+
+O workbook possui sete recortes curtos:
 
 1. `Visão Geral`;
-2. `Unidades`;
-3. `Repasses por Escola`;
-4. `Extratos por Escola`;
-5. `Registros para Conferência`;
-6. `BASE - Repasses`;
-7. `BASE - Movimentos`;
-8. `BASE - Contas`;
-9. `Legenda e Fontes`.
+2. `Acompanhamento`;
+3. `Unidades`;
+4. `Repasses`;
+5. `Contas e Saldos`;
+6. `Movimentações`;
+7. `Prestação de Contas`.
 
-O Excel é um produto de análise complementar ao futuro site, não apenas uma exportação do frontend.
+Nenhuma dessas abas padrão replica uma “mega tabela” do backend.
+
+A antiga exportação detalhada foi preservada para auditoria técnica:
+
+```bash
+npm run monitor:audit:xlsx
+```
+
+## Coleta e backfill 2026
+
+Monitoramento corrente:
+
+```bash
+npm run monitor:live -- \
+  --year 2026 \
+  --workspace .tmp/monitor-live-2026 \
+  --output artifacts/monitor-live-2026.json
+```
+
+Backfill dos meses públicos disponíveis de 2026:
+
+```bash
+npm run monitor:backfill:2026 -- \
+  --ineps all \
+  --workspace .tmp/backfill-public-balances-2026 \
+  --output artifacts/backfill-public-balances-2026.json
+```
+
+O monitoramento rotineiro consulta apenas o mês de saldo mais recente publicado. O backfill existe para reconstrução inicial ou reparo da série histórica.
+
+## Transparência das fontes em linguagem humana
+
+A camada de apresentação descreve fontes pelo que elas acrescentam à análise:
+
+- **PDDEInfo:** repasses informados, contas vinculadas, saldos e situação da prestação de contas;
+- **SIGEF:** movimentações das contas e créditos compatíveis localizados no extrato;
+- **Portal da Transparência:** documentos e transferências federais, quando a credencial oficial estiver configurada.
+
+Termos de implementação como HTTP, API, parser, hash ou retry não pertencem à explicação comum destinada ao fiscal.
+
+## Postgres / Supabase
+
+As migrations em `supabase/migrations/` foram exercitadas em PostgreSQL embutido/PGlite e incluem:
+
+- fila e backend institucional;
+- trilha de evidência;
+- job `MONITORING`;
+- snapshots financeiros mensais de 2026;
+- read model fiscal corrente;
+- read model financeiro humano corrente;
+- publicação transacional dos dois retratos;
+- suporte a PDF no Storage privado;
+- contrato da fonte `PORTAL_TRANSPARENCIA`.
+
+**Ainda não foi criado/conectado um projeto Supabase dedicado a esta plataforma.** Bancos de outros sistemas não devem ser reutilizados por conveniência. A criação do recurso depende de uma decisão explícita de organização/plano/custo na plataforma Supabase.
+
+## Portal da Transparência
+
+O cliente para a API oficial está implementado com limitação de taxa, retry conservador, preservação do JSON bruto e consultas restritas ao exercício de 2026.
+
+A integração permanece desabilitada quando `PORTAL_TRANSPARENCIA_API_KEY` não está configurada.
+
+Nenhuma chave deve ser incluída em código, frontend, planilha ou documentação pública. A primeira consulta autenticada real será executada somente depois de a credencial oficial ser configurada como segredo de backend.
+
+## O que ainda NÃO está implantado
+
+É importante distinguir código validado de plataforma publicada:
+
+- não existe projeto Supabase dedicado conectado a este repositório;
+- as migrations ainda não foram aplicadas ao banco canônico desta plataforma;
+- o backend institucional ainda não opera como serviço implantado permanente;
+- não existe frontend fiscal novo publicado;
+- não existe site novo desta plataforma publicado no Vercel;
+- o Portal da Transparência ainda aguarda credencial oficial.
+
+O frontend legado presente no repositório não deve ser confundido com a experiência fiscal que será construída após o gate de decisões de produto.
 
 ## Verificação
 
@@ -144,87 +270,65 @@ npm ci
 npm run check
 ```
 
-`npm run check` executa testes, typecheck TypeScript e build. Integrações contra serviços externos ficam desativadas por padrão; workflows específicos realizam validações live controladas.
+`npm run check` executa testes, typecheck TypeScript e build.
 
-Alterações no motor de monitoramento também podem disparar validação real de 10 UEs e, no PR, a validação integral das 163 UEs.
+A suíte cobre, entre outros pontos:
 
-## Backend institucional em código
-
-A base institucional já contém:
-
-- `execution_jobs`;
-- fila com uma execução pendente/em andamento por vez;
+- centavos inteiros;
+- escopo exclusivo 2026;
+- deduplicação e isolamento de falha;
+- snapshots e série histórica;
+- migrations PostgreSQL;
 - idempotência;
-- worker;
-- API institucional;
-- jobs `PDDEINFO`, `MONITORING` e `RECONCILIATION`;
-- eventos append-only;
-- armazenamento privado de artefatos;
-- SHA-256;
-- projeções de execuções, achados, artefatos e histórico escolar;
-- migrations Supabase/Postgres.
-
-O próximo passo estrutural é implantar essa base em um **Supabase dedicado** e criar o read model financeiro corrente que alimentará a futura API fiscal e o frontend.
-
-## Postgres / Supabase
-
-As migrations em `supabase/migrations/` descrevem o modelo institucional e foram exercitadas por testes, mas **ainda não foram aplicadas a um projeto Supabase dedicado**. Bancos de outros sistemas não devem ser reutilizados por conveniência.
-
-A migration `20260814225500_monitoring_job_kind.sql` acrescenta `MONITORING` ao contrato de fila sem reescrever a migration histórica anterior.
-
-## Assistente de Liberações
-
-```bash
-npm run releases:assist -- \
-  --pdde-info /caminho/pddeinfo.json \
-  --workspace /caminho/coleta-liberacoes \
-  --year 2026
-```
-
-Detalhes: [`docs/ASSISTENTE_LIBERACOES.md`](docs/ASSISTENTE_LIBERACOES.md).
+- publicação atômica dos read models;
+- rollback quando a visão humana é inconsistente;
+- indicadores com quantidade igual à lista nominal;
+- bloqueio de metadados técnicos na projeção humana;
+- navegação interna e diferenciação semântica no Excel.
 
 ## Estrutura principal
 
-- `backend/core/` — modelos, normalização, evidência e regras determinísticas;
-- `backend/adapters/` — fontes e persistência;
-- `backend/application/` — coleta, monitoramento, conciliação, jobs e projeções;
-- `backend/report/` — relatórios e validações;
+- `backend/core/` — contratos financeiros, evidência, tempo e regras determinísticas;
+- `backend/adapters/` — fontes externas e persistência;
+- `backend/application/` — coleta, monitoramento, conciliação e read models;
+- `backend/report/` — Excel/PDF e projeções de apresentação;
 - `backend/api/` — API institucional;
-- `backend/runtime/` — composição/execução do backend institucional;
-- `scripts/` — CLIs, exportações e pontos de validação que reutilizam os serviços da aplicação;
+- `backend/runtime/` — composição do serviço/worker;
+- `scripts/` — CLIs e exportações;
 - `supabase/migrations/` — schema institucional versionado;
-- `tests/` — regras, regressões e integrações.
+- `tests/` — regras, regressões, propriedades e integrações.
 
-## Documentação essencial para retomada
+## Documentação essencial
 
-Leia nesta ordem:
+1. [`docs/BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](docs/BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md)
+2. [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md)
+3. [`docs/PRODUCT_DECISION_GATE_2026.md`](docs/PRODUCT_DECISION_GATE_2026.md)
+4. [`docs/MONITORING_INSTITUCIONAL.md`](docs/MONITORING_INSTITUCIONAL.md)
+5. [`docs/CONHECIMENTO_ACUMULADO.md`](docs/CONHECIMENTO_ACUMULADO.md)
+6. [`docs/REFERENCIAS_NORMATIVAS.md`](docs/REFERENCIAS_NORMATIVAS.md)
+7. [`docs/PROJETO.md`](docs/PROJETO.md)
+8. [`docs/DECISOES.md`](docs/DECISOES.md)
+9. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
+10. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-1. [`docs/BASELINE_TECNICO_2026-08-14.md`](docs/BASELINE_TECNICO_2026-08-14.md)
-2. [`docs/CONHECIMENTO_ACUMULADO.md`](docs/CONHECIMENTO_ACUMULADO.md)
-3. [`docs/MONITORING_INSTITUCIONAL.md`](docs/MONITORING_INSTITUCIONAL.md), para o estado pós-baseline do monitoramento
-4. [`docs/REFERENCIAS_NORMATIVAS.md`](docs/REFERENCIAS_NORMATIVAS.md), quando a tarefa envolver interpretação de pagamentos, aplicações, despesas ou conformidade
-5. [`docs/PROJETO.md`](docs/PROJETO.md)
-6. [`docs/DECISOES.md`](docs/DECISOES.md)
-7. [`docs/FONTES_E_REGRAS.md`](docs/FONTES_E_REGRAS.md)
-8. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-9. [`docs/VISAO_FISCAL.md`](docs/VISAO_FISCAL.md)
+A documentação é memória institucional, não substituto da fonte de verdade. Antes de alterar código, sempre confira a `main`, os PRs abertos e os commits posteriores ao último baseline.
 
-A documentação é memória institucional, não gate burocrático. Um novo chat deve sempre conferir a `main` e os commits posteriores ao baseline antes de alterar código. Referências normativas são datadas e devem ser revalidadas antes de virarem lógica automatizada.
+## Próximos gates reais
 
-## Próxima sequência técnica aprovada
+A fundação de dados 2026 já foi comprovada na carteira completa. As próximas dependências externas são:
 
-1. **concluído:** consolidar documentação e baseline;
-2. **concluído em código:** promover o fluxo atual a job institucional `MONITORING`;
-3. **próximo:** criar/conectar Supabase dedicado e read model financeiro corrente;
-4. expor API orientada ao trabalho fiscal;
-5. construir e publicar o frontend novo;
-6. ampliar fontes e fechar lacunas, especialmente posição de aplicações/rendimentos, e então limpar o legado.
+1. escolher/criar o **Supabase dedicado** e aplicar as migrations;
+2. configurar a credencial oficial do **Portal da Transparência** como segredo;
+3. revisar o gate de decisões de produto antes do frontend final;
+4. construir a API orientada ao read model humano;
+5. projetar e implementar o frontend fiscal;
+6. definir o formato final do PDF executivo.
 
 ## Governança dos repositórios
 
-Este é o **único repositório de implementação do fluxo ChatGPT/OpenAI**.
+Este é o repositório canônico do fluxo ChatGPT/OpenAI.
 
 - `WilsonMPeixoto-2/extrator-pdde-4cre` — referência histórica/técnica;
 - `WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS` — projeto paralelo exclusivo do Manus, **somente leitura** para este fluxo.
 
-Código, UX, testes e ideias úteis dessas referências podem ser incorporados aqui seletivamente. Nenhum desenvolvimento novo deste fluxo deve ser distribuído entre múltiplos repositórios.
+Código, UX, testes e ideias úteis das referências podem ser incorporados seletivamente aqui. Nenhum desenvolvimento novo deste fluxo deve ser distribuído entre repositórios paralelos.
