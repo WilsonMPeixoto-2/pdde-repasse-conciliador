@@ -5,6 +5,16 @@ const human = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+  metrics: {
+    schoolCount: 2,
+    accountsTotal: 0,
+    accountsWithPosition: 0,
+    programmedCents: 0,
+    paymentInformedCents: 0,
+    creditLocatedCents: 0,
+    reportedBalanceCents: 0,
+    applicationsCents: 0,
+  },
   sources: [
     { name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.' },
     { name: 'SIGEF', information: 'Movimentações das contas e créditos compatíveis localizados no extrato.' },
@@ -38,6 +48,7 @@ describe('prepareCurrentHumanFinancialSnapshot', () => {
       fiscalYear: 2026,
       runId: 'monitoring-full-2026',
       schoolCount: 2,
+      metrics: human.metrics,
       indicators: human.indicators,
     }));
     expect(prepared.schools).toHaveLength(2);
@@ -59,6 +70,13 @@ describe('prepareCurrentHumanFinancialSnapshot', () => {
       runId: 'monitoring-full-2026', expectedSchoolCount: 2,
       human: { ...human, indicators: [{ ...human.indicators[0], count: 2 }] },
     })).toThrow(/indicador/i);
+  });
+
+  it('rejeita métricas com cobertura escolar divergente', () => {
+    expect(() => prepareCurrentHumanFinancialSnapshot({
+      runId: 'monitoring-full-2026', expectedSchoolCount: 2,
+      human: { ...human, metrics: { ...human.metrics, schoolCount: 1 } },
+    })).toThrow(/Métricas humanas inconsistentes/i);
   });
 
   it('rejeita unidade de indicador que não pertence ao portfólio', () => {
