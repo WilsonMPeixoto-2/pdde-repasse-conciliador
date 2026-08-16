@@ -27,6 +27,7 @@ beforeAll(async () => {
     '20260815033500_current_fiscal_read_model.sql',
     '20260816013000_financial_intelligence_2026.sql',
     '20260816020000_current_human_financial_read_model.sql',
+    '20260816073000_current_human_portfolio_metrics.sql',
   ]) {
     const sql = await readFile(new URL(`../../supabase/migrations/${filename}`, import.meta.url), 'utf8');
     await database.exec(sql);
@@ -104,6 +105,11 @@ function humanSnapshot(runId: string, indicatorCount = 1) {
       runId,
       referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
       schoolCount: 1,
+      metrics: {
+        schoolCount: 1, accountsTotal: 0, accountsWithPosition: 0,
+        programmedCents: 0, paymentInformedCents: 0, creditLocatedCents: 0,
+        reportedBalanceCents: 0, applicationsCents: 0,
+      },
       sources: [{ name: 'PDDEInfo', information: 'Repasses informados e saldos.' }],
       indicators: [{ label: '1ª parcela com pagamento informado', count: indicatorCount, units: [unit] }],
       schools: [unit],
@@ -211,6 +217,10 @@ describe('persistência financeira 2026', () => {
         human_run: 'monitoring-atomic-a',
         school_count: 1,
       }]);
+      const humanMetrics = await database.query<{ metrics: Record<string, unknown> }>(
+        `select metrics from public.current_human_financial_snapshots where fiscal_year = 2026`,
+      );
+      expect(humanMetrics.rows[0].metrics).toMatchObject({ schoolCount: 1, accountsTotal: 0 });
     } finally {
       await database.exec('reset role');
     }

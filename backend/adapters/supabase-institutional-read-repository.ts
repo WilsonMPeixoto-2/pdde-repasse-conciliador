@@ -18,9 +18,10 @@ import {
 import { isoTimestampSchema } from '../core/time';
 import { sourceObservationSchema } from '../core/source-observation';
 import type { CurrentFiscalPortfolio, CurrentFiscalSchoolSnapshot, CurrentFiscalSchoolSummary } from '../application/current-fiscal-read-model';
-import type {
-  CurrentHumanFinancialPortfolio,
-  CurrentHumanFinancialSchoolSnapshot,
+import {
+  humanPortfolioMetricsSchema,
+  type CurrentHumanFinancialPortfolio,
+  type CurrentHumanFinancialSchoolSnapshot,
 } from '../application/current-human-financial-read-model';
 import { mapSupabaseEvidenceEvent } from './supabase-evidence-store';
 
@@ -43,7 +44,7 @@ const CURRENT_FISCAL_SNAPSHOT_COLUMNS = [
 const CURRENT_FISCAL_SCHOOL_COLUMNS = ['school_inep', 'sme', 'school_name', 'metrics'].join(',');
 const CURRENT_HUMAN_SNAPSHOT_COLUMNS = [
   'fiscal_year', 'run_id', 'title', 'reference_label', 'school_count',
-  'sources', 'indicators',
+  'metrics', 'sources', 'indicators',
 ].join(',');
 const CURRENT_HUMAN_SCHOOL_COLUMNS = ['school_inep', 'sme', 'school_name'].join(',');
 const RUN_ID_BATCH_SIZE = 40;
@@ -342,6 +343,9 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
     if (!Array.isArray(snapshotResult.data)) throw new Error('Read model humano corrente retornou formato inválido.');
     if (snapshotResult.data.length === 0) return null;
     const snapshot = record(snapshotResult.data[0]);
+    // Durante rollout de uma migration, um retrato legado sem métricas não deve
+    // virar zeros artificiais no produto. Ele é tratado como ainda não pronto.
+    if (snapshot.metrics === null || snapshot.metrics === undefined) return null;
 
     const schoolResult = await this.client.from('current_human_financial_schools')
       .select(CURRENT_HUMAN_SCHOOL_COLUMNS)
@@ -368,6 +372,7 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
       runId: evidenceIdentifierSchema.parse(snapshot.run_id),
       referenceLabel: z.string().min(1).parse(snapshot.reference_label),
       schoolCount,
+      metrics: humanPortfolioMetricsSchema.parse(snapshot.metrics),
       sources: z.array(humanSourceSchema).min(1).parse(snapshot.sources),
       indicators: z.array(humanIndicatorSchema).parse(snapshot.indicators),
       schools,
