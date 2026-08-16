@@ -77,6 +77,7 @@ describe('Excel humano da inteligência financeira', () => {
       expect(visible).not.toContain(forbidden);
     }
     expect(visible).toContain('2026');
-    expect(visible).toContain('saldo informado');
+    expect(visible).toContain('saldo total informado');
+    expect(visible).toContain('posição');
   });
 });
