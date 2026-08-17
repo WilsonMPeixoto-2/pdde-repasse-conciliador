@@ -1,0 +1,445 @@
+/* Carteira analítica: alta densidade sem transformar cada escola em um cartão independente. */
+.portfolio-schools-controls {
+  margin-top: var(--space-8);
+}
+
+.portfolio-schools-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--ink-100);
+}
+
+.portfolio-schools-filters {
+  display: flex;
+  min-width: 0;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.portfolio-schools-filter {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-600);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.portfolio-schools-filter:hover {
+  background: var(--canvas);
+  color: var(--ink-900);
+}
+
+.portfolio-schools-filter[data-active='true'] {
+  border-color: var(--ink-200);
+  background: var(--paper);
+  color: var(--ink-950);
+  box-shadow: var(--shadow-sm);
+}
+
+.portfolio-schools-filter strong {
+  min-width: 1.55rem;
+  padding: 0.12rem 0.34rem;
+  border-radius: 999px;
+  background: var(--ink-100);
+  color: var(--ink-700);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.portfolio-schools-sort {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.portfolio-schools-sort > span {
+  color: var(--ink-500);
+  font-size: 0.66rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.portfolio-schools-sort select {
+  min-height: 38px;
+  padding: 0.42rem 2rem 0.42rem 0.65rem;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-800);
+  font: inherit;
+  font-size: 0.76rem;
+}
+
+.portfolio-schools-results {
+  margin-top: var(--space-10);
+}
+
+.portfolio-schools-results__heading p {
+  max-width: 31rem;
+}
+
+.portfolio-school-list {
+  min-width: 0;
+  border-top: 1px solid var(--ink-200);
+}
+
+.portfolio-school-list__head,
+.portfolio-school {
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 1.2fr)
+    minmax(235px, 1.35fr)
+    minmax(125px, 0.65fr)
+    minmax(155px, 0.78fr)
+    minmax(150px, 0.8fr)
+    22px;
+  gap: clamp(0.7rem, 1.5vw, 1.35rem);
+  align-items: center;
+}
+
+.portfolio-school-list__head {
+  min-height: 42px;
+  padding: 0 0.85rem;
+  color: var(--ink-500);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--ink-100);
+}
+
+.portfolio-school-list__head span:last-child {
+  visibility: hidden;
+}
+
+.portfolio-school {
+  min-width: 0;
+  min-height: 112px;
+  position: relative;
+  padding: 1rem 0.85rem;
+  border-bottom: 1px solid var(--ink-100);
+  color: inherit;
+  text-decoration: none;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.portfolio-school::before {
+  content: '';
+  width: 2px;
+  position: absolute;
+  inset: 16px auto 16px 0;
+  background: transparent;
+}
+
+.portfolio-school:hover,
+.portfolio-school:focus-visible {
+  background: var(--canvas);
+}
+
+.portfolio-school:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.portfolio-school[data-status='suspended']::before { background: var(--danger-700); }
+.portfolio-school[data-status='attention']::before { background: var(--attention-700); }
+.portfolio-school[data-status='partial']::before,
+.portfolio-school[data-status='no_accounts']::before { background: var(--credit-600); }
+.portfolio-school[data-status='ready']::before { background: var(--confirmed-700); }
+
+.portfolio-school__identity,
+.portfolio-school__balance,
+.portfolio-school__coverage,
+.portfolio-school__status {
+  min-width: 0;
+}
+
+.portfolio-school__identity {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.portfolio-school__sme {
+  color: var(--ink-500);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+}
+
+.portfolio-school__identity strong {
+  overflow: hidden;
+  color: var(--ink-900);
+  font-size: 0.86rem;
+  line-height: 1.28;
+  text-overflow: ellipsis;
+}
+
+.portfolio-school__identity > span:last-child,
+.portfolio-school__balance > span:last-child {
+  color: var(--ink-500);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.portfolio-school__stages {
+  min-width: 0;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.portfolio-school__stage {
+  display: grid;
+  grid-template-columns: 54px minmax(44px, 1fr) 82px;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.portfolio-school__stage-label {
+  color: var(--ink-500);
+  font-size: 0.62rem;
+}
+
+.portfolio-school__bar,
+.portfolio-school__coverage-track {
+  height: 4px;
+  display: block;
+  overflow: hidden;
+  background: var(--ink-100);
+}
+
+.portfolio-school__fill,
+.portfolio-school__coverage-track > span {
+  height: 100%;
+  display: block;
+  min-width: 0;
+}
+
+.portfolio-school__fill--programmed { background: var(--ink-500); }
+.portfolio-school__fill--paid { background: var(--paid-600); }
+.portfolio-school__fill--credit { background: var(--credit-600); }
+
+.portfolio-school__stage strong {
+  color: var(--ink-800);
+  font-size: 0.7rem;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.portfolio-school__balance {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.portfolio-school__balance strong {
+  color: var(--ink-900);
+  font-size: 0.9rem;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.portfolio-school__mobile-label {
+  display: none;
+}
+
+.portfolio-school__coverage {
+  display: grid;
+  gap: 0.46rem;
+}
+
+.portfolio-school__coverage-line {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.portfolio-school__coverage-line strong {
+  color: var(--ink-800);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.portfolio-school__coverage-line span {
+  color: var(--ink-500);
+  font-size: 0.64rem;
+}
+
+.portfolio-school__coverage-track > span {
+  background: var(--ink-700);
+}
+
+.portfolio-school__status {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.portfolio-school__status-label {
+  width: fit-content;
+  padding-bottom: 0.16rem;
+  border-bottom: 1px solid var(--ink-300);
+  color: var(--ink-800);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.portfolio-school[data-status='suspended'] .portfolio-school__status-label {
+  border-color: var(--danger-700);
+  color: var(--danger-800);
+}
+
+.portfolio-school[data-status='attention'] .portfolio-school__status-label {
+  border-color: var(--attention-700);
+  color: var(--attention-800);
+}
+
+.portfolio-school[data-status='partial'] .portfolio-school__status-label,
+.portfolio-school[data-status='no_accounts'] .portfolio-school__status-label {
+  border-color: var(--credit-600);
+  color: var(--credit-700);
+}
+
+.portfolio-school[data-status='ready'] .portfolio-school__status-label {
+  border-color: var(--confirmed-700);
+  color: var(--confirmed-800);
+}
+
+.portfolio-school__status small {
+  color: var(--ink-500);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.portfolio-school__arrow {
+  color: var(--ink-400);
+  font-size: 1rem;
+  transition: transform 150ms ease, color 150ms ease;
+}
+
+.portfolio-school:hover .portfolio-school__arrow,
+.portfolio-school:focus-visible .portfolio-school__arrow {
+  color: var(--ink-800);
+  transform: translateX(2px);
+}
+
+@media (max-width: 1050px) {
+  .portfolio-school-list__head { display: none; }
+  .portfolio-school {
+    grid-template-columns: minmax(0, 1.25fr) minmax(230px, 1fr) minmax(145px, 0.65fr) 22px;
+    grid-template-areas:
+      'identity stages status arrow'
+      'identity coverage balance arrow';
+    align-items: start;
+    min-height: 138px;
+  }
+  .portfolio-school__identity { grid-area: identity; }
+  .portfolio-school__stages { grid-area: stages; }
+  .portfolio-school__balance { grid-area: balance; align-self: end; }
+  .portfolio-school__coverage { grid-area: coverage; align-self: end; }
+  .portfolio-school__status { grid-area: status; }
+  .portfolio-school__arrow { grid-area: arrow; align-self: center; }
+}
+
+@media (max-width: 760px) {
+  .portfolio-schools-toolbar {
+    display: block;
+  }
+  .portfolio-schools-filters {
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.45rem;
+    scrollbar-width: thin;
+  }
+  .portfolio-schools-filter { flex: 0 0 auto; }
+  .portfolio-schools-sort {
+    width: 100%;
+    margin-top: var(--space-4);
+  }
+  .portfolio-schools-sort select { width: 100%; }
+  .portfolio-school {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'identity status'
+      'stages stages'
+      'coverage balance'
+      'arrow arrow';
+    gap: 1rem;
+    padding: 1.15rem 0.85rem 1rem;
+  }
+  .portfolio-school__identity strong {
+    font-size: 0.94rem;
+    white-space: normal;
+  }
+  .portfolio-school__status {
+    max-width: 8.6rem;
+    justify-items: end;
+    text-align: right;
+  }
+  .portfolio-school__status small { display: none; }
+  .portfolio-school__stages {
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--ink-100);
+    border-bottom: 1px solid var(--ink-100);
+  }
+  .portfolio-school__stage {
+    grid-template-columns: 54px minmax(32px, 1fr) 86px;
+  }
+  .portfolio-school__coverage {
+    align-self: start;
+  }
+  .portfolio-school__balance {
+    align-self: start;
+    text-align: right;
+  }
+  .portfolio-school__mobile-label {
+    display: block;
+    color: var(--ink-500);
+    font-size: 0.62rem;
+  }
+  .portfolio-school__balance > span:last-child { display: none; }
+  .portfolio-school__arrow {
+    justify-self: end;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .portfolio-school {
+    grid-template-areas:
+      'identity identity'
+      'status status'
+      'stages stages'
+      'coverage balance'
+      'arrow arrow';
+  }
+  .portfolio-school__status {
+    max-width: none;
+    justify-items: start;
+    text-align: left;
+  }
+  .portfolio-school__status small { display: block; }
+  .portfolio-school__stage {
+    grid-template-columns: 50px minmax(28px, 1fr) 80px;
+    gap: 0.4rem;
+  }
+  .portfolio-school__stage strong { font-size: 0.66rem; }
+  .portfolio-school__coverage-line strong { font-size: 0.68rem; }
+}
