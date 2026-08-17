@@ -109,6 +109,23 @@ describe('geometria da série financeira', () => {
     expect(result.yTicks.every((tick) => Number.isFinite(tick.valueCents) && Number.isFinite(tick.y))).toBe(true);
   });
 
+  test('ancora em zero a escala de uma série inteiramente não negativa', async () => {
+    const geometry = await loadGeometry();
+    expect(geometry.buildFinancialSeriesGeometry).toBeTypeOf('function');
+    if (!geometry.buildFinancialSeriesGeometry) return;
+
+    const result = geometry.buildFinancialSeriesGeometry([
+      month(1, 111),
+      month(2, null),
+      month(3, 102_400),
+      month(6, 415_143),
+    ]);
+
+    expect(result.yTicks.length).toBeGreaterThan(0);
+    expect(result.yTicks.every((tick) => tick.valueCents >= 0)).toBe(true);
+    expect(result.yTicks.some((tick) => tick.valueCents === 0)).toBe(true);
+  });
+
   test('não fabrica percentual quando a primeira posição observada é zero', async () => {
     const geometry = await loadGeometry();
     expect(geometry.buildFinancialSeriesGeometry).toBeTypeOf('function');
