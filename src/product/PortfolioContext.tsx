@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  isTerminalTemporarySessionError,
   loadHumanPortfolio,
   loadHumanSchool,
   loadTemporaryPortfolio,
@@ -20,6 +21,7 @@ import {
 import type { HumanPortfolio, HumanSchool } from './types';
 
 const SESSION_STORAGE_KEY = 'pdde-financial-temporary-session-v1';
+const SESSION_POLL_DELAYS_MS = [2500, 5000, 8000] as const;
 
 type SessionPhase = 'QUEUED' | 'RUNNING' | 'FINALIZING';
 type SessionTerminalStatus = 'COMPLETE' | 'PARTIAL';
@@ -81,6 +83,11 @@ export function PortfolioProvider(props: { children: ReactNode }) {
   const [state, setState] = useState<PortfolioState>({ status: 'loading', data: null, error: null });
   const credentialsRef = useRef<SessionCredentials | null>(null);
 
+  const discardTemporaryCredentials = useCallback(() => {
+    credentialsRef.current = null;
+    storeSession(null);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     const stored = readStoredSession();
@@ -112,18 +119,26 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     if (!runningSessionId) return undefined;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let consecutiveFailures = 0;
     const credentials = credentialsRef.current;
     if (!credentials || credentials.sessionId !== runningSessionId) {
+      discardTemporaryCredentials();
       setState({ status: 'error', data: null, error: 'A consulta temporária perdeu as credenciais desta sessão.' });
       return undefined;
     }
+
+    const schedule = (delay: number) => {
+      timer = setTimeout(poll, delay);
+    };
 
     const poll = async () => {
       try {
         const status = await loadTemporarySessionStatus(credentials.accessKey, credentials.sessionId);
         if (cancelled) return;
+        consecutiveFailures = 0;
         if (status.state === 'FAILED') {
-          setState({ status: 'error', data: null, error: 'A consulta temporária não pôde ser concluída.' });
+          discardTemporaryCredentials();
+          setState({ status: 'error', data: null, error: 'A consulta temporária não pôde ser concluída. Inicie uma nova consulta.' });
           return;
         }
         if ((status.state === 'COMPLETE' || status.state === 'PARTIAL') && status.ready) {
@@ -145,9 +160,23 @@ export function PortfolioProvider(props: { children: ReactNode }) {
             ? 'RUNNING'
             : 'QUEUED';
         setState({ status: 'running', data: null, error: null, phase, sessionId: credentials.sessionId });
-        timer = setTimeout(poll, 1000);
+        schedule(SESSION_POLL_DELAYS_MS[0]);
       } catch (error) {
         if (cancelled) return;
+        if (isTerminalTemporarySessionError(error)) {
+          discardTemporaryCredentials();
+          setState({
+            status: 'error',
+            data: null,
+            error: error instanceof Error ? error.message : 'A consulta temporária expirou.',
+          });
+          return;
+        }
+        consecutiveFailures += 1;
+        if (consecutiveFailures <= SESSION_POLL_DELAYS_MS.length) {
+          schedule(SESSION_POLL_DELAYS_MS[consecutiveFailures - 1]);
+          return;
+        }
         setState({
           status: 'error',
           data: null,
@@ -161,7 +190,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [runningSessionId]);
+  }, [runningSessionId, discardTemporaryCredentials]);
 
   const startTemporary = useCallback(async (accessKey: string, ineps: 'all' | string[]) => {
     const started = await startTemporarySession(accessKey, ineps);
@@ -204,10 +233,9 @@ export function PortfolioProvider(props: { children: ReactNode }) {
   }, [state]);
 
   const resetTemporary = useCallback(() => {
-    credentialsRef.current = null;
-    storeSession(null);
+    discardTemporaryCredentials();
     setState({ status: 'idle', data: null, error: null });
-  }, []);
+  }, [discardTemporaryCredentials]);
 
   const value = useMemo<PortfolioContextValue>(() => ({
     ...state,
