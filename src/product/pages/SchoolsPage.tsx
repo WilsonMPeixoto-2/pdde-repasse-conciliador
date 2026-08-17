@@ -72,7 +72,7 @@ export function SchoolsPage() {
         <SchoolSearch value={query} onChange={setQuery} visibleCount={filtered.length} totalCount={schools.length} />
 
         <div className="portfolio-schools-toolbar">
-          <div className="portfolio-schools-filters" aria-label="Filtros da carteira">
+          <div className="portfolio-schools-filters" aria-label="Filtros da carteira" style={{ flexWrap: 'wrap', overflowX: 'visible' }}>
             {filters.map((item) => (
               <button
                 className="portfolio-schools-filter"
