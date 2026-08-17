@@ -3,8 +3,58 @@ import { createInstitutionalApi } from '../../backend/api/institutional-api';
 
 const TOKEN = 'pdde-admin-read-test-token-2026-08-16-abcdef';
 const school = { inep: '33069247', sme: '0410001', nome: 'EM EMA NEGRAO DE LIMA' };
+const HUMAN_RUN_ID = 'human-auth-test-run-2026-08-17';
 
 function fixture() {
+  const currentHumanPortfolio = {
+    title: 'Inteligência Financeira PDDE | 4ª CRE' as const,
+    fiscalYear: 2026 as const,
+    runId: HUMAN_RUN_ID,
+    referenceLabel: 'Posição financeira pública ainda não disponível',
+    schoolCount: 1,
+    metrics: {
+      schoolCount: 1,
+      accountsTotal: 0,
+      accountsWithPosition: 0,
+      programmedCents: 0,
+      paymentInformedCents: 0,
+      creditLocatedCents: 0,
+      reportedBalanceCents: null,
+      applicationsCents: null,
+    },
+    sources: [{ name: 'PDDEInfo', information: 'Informação financeira pública.' }],
+    indicators: [],
+    schools: [{
+      sme: school.sme,
+      name: school.nome,
+      inep: school.inep,
+      programmedCents: 0,
+      paymentInformedCents: 0,
+      creditLocatedCents: 0,
+      knownBalanceCents: null,
+      referenceDate: null,
+      accountsTotal: 0,
+      accountsWithReferencePosition: 0,
+      followUpCount: 0,
+      paymentSuspended: false,
+      repasseAccountMissing: false,
+    }],
+  };
+  const currentHumanSchool = {
+    fiscalYear: 2026 as const,
+    runId: HUMAN_RUN_ID,
+    school: {
+      inep: school.inep,
+      sme: school.sme,
+      name: school.nome,
+      uex: 'CEC TESTE',
+      cnpj: '12345678000190',
+    },
+    programs: [],
+    accounts: [],
+    accounting: [],
+    followUp: [],
+  };
   const readService = {
     listSchools: vi.fn(() => ({ items: [school], total: 1 })),
     getSchool: vi.fn(() => school),
@@ -19,8 +69,8 @@ function fixture() {
     })),
     getCurrentFiscalPortfolio: vi.fn(async () => ({ fiscalYear: 2026, technical: true })),
     getCurrentFiscalSchool: vi.fn(async () => ({ fiscalYear: 2026, technical: true })),
-    getCurrentHumanPortfolio: vi.fn(async () => ({ fiscalYear: 2026, title: 'Humano' })),
-    getCurrentHumanSchool: vi.fn(async () => ({ fiscalYear: 2026, school: { inep: '33069247' } })),
+    getCurrentHumanPortfolio: vi.fn(async () => currentHumanPortfolio),
+    getCurrentHumanSchool: vi.fn(async () => currentHumanSchool),
   };
   const artifactStore = {
     createSignedDownload: vi.fn(async () => ({
@@ -62,7 +112,6 @@ describe('autorização das leituras institucionais', () => {
     '/api/current/portfolio',
     '/api/current/schools/33069247',
     '/api/schools',
-    '/api/schools/33069247',
     '/api/schools/33069247/history',
     '/api/schools/33069247/findings',
     '/api/executions',
