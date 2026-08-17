@@ -157,3 +157,22 @@ export const humanSchoolContentSchema = z.object({
   accounting: z.array(humanAccountingSchema),
   followUp: z.array(z.string()),
 }).strict();
+
+export const humanPublicPortfolioSchema = z.object({
+  title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
+  fiscalYear: z.literal(2026),
+  referenceLabel: z.string().min(1),
+  schoolCount: z.number().int().positive(),
+  metrics: humanPortfolioMetricsSchema,
+  sources: z.array(humanSourceSchema).min(1),
+  indicators: z.array(humanIndicatorSchema),
+  schools: z.array(humanPortfolioSchoolSchema),
+}).strict().refine((value) => value.schoolCount === value.schools.length, {
+  message: 'Cobertura escolar divergente no portfólio humano.',
+}).refine((value) => value.metrics.schoolCount === value.schoolCount, {
+  message: 'Métricas e cobertura escolar divergem.',
+});
+
+export const humanPublicSchoolSchema = humanSchoolContentSchema.extend({
+  fiscalYear: z.literal(2026),
+}).strict();
