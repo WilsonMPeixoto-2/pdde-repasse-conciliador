@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
 import { Timeline2026 } from '../components/Timeline2026';
@@ -111,14 +112,9 @@ function SchoolContent({ school }: { school: HumanSchool }) {
                   summary={`${formatAccount(account.bank, account.agency, account.account)} · ${formatMoney(account.latestPosition?.totalReportedBalanceCents ?? null)}`}
                   defaultOpen={school.accounts.length === 1}
                 >
-                  {account.latestPosition ? (
-                    <div className="metrics-band" style={{ marginBottom: '1rem' }}>
-                      <MetricValue label="Saldo informado" valueCents={account.latestPosition.totalReportedBalanceCents} tone="balance" meta={`Posição ${formatDate(account.latestPosition.referenceDate)}`} />
-                      <MetricValue label="Em aplicações" valueCents={account.latestPosition.applications.totalCents} />
-                      <MetricValue label="Em conta" valueCents={account.latestPosition.checkingBalanceCents} />
-                      <MetricValue label="Fundos" valueCents={account.latestPosition.applications.fundsCents} />
-                    </div>
-                  ) : <p>Não há posição de saldo publicada para esta conta.</p>}
+                  {account.latestPosition
+                    ? <BalanceComposition position={account.latestPosition} />
+                    : <p>Não há posição de saldo publicada para esta conta.</p>}
                   <Timeline2026 months={buildAccountTimeline2026(account.positions)} title="Evolução do saldo informado" />
                   {account.movements.length > 0 ? (
                     <div style={{ marginTop: '2rem' }}>
