@@ -152,6 +152,12 @@ async function smoke(viewport, suffix) {
   await page.getByText(/Consultando e conciliando as fontes/i).waitFor();
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor({ timeout: 15000 });
   await page.getByText(/Consulta temporária/i).first().waitFor();
+  await page.getByRole('heading', { name: 'Leitura executiva da carteira' }).waitFor();
+  await page.getByRole('heading', { name: 'Fluxo de evidência financeira' }).waitFor();
+  await page.getByRole('heading', { name: 'Cobertura da carteira' }).waitFor();
+  await page.getByRole('heading', { name: 'Prioridades do momento' }).waitFor();
+  await page.getByText('0 unidades com atenção', { exact: false }).waitFor();
+  await page.getByText('0 com cobertura incompleta', { exact: false }).waitFor();
   await assertNoOverflow(page);
   await page.screenshot({ path: new URL(`session-home-${suffix}.png`, output).pathname, fullPage: true });
 
@@ -160,6 +166,8 @@ async function smoke(viewport, suffix) {
   const download = await downloadPromise;
   if (!download.suggestedFilename().endsWith('.xlsx')) throw new Error('Download do Excel não preservou o nome .xlsx.');
 
+  await page.getByRole('link', { name: 'Abrir carteira completa' }).click();
+  await page.getByRole('heading', { name: 'Unidades da 4ª CRE' }).waitFor();
   await page.getByRole('link', { name: /0410001 · EM EMA NEGRAO DE LIMA/i }).click();
   await page.getByRole('heading', { name: 'EM EMA NEGRAO DE LIMA' }).waitFor();
   await assertNoOverflow(page);
