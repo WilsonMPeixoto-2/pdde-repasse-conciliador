@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
+import { MovementLedger } from '../components/MovementLedger';
 import { Timeline2026 } from '../components/Timeline2026';
 import { buildAccountTimeline2026, deriveSchoolSummary } from '../derive';
 import { formatAccount, formatCnpj, formatDate, formatMoney } from '../format';
@@ -116,19 +117,7 @@ function SchoolContent({ school }: { school: HumanSchool }) {
                     ? <BalanceComposition position={account.latestPosition} />
                     : <p>Não há posição de saldo publicada para esta conta.</p>}
                   <Timeline2026 months={buildAccountTimeline2026(account.positions)} title="Evolução do saldo informado" />
-                  {account.movements.length > 0 ? (
-                    <div style={{ marginTop: '2rem' }}>
-                      <h3>Movimentações recentes</h3>
-                      <div className="school-list">
-                        {account.movements.slice(0, 8).map((movement, index) => (
-                          <div className="school-row" key={`${movement.date}-${movement.document ?? index}`}>
-                            <span><span className="school-row__name">{movement.description}</span><span className="school-row__meta">{formatDate(movement.date)}{movement.category ? ` · ${movement.category}` : ''}</span></span>
-                            <span className="numeric">{movement.creditCents !== null ? `+ ${formatMoney(movement.creditCents)}` : movement.debitCents !== null ? `− ${formatMoney(movement.debitCents)}` : '—'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                  {account.movements.length > 0 ? <MovementLedger movements={account.movements} /> : null}
                 </Disclosure>
               ))}
               {school.accounts.length === 0 ? <p>Não há conta apresentada para esta unidade no retrato corrente.</p> : null}
