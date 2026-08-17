@@ -466,6 +466,8 @@ function buildPortfolioMetrics(
   let creditLocatedCents = 0;
   let reportedBalanceCents = 0;
   let applicationsCents = 0;
+  let reportedBalanceKnown = true;
+  let applicationsKnown = true;
 
   for (const school of schools) {
     for (const program of school.programs) {
@@ -483,14 +485,20 @@ function buildPortfolioMetrics(
       if (!account.latestPosition || !referenceDate
         || account.latestPosition.referenceDate !== referenceDate) continue;
       accountsWithPosition += 1;
-      if (account.latestPosition.totalReportedBalanceCents !== null) {
+      if (account.latestPosition.totalReportedBalanceCents === null) {
+        reportedBalanceKnown = false;
+      } else {
         reportedBalanceCents += account.latestPosition.totalReportedBalanceCents;
       }
-      if (account.latestPosition.applications.totalCents !== null) {
+      if (account.latestPosition.applications.totalCents === null) {
+        applicationsKnown = false;
+      } else {
         applicationsCents += account.latestPosition.applications.totalCents;
       }
     }
   }
+
+  const hasAlignedAccounts = referenceDate !== null && accountsWithPosition > 0;
 
   return {
     schoolCount: schools.length,
@@ -499,8 +507,8 @@ function buildPortfolioMetrics(
     programmedCents,
     paymentInformedCents,
     creditLocatedCents,
-    reportedBalanceCents: referenceDate ? reportedBalanceCents : null,
-    applicationsCents: referenceDate ? applicationsCents : null,
+    reportedBalanceCents: hasAlignedAccounts && reportedBalanceKnown ? reportedBalanceCents : null,
+    applicationsCents: hasAlignedAccounts && applicationsKnown ? applicationsCents : null,
   };
 }
 
