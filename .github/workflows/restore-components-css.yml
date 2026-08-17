@@ -1,0 +1,46 @@
+name: Restore Validated Components CSS
+
+on:
+  push:
+    branches:
+      - feat/modo-sessao-temporaria-2026
+    paths:
+      - .github/workflows/restore-components-css.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/modo-sessao-temporaria-2026
+          fetch-depth: 0
+      - name: Restaurar CSS validado e reaplicar apenas a regra da timeline
+        run: |
+          git show origin/main:src/product/design/components.css > src/product/design/components.css
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/product/design/components.css')
+          text = path.read_text()
+          old = '.timeline__segment { stroke: var(--ink-300); stroke-width: 3; }'
+          new = '.timeline__segment { fill: none; stroke: var(--ink-300); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }'
+          if old not in text:
+              raise SystemExit('Regra original da timeline não encontrada na main.')
+          path.write_text(text.replace(old, new))
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npm run build
+      - name: Publicar correção e remover workflow temporário
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/restore-components-css.yml
+          git add src/product/design/components.css
+          git commit -m "fix: restaura stylesheet mobile validado"
+          git push origin HEAD:feat/modo-sessao-temporaria-2026
