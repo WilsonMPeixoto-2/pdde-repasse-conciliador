@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { HumanFinancialPortfolioView } from './build-human-financial-view';
 import {
+  prepareCurrentHumanFinancialSnapshot,
+  type CurrentHumanFinancialPortfolio,
+  type CurrentHumanFinancialSchoolSnapshot,
+} from './current-human-financial-read-model';
+import {
   runFinancialIntelligenceMonitoring,
   type RunFinancialIntelligenceMonitoringOptions,
 } from './run-financial-intelligence-monitoring';
@@ -20,10 +25,18 @@ export interface TemporaryFinancialSessionProgress {
   message: string;
 }
 
+export type TemporaryHumanPortfolio = Omit<CurrentHumanFinancialPortfolio, 'runId'>;
+export type TemporaryHumanSchoolSnapshot = Omit<CurrentHumanFinancialSchoolSnapshot, 'runId'>;
+
 export interface TemporaryFinancialSessionResult {
   runId: string;
   status: 'COMPLETE' | 'PARTIAL';
   human: HumanFinancialPortfolioView;
+  portfolio: TemporaryHumanPortfolio;
+  schools: Array<{
+    school: TemporaryHumanSchoolSnapshot['school'];
+    snapshot: TemporaryHumanSchoolSnapshot;
+  }>;
   workbookBytes: Uint8Array;
   workbookFilename: string;
 }
@@ -52,6 +65,20 @@ function emit(
   callback?.({ phase, message });
 }
 
+function projectForWeb(input: {
+  runId: string;
+  expectedSchoolCount: number;
+  human: HumanFinancialPortfolioView;
+}): Pick<TemporaryFinancialSessionResult, 'portfolio' | 'schools'> {
+  const prepared = prepareCurrentHumanFinancialSnapshot(input);
+  const { runId: _portfolioRunId, ...portfolio } = prepared.portfolio;
+  const schools = prepared.schools.map(({ school, snapshot }) => {
+    const { runId: _schoolRunId, ...publicSnapshot } = snapshot;
+    return { school, snapshot: publicSnapshot };
+  });
+  return { portfolio, schools };
+}
+
 export async function runTemporaryFinancialSession(
   options: RunTemporaryFinancialSessionOptions,
 ): Promise<TemporaryFinancialSessionResult> {
@@ -75,6 +102,11 @@ export async function runTemporaryFinancialSession(
     });
 
     emit(options.onProgress, 'EXPORTING', 'Organizando a visualização e o arquivo Excel.');
+    const { portfolio, schools } = projectForWeb({
+      runId,
+      expectedSchoolCount: options.schools.length,
+      human: result.human,
+    });
     const workbook = buildHumanFinancialWorkbook(result.human);
     const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
     const terminalPhase = result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL';
@@ -90,6 +122,8 @@ export async function runTemporaryFinancialSession(
       runId,
       status: result.status,
       human: result.human,
+      portfolio,
+      schools,
       workbookBytes,
       workbookFilename: 'inteligencia-financeira-pdde-4cre-2026.xlsx',
     };
