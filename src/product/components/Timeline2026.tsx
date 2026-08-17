@@ -12,23 +12,16 @@ const axisMoneyFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 1,
 });
 
-const percentFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'percent',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 1,
-});
-
 function formatAxisMoney(cents: number): string {
   return axisMoneyFormatter.format(cents / 100);
 }
 
-function deltaLabel(deltaCents: number | null, deltaPercent: number | null): string {
+function deltaLabel(deltaCents: number | null): string {
   if (deltaCents === null) return 'Ainda não há duas posições publicadas para comparar.';
   const sign = deltaCents > 0 ? '+' : deltaCents < 0 ? '−' : '';
   const absoluteMoney = formatMoney(Math.abs(deltaCents));
-  const percentage = deltaPercent === null ? '' : ` · ${deltaPercent > 0 ? '+' : ''}${percentFormatter.format(deltaPercent)}`;
-  if (deltaCents === 0) return `Sem variação entre a primeira e a última posição${percentage}.`;
-  return `${sign}${absoluteMoney}${percentage} entre a primeira e a última posição publicada.`;
+  if (deltaCents === 0) return 'Sem variação entre a primeira e a última posição publicada.';
+  return `${sign}${absoluteMoney} entre a primeira e a última posição publicada.`;
 }
 
 export function Timeline2026(props: {
@@ -85,7 +78,7 @@ export function Timeline2026(props: {
       {geometry.observedCount > 0 ? (
         <div className="timeline__delta" data-direction={geometry.deltaCents === null ? 'neutral' : geometry.deltaCents > 0 ? 'up' : geometry.deltaCents < 0 ? 'down' : 'neutral'}>
           <span className="timeline__delta-mark" aria-hidden="true" />
-          <span>{deltaLabel(geometry.deltaCents, geometry.deltaPercent)}</span>
+          <span>{deltaLabel(geometry.deltaCents)}</span>
         </div>
       ) : null}
 
