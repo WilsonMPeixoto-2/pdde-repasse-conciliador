@@ -34,7 +34,7 @@ type SessionModule = {
 
 async function loadSessionModule(): Promise<SessionModule> {
   try {
-    return await import('../../backend/application/temporary-financial-session') as SessionModule;
+    return await import('../../backend/application/temporary-financial-session') as unknown as SessionModule;
   } catch {
     return {};
   }
