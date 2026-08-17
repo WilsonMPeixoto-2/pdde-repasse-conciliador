@@ -201,6 +201,12 @@ async function smoke(viewport, suffix) {
   await programDisclosure.click();
   await page.getByText('Ordem FNDE 04/08/2026').waitFor();
 
+  const composition = page.getByRole('region', { name: /Composição da posição financeira/i });
+  await composition.getByRole('img', { name: /Composição conhecida do saldo/i }).waitFor();
+  await composition.getByText(/Em conta · 0,03%/).waitFor();
+  await composition.getByText(/Em aplicações · 99,97%/).waitFor();
+  await composition.getByText('Detalhamento das aplicações').waitFor();
+
   await page.getByText('3 posições publicadas em 2026.').waitFor();
   await page.getByText('Última posição', { exact: true }).waitFor();
   const timelinePoint = page.getByRole('button', { name: /MAR: saldo informado/i });
@@ -209,7 +215,13 @@ async function smoke(viewport, suffix) {
   await page.getByText('31/03/2026').last().waitFor();
   await page.keyboard.press('ArrowRight');
   await page.getByText('30/06/2026').last().waitFor();
+  const axisLabels = await page.locator('.timeline__grid text').allTextContents();
+  if (axisLabels.some((label) => label.includes('-'))) {
+    throw new Error(`A escala de saldos positivos introduziu referência negativa: ${axisLabels.join(', ')}`);
+  }
   await assertNoMainOverflow(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForFunction(() => window.scrollY <= 2);
   await page.screenshot({ path: new URL(`school-${suffix}.png`, output).pathname, fullPage: true });
 
   const direct = await context.newPage();
