@@ -40,7 +40,21 @@ const portfolio = {
   metrics: { schoolCount: 1, accountsTotal: 1, accountsWithPosition: 1, programmedCents: 1013000, paymentInformedCents: 506500, creditLocatedCents: 506500, reportedBalanceCents: 415143, applicationsCents: 415032 },
   sources: [{ name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e prestação de contas.' }],
   indicators: [{ label: '1ª parcela com pagamento informado', count: 1, units: [{ sme: '0410002', name: 'EM ALBINO SOUZA CRUZ', inep: '33069093' }] }],
-  schools: [{ sme: '0410002', name: 'EM ALBINO SOUZA CRUZ', inep: '33069093' }],
+  schools: [{
+    sme: '0410002',
+    name: 'EM ALBINO SOUZA CRUZ',
+    inep: '33069093',
+    programmedCents: 1013000,
+    paymentInformedCents: 506500,
+    creditLocatedCents: 506500,
+    knownBalanceCents: 415143,
+    referenceDate: '2026-06-30',
+    accountsTotal: 1,
+    accountsWithReferencePosition: 1,
+    followUpCount: 0,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  }],
 };
 
 describe('domínio humano do frontend', () => {
