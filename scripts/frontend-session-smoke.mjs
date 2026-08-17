@@ -191,13 +191,13 @@ async function smokeExpiredSessionRecovery() {
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
 
-  await page.getByRole('heading', { name: 'Não foi possível abrir a visão financeira.' }).waitFor();
+  await page.getByText('Não foi possível abrir a visão financeira.', { exact: true }).waitFor();
   await page.getByText(/não encontrada ou expirada/i).waitFor();
+  const storedAfterFailure = await page.evaluate(() => sessionStorage.getItem('pdde-financial-temporary-session-v1'));
+  if (storedAfterFailure !== null) throw new Error('A sessão expirada não foi removida automaticamente do sessionStorage.');
+
   await page.getByRole('button', { name: 'Nova consulta' }).click();
   await page.getByRole('heading', { name: 'Nova consulta temporária' }).waitFor();
-
-  const stored = await page.evaluate(() => sessionStorage.getItem('pdde-financial-temporary-session-v1'));
-  if (stored !== null) throw new Error('A sessão expirada permaneceu no sessionStorage após a recuperação.');
   await assertNoOverflow(page);
   await page.screenshot({ path: new URL('session-expired-recovery-mobile.png', output).pathname, fullPage: true });
   await context.close();
