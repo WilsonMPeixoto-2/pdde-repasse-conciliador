@@ -179,14 +179,17 @@ async function smoke(viewport, suffix) {
 
 async function smokeExpiredSessionRecovery() {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  await context.addInitScript(() => {
+  const page = await context.newPage();
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('heading', { name: 'Nenhuma consulta carregada' }).waitFor();
+
+  await page.evaluate(() => {
     sessionStorage.setItem('pdde-financial-temporary-session-v1', JSON.stringify({
       accessKey: 'session-access-key-smoke-1234567890',
       sessionId: 'expired-session',
     }));
   });
-  const page = await context.newPage();
-  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
 
   await page.getByRole('heading', { name: 'Não foi possível abrir a visão financeira.' }).waitFor();
   await page.getByText(/não encontrada ou expirada/i).waitFor();
