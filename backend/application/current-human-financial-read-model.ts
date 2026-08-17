@@ -115,7 +115,7 @@ export function buildCurrentPortfolioSchoolSummary(
       ) {
         creditLocatedCents += installment.creditEvidence.amountCents;
       }
-      if (installment.programmedCents > 0 && installment.account === null) {
+      if (installment.paymentInformedCents > 0 && installment.account === null) {
         repasseAccountMissing = true;
       }
     }
