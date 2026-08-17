@@ -40,6 +40,10 @@ function json(value: unknown, status = 200): Response {
   });
 }
 
+function responseBody(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer;
+}
+
 function bearer(request: Request): string | null {
   const value = request.headers.get('authorization');
   const match = /^Bearer\s+(.+)$/i.exec(value ?? '');
@@ -120,7 +124,7 @@ export async function handleTemporarySessionRequest(
 
     if (resource === 'portfolio') {
       const bytes = await options.client.readArtifactFile(sessionId, 'portfolio.json');
-      return new Response(bytes, {
+      return new Response(responseBody(bytes), {
         status: 200,
         headers: { ...NO_STORE, 'content-type': 'application/json; charset=utf-8' },
       });
@@ -129,7 +133,7 @@ export async function handleTemporarySessionRequest(
     if (resource === 'school') {
       const inep = inepSchema.parse(url.searchParams.get('inep') ?? '');
       const bytes = await options.client.readArtifactFile(sessionId, `schools/${inep}.json`);
-      return new Response(bytes, {
+      return new Response(responseBody(bytes), {
         status: 200,
         headers: { ...NO_STORE, 'content-type': 'application/json; charset=utf-8' },
       });
@@ -138,7 +142,7 @@ export async function handleTemporarySessionRequest(
     if (resource === 'export') {
       const filename = 'inteligencia-financeira-pdde-4cre-2026.xlsx';
       const bytes = await options.client.readArtifactFile(sessionId, filename);
-      return new Response(bytes, {
+      return new Response(responseBody(bytes), {
         status: 200,
         headers: {
           ...NO_STORE,
