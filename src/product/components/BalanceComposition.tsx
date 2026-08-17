@@ -7,7 +7,7 @@ import { buildBalanceComposition } from '../visual/balance-composition';
 const shareFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'percent',
   minimumFractionDigits: 0,
-  maximumFractionDigits: 1,
+  maximumFractionDigits: 2,
 });
 
 function formatShare(value: number | null): string {
