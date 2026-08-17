@@ -43,9 +43,15 @@ function valueDomain(values: readonly FinancialSeriesObservation[]): [number, nu
   const [minimum, maximum] = extent(values, (item) => item.valueCents);
   if (minimum === undefined || maximum === undefined) return [0, 1];
 
-  if (minimum === maximum) {
-    const padding = Math.max(Math.abs(minimum) * 0.08, 100);
-    return [minimum - padding, maximum + padding];
+  if (minimum >= 0) {
+    if (maximum === 0) return [0, 100];
+    const upperPadding = Math.max(maximum * 0.08, 100);
+    return [0, maximum + upperPadding];
+  }
+
+  if (maximum <= 0) {
+    const lowerPadding = Math.max(Math.abs(minimum) * 0.08, 100);
+    return [minimum - lowerPadding, 0];
   }
 
   const span = maximum - minimum;
