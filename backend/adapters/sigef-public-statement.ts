@@ -299,6 +299,9 @@ export function classifySigefMovement(
   }
 
   if (history.includes('RESGATE')) return 'RESGATE_APLICACAO';
+  if (operation === 'credit' && history.includes('TRANSFERIDO DA POUPANCA')) {
+    return 'RESGATE_APLICACAO';
+  }
 
   if (
     operation === 'credit'
@@ -325,6 +328,7 @@ export function classifySigefMovement(
       history.includes('TRANSFERENCIA ENVIADA')
       || history.includes('PIX ENVIADO')
       || history.includes('PAGAMENTO')
+      || history.includes('TV POR ASSINATURA')
       || history.includes('CHEQUE COMPENSADO')
       || history.includes('CHEQUE PAGO EM OUTRA AGENCIA')
       || history.includes('TED TRANSF')
