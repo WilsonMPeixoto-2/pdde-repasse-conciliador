@@ -1,4 +1,5 @@
 /* Refinamentos validados no smoke 390px: visualizações largas rolam dentro do próprio bloco e nunca dimensionam a página. */
+/* Alterações de sessão continuam obrigadas ao mesmo gate desktop/mobile. */
 .brand__name--mobile { display: none; }
 
 .reference-note {
