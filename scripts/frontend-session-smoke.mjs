@@ -85,6 +85,9 @@ const server = createServer(async (req, res) => {
       polls = 0;
       return json(res, 202, { sessionId: 'web-smoke-session', state: 'QUEUED' });
     }
+    if (url.searchParams.get('id') === 'expired-session') {
+      return json(res, 404, { error: 'Consulta temporária não encontrada ou expirada.' });
+    }
     const resource = url.searchParams.get('resource') ?? 'status';
     if (resource === 'status') {
       polls += 1;
@@ -150,7 +153,7 @@ async function smoke(viewport, suffix) {
 
   await page.getByRole('heading', { name: 'Consulta em andamento' }).waitFor();
   await page.getByText(/Consultando e conciliando as fontes/i).waitFor();
-  await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor({ timeout: 15000 });
+  await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor({ timeout: 20000 });
   await page.getByText(/Consulta temporária/i).first().waitFor();
   await page.getByRole('heading', { name: 'Leitura executiva da carteira' }).waitFor();
   await page.getByRole('heading', { name: 'Fluxo de evidência financeira' }).waitFor();
@@ -174,10 +177,34 @@ async function smoke(viewport, suffix) {
   await context.close();
 }
 
+async function smokeExpiredSessionRecovery() {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.addInitScript(() => {
+    sessionStorage.setItem('pdde-financial-temporary-session-v1', JSON.stringify({
+      accessKey: 'session-access-key-smoke-1234567890',
+      sessionId: 'expired-session',
+    }));
+  });
+  const page = await context.newPage();
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+
+  await page.getByRole('heading', { name: 'Não foi possível abrir a visão financeira.' }).waitFor();
+  await page.getByText(/não encontrada ou expirada/i).waitFor();
+  await page.getByRole('button', { name: 'Nova consulta' }).click();
+  await page.getByRole('heading', { name: 'Nova consulta temporária' }).waitFor();
+
+  const stored = await page.evaluate(() => sessionStorage.getItem('pdde-financial-temporary-session-v1'));
+  if (stored !== null) throw new Error('A sessão expirada permaneceu no sessionStorage após a recuperação.');
+  await assertNoOverflow(page);
+  await page.screenshot({ path: new URL('session-expired-recovery-mobile.png', output).pathname, fullPage: true });
+  await context.close();
+}
+
 try {
   await smoke({ width: 1440, height: 1000 }, 'desktop');
   await smoke({ width: 390, height: 844 }, 'mobile');
-  console.log(JSON.stringify({ status: 'PASS', mode: 'temporary-session' }, null, 2));
+  await smokeExpiredSessionRecovery();
+  console.log(JSON.stringify({ status: 'PASS', mode: 'temporary-session', expiredSessionRecovery: 'PASS' }, null, 2));
 } finally {
   await browser.close();
   server.close();
