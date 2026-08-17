@@ -72,6 +72,28 @@
   margin-top: 0.4rem;
 }
 
+.context-popover {
+  z-index: 50;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 1.05rem 1.15rem;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink-700);
+  box-shadow: 0 18px 50px rgb(23 50 69 / 0.16);
+  line-height: 1.5;
+}
+.context-popover__title {
+  display: block;
+  color: var(--ink-950);
+  font-size: 0.82rem;
+}
+.context-popover__body {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+}
+.context-popover__arrow { fill: var(--paper); }
+
 @media (max-width: 700px) {
   .brand__name--desktop { display: none; }
   .brand__name--mobile { display: block; }
