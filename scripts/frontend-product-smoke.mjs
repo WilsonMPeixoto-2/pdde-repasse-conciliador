@@ -201,10 +201,15 @@ async function smoke(viewport, suffix) {
   await programDisclosure.click();
   await page.getByText('Ordem FNDE 04/08/2026').waitFor();
 
+  await page.getByText('3 posições publicadas em 2026.').waitFor();
+  await page.getByText('Última posição').waitFor();
   const timelinePoint = page.getByRole('button', { name: /MAR: saldo informado/i });
   await timelinePoint.focus();
   await page.keyboard.press('Enter');
   await page.getByText('31/03/2026').last().waitFor();
+  await page.keyboard.press('ArrowRight');
+  await page.getByText('30/06/2026').last().waitFor();
+  await assertNoMainOverflow(page);
   await page.screenshot({ path: new URL(`school-${suffix}.png`, output).pathname, fullPage: true });
 
   const direct = await context.newPage();
