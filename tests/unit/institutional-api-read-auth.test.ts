@@ -112,6 +112,7 @@ describe('autorização das leituras institucionais', () => {
     '/api/current/portfolio',
     '/api/current/schools/33069247',
     '/api/schools',
+    '/api/schools/33069247',
     '/api/schools/33069247/history',
     '/api/schools/33069247/findings',
     '/api/executions',
