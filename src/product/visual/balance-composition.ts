@@ -27,12 +27,20 @@ export function buildBalanceComposition(position: HumanPosition): BalanceComposi
     ? totalCents - knownComponentsCents
     : null;
 
-  const canCompose = checkingCents !== null
+  let checkingShare: number | null = null;
+  let applicationsShare: number | null = null;
+  if (
+    checkingCents !== null
     && applicationsCents !== null
     && checkingCents >= 0
     && applicationsCents >= 0
-    && checkingCents + applicationsCents > 0;
-  const compositionBase = canCompose ? checkingCents + applicationsCents : null;
+  ) {
+    const compositionBase = checkingCents + applicationsCents;
+    if (compositionBase > 0) {
+      checkingShare = checkingCents / compositionBase;
+      applicationsShare = applicationsCents / compositionBase;
+    }
+  }
 
   const applicationBreakdown: BalanceApplicationItem[] = [
     ['funds', 'Fundos', position.applications.fundsCents],
@@ -50,8 +58,8 @@ export function buildBalanceComposition(position: HumanPosition): BalanceComposi
     applicationsCents,
     knownComponentsCents,
     differenceCents,
-    checkingShare: compositionBase === null ? null : checkingCents / compositionBase,
-    applicationsShare: compositionBase === null ? null : applicationsCents / compositionBase,
+    checkingShare,
+    applicationsShare,
     applicationBreakdown,
   };
 }
