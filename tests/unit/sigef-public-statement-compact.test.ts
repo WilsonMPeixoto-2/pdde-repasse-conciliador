@@ -67,6 +67,11 @@ describe('SIGEF Extrato público', () => {
     expect(classifySigefMovement('credit', 'TRANSFERIDO DA POUPANCA')).toBe('RESGATE_APLICACAO');
   });
 
+  test('classifica TED recebida observada na coleta integral de 17/08/2026', () => {
+    expect(classifySigefMovement('credit', 'TED TRANSFERENCIA ELETR.DISPON'))
+      .toBe('ENTRADA_TERCEIRO');
+  });
+
   test('decodifica Windows-1252 legado', () => {
     const bytes = Buffer.from('SIGEF Extrato Conta Corrente Cr\xe9dito D\xe9bito Raz\xe3o Social', 'latin1');
     expect(decodeSigefHtml(bytes, null)).toContain('Crédito');
