@@ -10,6 +10,19 @@ const fs = await import('node:fs/promises');
 await fs.mkdir(output, { recursive: true });
 
 const unit = { sme: '0410001', name: 'EM EMA NEGRAO DE LIMA', inep: '33069247' };
+const portfolioSchool = {
+  ...unit,
+  programmedCents: 418500,
+  paymentInformedCents: 418500,
+  creditLocatedCents: 418500,
+  knownBalanceCents: 318699,
+  referenceDate: '2026-06-30',
+  accountsTotal: 1,
+  accountsWithReferencePosition: 1,
+  followUpCount: 0,
+  paymentSuspended: false,
+  repasseAccountMissing: false,
+};
 const portfolio = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
@@ -30,7 +43,7 @@ const portfolio = {
     { name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.' },
     { name: 'SIGEF', information: 'Movimentações das contas e créditos compatíveis localizados no extrato.' },
   ],
-  schools: [unit],
+  schools: [portfolioSchool],
 };
 const school = {
   fiscalYear: 2026,
