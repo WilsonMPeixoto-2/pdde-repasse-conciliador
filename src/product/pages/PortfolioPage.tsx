@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { IndicatorLink } from '../components/IndicatorLink';
 import { MetricValue } from '../components/MetricValue';
+import { PortfolioExecutiveOverview } from '../components/PortfolioExecutiveOverview';
 import { SessionStartDialog } from '../components/SessionStartDialog';
 import { SourceInfo } from '../components/SourceInfo';
 import { usePortfolio } from '../PortfolioContext';
@@ -99,7 +99,6 @@ export function PortfolioPage() {
 
   const portfolio = state.data;
   const visibleIndicators = portfolio.indicators.filter((item) => item.count > 0).slice(0, 6);
-  const previewSchools = portfolio.schools.slice(0, 6);
   const temporary = state.source === 'temporary';
 
   return (
@@ -154,6 +153,8 @@ export function PortfolioPage() {
           </div>
         </section>
 
+        <PortfolioExecutiveOverview portfolio={portfolio} />
+
         {visibleIndicators.length > 0 ? (
           <section className="section" aria-labelledby="attention-title">
             <div className="section-heading">
@@ -168,24 +169,6 @@ export function PortfolioPage() {
             </div>
           </section>
         ) : null}
-
-        <section className="section" aria-labelledby="schools-title">
-          <div className="section-heading">
-            <div>
-              <div className="eyebrow">Carteira da 4ª CRE</div>
-              <h2 id="schools-title">Unidades escolares</h2>
-            </div>
-            <Link className="text-link" to="/unidades">Ver as {portfolio.schoolCount} unidades</Link>
-          </div>
-          <div className="school-list">
-            {previewSchools.map((school) => (
-              <Link className="school-row" key={school.inep} to={`/unidades/${school.inep}`}>
-                <span><span className="school-row__name">{school.sme} · {school.name}</span><span className="school-row__meta">INEP {school.inep}</span></span>
-                <span className="school-row__arrow" aria-hidden="true">→</span>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         <SourceInfo sources={portfolio.sources} />
       </main>
