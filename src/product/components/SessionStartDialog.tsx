@@ -50,8 +50,8 @@ export function SessionStartDialog(props: {
     <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="session-dialog__overlay" />
-        <Dialog.Content className="session-dialog" asChild>
-          <motion.section
+        <Dialog.Content className="session-dialog">
+          <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
           >
@@ -100,7 +100,7 @@ export function SessionStartDialog(props: {
                 </button>
               </div>
             </form>
-          </motion.section>
+          </motion.div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
