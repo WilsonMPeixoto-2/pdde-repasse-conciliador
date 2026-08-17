@@ -54,7 +54,24 @@ export function PortfolioPage() {
   if (state.status === 'loading') return <Loading />;
 
   if (state.status === 'error') {
-    return <main className="page error-state"><div><strong>Não foi possível abrir a visão financeira.</strong><span>{state.error}</span></div></main>;
+    return (
+      <main className="page error-state">
+        <div>
+          <strong>Não foi possível abrir a visão financeira.</strong>
+          <span>{state.error}</span>
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => {
+              state.resetTemporary();
+              setDialogOpen(true);
+            }}
+          >
+            Nova consulta
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (state.status === 'idle') {
