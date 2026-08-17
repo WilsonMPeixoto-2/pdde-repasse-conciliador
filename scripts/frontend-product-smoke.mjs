@@ -16,6 +16,61 @@ const units = [
   { sme: '0410031', name: 'EM CIDADE NOVA', inep: '33069123' },
 ];
 
+const portfolioSchools = [
+  {
+    ...units[0],
+    programmedCents: 1345800,
+    paymentInformedCents: 506500,
+    creditLocatedCents: 506500,
+    knownBalanceCents: 415143,
+    referenceDate: '2026-06-30',
+    accountsTotal: 1,
+    accountsWithReferencePosition: 1,
+    followUpCount: 1,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  },
+  {
+    ...units[1],
+    programmedCents: 1000000,
+    paymentInformedCents: 800000,
+    creditLocatedCents: 800000,
+    knownBalanceCents: 500000,
+    referenceDate: '2026-06-30',
+    accountsTotal: 1,
+    accountsWithReferencePosition: 1,
+    followUpCount: 0,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  },
+  {
+    ...units[2],
+    programmedCents: 1500000,
+    paymentInformedCents: 900000,
+    creditLocatedCents: 500000,
+    knownBalanceCents: 250000,
+    referenceDate: '2026-06-30',
+    accountsTotal: 2,
+    accountsWithReferencePosition: 1,
+    followUpCount: 0,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  },
+  {
+    ...units[3],
+    programmedCents: 1491400,
+    paymentInformedCents: 326000,
+    creditLocatedCents: 75000,
+    knownBalanceCents: 163038298,
+    referenceDate: '2026-06-30',
+    accountsTotal: 3,
+    accountsWithReferencePosition: 3,
+    followUpCount: 0,
+    paymentSuspended: true,
+    repasseAccountMissing: false,
+  },
+];
+
 const portfolio = {
   title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
@@ -40,7 +95,7 @@ const portfolio = {
     { label: '1ª parcela com pagamento informado', count: 2, units: units.slice(0, 2) },
     { label: 'Informação parcial', count: 1, units: [units[0]] },
   ],
-  schools: units,
+  schools: portfolioSchools,
 };
 
 const school = {
@@ -179,6 +234,36 @@ async function assertNoMainOverflow(page) {
   }
 }
 
+async function validatePortfolioSchools(context, suffix) {
+  const page = await context.newPage();
+  await page.goto(`${base}/unidades`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Unidades da 4ª CRE' }).waitFor();
+  await page.getByRole('heading', { name: '4 unidades no recorte' }).waitFor();
+  await page.getByRole('button', { name: /Com atenção\s*3/i }).waitFor();
+  await page.getByRole('button', { name: /Cobertura incompleta\s*1/i }).waitFor();
+  await page.getByRole('button', { name: /Pagamento suspenso\s*1/i }).waitFor();
+
+  const rows = page.locator('.portfolio-school');
+  if (await rows.count() !== 4) throw new Error('A carteira não apresentou as quatro unidades do fixture.');
+  if (!(await rows.first().innerText()).includes('EM CIDADE NOVA')) {
+    throw new Error('A ordenação padrão não priorizou a unidade com pagamento suspenso.');
+  }
+
+  await page.getByRole('button', { name: /Cobertura incompleta/i }).click();
+  await page.getByRole('heading', { name: '1 unidade no recorte' }).waitFor();
+  await page.getByText('EM ANIBAL FREIRE', { exact: true }).waitFor();
+  if (await page.locator('.portfolio-school').count() !== 1) {
+    throw new Error('O filtro de cobertura incompleta não isolou o recorte esperado.');
+  }
+
+  await page.getByRole('button', { name: /^Todas/i }).click();
+  await page.getByRole('heading', { name: '4 unidades no recorte' }).waitFor();
+  await assertNoTechnicalMetadata(page);
+  await assertNoMainOverflow(page);
+  await page.screenshot({ path: new URL(`schools-${suffix}.png`, output).pathname, fullPage: true });
+  await page.close();
+}
+
 async function smoke(viewport, suffix) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
@@ -187,6 +272,8 @@ async function smoke(viewport, suffix) {
   await assertNoTechnicalMetadata(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
   await assertNoMainOverflow(page);
+
+  await validatePortfolioSchools(context, suffix);
 
   const indicator = page.getByRole('link', { name: /3 unidades: Conta do repasse não exibida/i });
   await indicator.focus();
@@ -260,7 +347,17 @@ async function smoke(viewport, suffix) {
 try {
   await smoke({ width: 1440, height: 1000 }, 'desktop');
   await smoke({ width: 390, height: 844 }, 'mobile');
-  console.log(JSON.stringify({ status: 'PASS', screenshots: ['home-desktop.png', 'school-desktop.png', 'home-mobile.png', 'school-mobile.png'] }, null, 2));
+  console.log(JSON.stringify({
+    status: 'PASS',
+    screenshots: [
+      'home-desktop.png',
+      'schools-desktop.png',
+      'school-desktop.png',
+      'home-mobile.png',
+      'schools-mobile.png',
+      'school-mobile.png',
+    ],
+  }, null, 2));
 } finally {
   await browser.close();
   server.close();
