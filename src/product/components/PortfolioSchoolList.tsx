@@ -89,37 +89,37 @@ export function PortfolioSchoolList({ schools }: { schools: readonly HumanPortfo
       {schools.map((school) => {
         const triage = derivePortfolioSchoolTriage(school);
         return (
-          <Link
-            className="portfolio-school"
-            data-status={triage.status}
-            key={school.inep}
-            role="listitem"
-            to={`/unidades/${school.inep}`}
-            aria-label={`${school.sme} ${school.name}. ${triage.label}. Abrir prontuário financeiro.`}
-          >
-            <div className="portfolio-school__identity">
-              <span className="portfolio-school__sme">{school.sme}</span>
-              <strong>{school.name}</strong>
-              <span>INEP {school.inep}</span>
-            </div>
+          <div className="portfolio-school-list__item" key={school.inep} role="listitem">
+            <Link
+              className="portfolio-school"
+              data-status={triage.status}
+              to={`/unidades/${school.inep}`}
+              aria-label={`${school.sme} · ${school.name}. ${triage.label}. Abrir prontuário financeiro.`}
+            >
+              <div className="portfolio-school__identity">
+                <span className="portfolio-school__sme">{school.sme}</span>
+                <strong>{school.name}</strong>
+                <span>INEP {school.inep}</span>
+              </div>
 
-            <RepasseStages school={school} />
+              <RepasseStages school={school} />
 
-            <div className="portfolio-school__balance">
-              <span className="portfolio-school__mobile-label">Saldo conhecido</span>
-              <strong>{formatMoney(school.knownBalanceCents)}</strong>
-              <span>{school.knownBalanceCents === null ? 'Sem valor observado na referência' : 'Valor observado na referência'}</span>
-            </div>
+              <div className="portfolio-school__balance">
+                <span className="portfolio-school__mobile-label">Saldo conhecido</span>
+                <strong>{formatMoney(school.knownBalanceCents)}</strong>
+                <span>{school.knownBalanceCents === null ? 'Sem valor observado na referência' : 'Valor observado na referência'}</span>
+              </div>
 
-            <Coverage school={school} />
+              <Coverage school={school} />
 
-            <div className="portfolio-school__status">
-              <span className="portfolio-school__status-label">{triage.label}</span>
-              <small>{statusDetail(school)}</small>
-            </div>
+              <div className="portfolio-school__status">
+                <span className="portfolio-school__status-label">{triage.label}</span>
+                <small>{statusDetail(school)}</small>
+              </div>
 
-            <span className="portfolio-school__arrow" aria-hidden="true">→</span>
-          </Link>
+              <span className="portfolio-school__arrow" aria-hidden="true">→</span>
+            </Link>
+          </div>
         );
       })}
     </div>
