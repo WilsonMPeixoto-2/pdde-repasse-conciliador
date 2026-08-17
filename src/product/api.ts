@@ -15,6 +15,18 @@ const temporarySessionStatusSchema = z.object({
 
 export type TemporarySessionStatus = z.infer<typeof temporarySessionStatusSchema>;
 
+export class TemporarySessionRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'TemporarySessionRequestError';
+  }
+}
+
+export function isTerminalTemporarySessionError(cause: unknown): boolean {
+  return cause instanceof TemporarySessionRequestError
+    && [400, 401, 403, 404, 410].includes(cause.status);
+}
+
 async function readJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) {
@@ -46,7 +58,7 @@ async function temporaryRequest(
   init: RequestInit = {},
 ): Promise<Response> {
   if (accessKey.trim().length < 24) {
-    throw new Error('A chave de acesso ao Modo Sessão é inválida.');
+    throw new TemporarySessionRequestError('A chave de acesso ao Modo Sessão é inválida.', 400);
   }
   let response: Response;
   try {
@@ -68,7 +80,7 @@ async function temporaryRequest(
       const body = await response.json().catch(() => null) as { error?: unknown } | null;
       if (typeof body?.error === 'string' && body.error.trim()) message = body.error;
     }
-    throw new Error(message);
+    throw new TemporarySessionRequestError(message, response.status);
   }
   return response;
 }
