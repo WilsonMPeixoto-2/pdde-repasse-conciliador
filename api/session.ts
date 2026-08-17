@@ -7,6 +7,12 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+export function temporarySessionWorkflowRef(
+  environment: Record<string, string | undefined> = process.env,
+): string {
+  return environment.PDDE_SESSION_GITHUB_REF?.trim() || 'main';
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     try {
@@ -15,7 +21,7 @@ export default {
         owner: 'WilsonMPeixoto-2',
         repo: 'pdde-repasse-conciliador',
         workflow: 'temporary-session-run.yml',
-        ref: 'main',
+        ref: temporarySessionWorkflowRef(),
       });
       return handleTemporarySessionRequest(request, {
         accessKey: requiredEnv('PDDE_SESSION_ACCESS_KEY'),
