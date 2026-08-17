@@ -8,6 +8,12 @@ type GeometryModule = {
   ) => {
     points: Array<{ month: number; observed: boolean; x: number; y: number | null }>;
     path: string | null;
+    yTicks: Array<{ valueCents: number; y: number }>;
+    observedCount: number;
+    firstObserved: { month: number; valueCents: number } | null;
+    lastObserved: { month: number; valueCents: number } | null;
+    deltaCents: number | null;
+    deltaPercent: number | null;
   };
 };
 
@@ -80,5 +86,40 @@ describe('geometria da série financeira', () => {
 
     expect(result.points.every((point) => point.y === null || Number.isFinite(point.y))).toBe(true);
     expect(result.path).not.toContain('NaN');
+  });
+
+  test('entrega referências monetárias e variação sem inventar meses ausentes', async () => {
+    const geometry = await loadGeometry();
+    expect(geometry.buildFinancialSeriesGeometry).toBeTypeOf('function');
+    if (!geometry.buildFinancialSeriesGeometry) return;
+
+    const result = geometry.buildFinancialSeriesGeometry([
+      month(1, 100_000),
+      month(2, null),
+      month(3, 160_000),
+      month(4, 140_000),
+    ]);
+
+    expect(result.observedCount).toBe(3);
+    expect(result.firstObserved).toEqual({ month: 1, valueCents: 100_000 });
+    expect(result.lastObserved).toEqual({ month: 4, valueCents: 140_000 });
+    expect(result.deltaCents).toBe(40_000);
+    expect(result.deltaPercent).toBeCloseTo(0.4);
+    expect(result.yTicks.length).toBeGreaterThanOrEqual(2);
+    expect(result.yTicks.every((tick) => Number.isFinite(tick.valueCents) && Number.isFinite(tick.y))).toBe(true);
+  });
+
+  test('não fabrica percentual quando a primeira posição observada é zero', async () => {
+    const geometry = await loadGeometry();
+    expect(geometry.buildFinancialSeriesGeometry).toBeTypeOf('function');
+    if (!geometry.buildFinancialSeriesGeometry) return;
+
+    const result = geometry.buildFinancialSeriesGeometry([
+      month(1, 0),
+      month(2, 50_000),
+    ]);
+
+    expect(result.deltaCents).toBe(50_000);
+    expect(result.deltaPercent).toBeNull();
   });
 });
