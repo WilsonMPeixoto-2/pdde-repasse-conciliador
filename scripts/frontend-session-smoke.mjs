@@ -126,7 +126,7 @@ async function assertNoOverflow(page) {
 async function smoke(viewport, suffix) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
   const page = await context.newPage();
-  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
 
   await page.getByRole('heading', { name: 'Nenhuma consulta carregada' }).waitFor();
   await page.getByRole('button', { name: 'Nova consulta' }).click();
