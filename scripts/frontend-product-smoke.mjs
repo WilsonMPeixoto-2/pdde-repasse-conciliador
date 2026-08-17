@@ -202,7 +202,7 @@ async function smoke(viewport, suffix) {
   await page.getByText('Ordem FNDE 04/08/2026').waitFor();
 
   await page.getByText('3 posições publicadas em 2026.').waitFor();
-  await page.getByText('Última posição').waitFor();
+  await page.getByText('Última posição', { exact: true }).waitFor();
   const timelinePoint = page.getByRole('button', { name: /MAR: saldo informado/i });
   await timelinePoint.focus();
   await page.keyboard.press('Enter');
