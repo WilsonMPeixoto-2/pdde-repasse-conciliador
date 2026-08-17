@@ -10,6 +10,7 @@ import { SchoolsPage } from './pages/SchoolsPage';
 import { VisualProviders } from './visual/VisualProviders';
 import './design/layout.css';
 import './design/refinements.css';
+import './design/session.css';
 
 export function App() {
   return (

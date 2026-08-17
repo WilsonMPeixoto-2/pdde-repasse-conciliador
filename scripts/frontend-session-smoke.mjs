@@ -11,6 +11,7 @@ await fs.mkdir(output, { recursive: true });
 
 const unit = { sme: '0410001', name: 'EM EMA NEGRAO DE LIMA', inep: '33069247' };
 const portfolio = {
+  title: 'Inteligência Financeira PDDE | 4ª CRE',
   fiscalYear: 2026,
   referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
   schoolCount: 1,
