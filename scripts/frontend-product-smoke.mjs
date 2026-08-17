@@ -90,9 +90,15 @@ const school = {
       ],
       latestPosition: { referenceDate: '2026-06-30', checkingBalanceCents: 111, applications: { fundsCents: 415032, savingsCents: 0, rdbCdbCents: 0, totalCents: 415032 }, totalReportedBalanceCents: 415143 },
       movements: [
-        { date: '2026-06-21', description: 'PAGAMENTO PIX', document: 'PX1', category: 'PAGAMENTO_TRANSFERENCIA', creditCents: null, debitCents: 124000, counterparty: { document: null, name: 'FORNECEDOR', bank: '001', agency: null, account: null } },
-        { date: '2026-06-10', description: 'APLICAÇÃO', document: 'AP1', category: 'APLICACAO', creditCents: null, debitCents: 380000, counterparty: null },
-        { date: '2026-05-06', description: 'CRÉDITO FNDE', document: 'OB123', category: 'CREDITO_FNDE', creditCents: 506500, debitCents: null, counterparty: null },
+        { date: '2026-06-21', description: 'PAGAMENTO PIX', document: 'PX1', category: 'PAGAMENTO_TRANSFERENCIA', creditCents: null, debitCents: 124000, counterparty: { document: '12345678000190', name: 'FORNECEDOR EXEMPLO', bank: '001', agency: '1234', account: '998877' } },
+        { date: '2026-06-10', description: 'APLICAÇÃO', document: 'AP1', category: 'APLICACAO_FINANCEIRA', creditCents: null, debitCents: 380000, counterparty: null },
+        { date: '2026-05-06', description: 'ORDEM BANCÁRIA FNDE', document: 'OB123', category: 'REPASSE_FNDE', creditCents: 506500, debitCents: null, counterparty: null },
+        { date: '2026-05-02', description: 'RENDIMENTO APLICAÇÃO', document: 'RD1', category: 'RENDIMENTO_FINANCEIRO', creditCents: 1250, debitCents: null, counterparty: null },
+        { date: '2026-04-28', description: 'RESGATE AUTOMÁTICO', document: 'RG1', category: 'RESGATE_APLICACAO', creditCents: 90000, debitCents: null, counterparty: null },
+        { date: '2026-04-15', description: 'PAGTO CARTÃO', document: 'CT1', category: 'PAGAMENTO_CARTAO', creditCents: null, debitCents: 27000, counterparty: { document: null, name: 'LOJA EXEMPLO', bank: null, agency: null, account: null } },
+        { date: '2026-03-11', description: 'TARIFA BANCÁRIA', document: 'TF1', category: 'TARIFA_BANCARIA', creditCents: null, debitCents: 1200, counterparty: null },
+        { date: '2026-02-20', description: 'PIX RECEBIDO', document: 'PR1', category: 'ENTRADA_TERCEIRO', creditCents: 5000, debitCents: null, counterparty: { document: '11122233344', name: 'ORIGEM IDENTIFICADA', bank: '237', agency: null, account: null } },
+        { date: '2026-01-15', description: 'LANÇAMENTO DIVERSO', document: 'DV1', category: 'MOVIMENTO_NAO_CLASSIFICADO', creditCents: null, debitCents: 3000, counterparty: null },
       ],
       note: 'Saldo informado pelo FNDE com posição até 30/06/2026.',
     },
@@ -219,6 +225,26 @@ async function smoke(viewport, suffix) {
   if (axisLabels.some((label) => label.includes('-'))) {
     throw new Error(`A escala de saldos positivos introduziu referência negativa: ${axisLabels.join(', ')}`);
   }
+
+  const ledger = page.getByRole('region', { name: 'Movimentações financeiras da conta' });
+  await ledger.getByText('9 movimentos apresentados nesta consulta.').waitFor();
+  await ledger.getByText('Repasse FNDE', { exact: true }).waitFor();
+  await ledger.getByText('Aplicação financeira', { exact: true }).waitFor();
+  await ledger.getByText('Resgate de aplicação', { exact: true }).waitFor();
+  await ledger.getByText('Pagamento / transferência', { exact: true }).waitFor();
+  await ledger.getByText('Rendimento financeiro', { exact: true }).waitFor();
+  await ledger.getByText('Movimento não classificado', { exact: true }).waitFor();
+  await ledger.getByText('A diferença acima não representa o saldo da conta.', { exact: false }).waitFor();
+  if (await ledger.locator('.movement-ledger__row').count() !== 9) {
+    throw new Error('O ledger não apresentou todos os 9 movimentos do fixture.');
+  }
+  const ledgerText = await ledger.innerText();
+  for (const rawCategory of ['PAGAMENTO_TRANSFERENCIA', 'APLICACAO_FINANCEIRA', 'REPASSE_FNDE', 'MOVIMENTO_NAO_CLASSIFICADO']) {
+    if (ledgerText.includes(rawCategory)) {
+      throw new Error(`Categoria técnica vazou no ledger: ${rawCategory}.`);
+    }
+  }
+
   await assertNoMainOverflow(page);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForFunction(() => window.scrollY <= 2);
