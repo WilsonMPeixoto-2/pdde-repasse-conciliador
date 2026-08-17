@@ -2,10 +2,10 @@ import { z } from 'zod';
 import {
   humanIndicatorSchema,
   humanPortfolioMetricsSchema,
+  humanPortfolioSchoolSchema,
   humanSchoolContentSchema,
   humanSchoolIdentitySchema,
   humanSourceSchema,
-  humanUnitSchema,
 } from '../../shared/human-financial-contract';
 import { evidenceIdentifierSchema } from '../core/evidence';
 
@@ -56,7 +56,7 @@ export interface CurrentHumanFinancialPortfolio {
   metrics: z.infer<typeof humanPortfolioMetricsSchema>;
   sources: z.infer<typeof humanSourceSchema>[];
   indicators: z.infer<typeof humanIndicatorSchema>[];
-  schools: z.infer<typeof humanUnitSchema>[];
+  schools: z.infer<typeof humanPortfolioSchoolSchema>[];
 }
 
 export interface CurrentHumanFinancialSchoolSnapshot {
@@ -83,6 +83,68 @@ export interface CurrentHumanFinancialPublisher {
     expectedSchoolCount: number;
     human: unknown;
   }): Promise<void>;
+}
+
+function latestPortfolioReferenceDate(
+  schools: readonly z.infer<typeof humanSchoolContentSchema>[],
+): string | null {
+  return schools
+    .flatMap((school) => school.accounts)
+    .map((account) => account.latestPosition?.referenceDate ?? null)
+    .filter((date): date is string => date !== null)
+    .sort()
+    .at(-1) ?? null;
+}
+
+export function buildCurrentPortfolioSchoolSummary(
+  school: z.infer<typeof humanSchoolContentSchema>,
+  referenceDate: string | null,
+): z.infer<typeof humanPortfolioSchoolSchema> {
+  let programmedCents = 0;
+  let paymentInformedCents = 0;
+  let creditLocatedCents = 0;
+  let repasseAccountMissing = false;
+
+  for (const program of school.programs) {
+    for (const installment of program.installments) {
+      programmedCents += installment.programmedCents;
+      paymentInformedCents += installment.paymentInformedCents;
+      if (
+        installment.creditEvidence.status === 'Crédito localizado'
+        && installment.creditEvidence.amountCents !== null
+      ) {
+        creditLocatedCents += installment.creditEvidence.amountCents;
+      }
+      if (installment.programmedCents > 0 && installment.account === null) {
+        repasseAccountMissing = true;
+      }
+    }
+  }
+
+  const referenceAccounts = referenceDate === null
+    ? []
+    : school.accounts.filter((account) => account.latestPosition?.referenceDate === referenceDate);
+  const knownBalances = referenceAccounts
+    .map((account) => account.latestPosition?.totalReportedBalanceCents ?? null)
+    .filter((value): value is number => value !== null);
+
+  return humanPortfolioSchoolSchema.parse({
+    sme: school.school.sme,
+    name: school.school.name,
+    inep: school.school.inep,
+    programmedCents,
+    paymentInformedCents,
+    creditLocatedCents,
+    knownBalanceCents: knownBalances.length > 0
+      ? knownBalances.reduce((total, value) => total + value, 0)
+      : null,
+    referenceDate,
+    accountsTotal: school.accounts.length,
+    accountsWithReferencePosition: referenceAccounts.length,
+    followUpCount: school.followUp.length,
+    paymentSuspended: school.accounting.some((item) => item.paymentSuspended),
+    repasseAccountMissing,
+  });
 }
 
 export function prepareCurrentHumanFinancialSnapshot(input: {
@@ -130,6 +192,7 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
       followUp: item.followUp,
     },
   }));
+  const referenceDate = latestPortfolioReferenceDate(human.schools);
 
   return {
     portfolio: {
@@ -141,11 +204,7 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
       metrics: human.metrics,
       sources: human.sources,
       indicators: human.indicators,
-      schools: schools.map((item) => ({
-        sme: item.school.sme,
-        name: item.school.name,
-        inep: item.school.inep,
-      })),
+      schools: human.schools.map((school) => buildCurrentPortfolioSchoolSummary(school, referenceDate)),
     },
     schools,
   };
