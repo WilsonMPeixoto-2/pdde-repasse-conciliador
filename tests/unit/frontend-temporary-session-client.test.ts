@@ -17,7 +17,21 @@ const portfolio = {
   indicators: [],
   sources: [{ name: 'PDDEInfo', information: 'Dados financeiros.' }],
   schoolCount: 1,
-  schools: [{ inep: '33069247', sme: '0410001', name: 'EM EMA NEGRAO DE LIMA' }],
+  schools: [{
+    inep: '33069247',
+    sme: '0410001',
+    name: 'EM EMA NEGRAO DE LIMA',
+    programmedCents: 0,
+    paymentInformedCents: 0,
+    creditLocatedCents: 0,
+    knownBalanceCents: null,
+    referenceDate: null,
+    accountsTotal: 0,
+    accountsWithReferencePosition: 0,
+    followUpCount: 0,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  }],
 };
 
 const school = {
