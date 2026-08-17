@@ -24,6 +24,21 @@ export const humanUnitSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
 }).strict();
 
+export const humanPortfolioSchoolSchema = humanUnitSchema.extend({
+  programmedCents: humanNonNegativeMoneySchema,
+  paymentInformedCents: humanNonNegativeMoneySchema,
+  creditLocatedCents: humanNonNegativeMoneySchema,
+  knownBalanceCents: humanMoneySchema.nullable(),
+  referenceDate: humanIsoDateSchema.nullable(),
+  accountsTotal: z.number().int().nonnegative(),
+  accountsWithReferencePosition: z.number().int().nonnegative(),
+  followUpCount: z.number().int().nonnegative(),
+  paymentSuspended: z.boolean(),
+  repasseAccountMissing: z.boolean(),
+}).strict().refine((value) => value.accountsWithReferencePosition <= value.accountsTotal, {
+  message: 'Cobertura de contas da unidade não pode exceder o total.',
+});
+
 export const humanSourceSchema = z.object({
   name: z.string().min(1),
   information: z.string().min(1),
