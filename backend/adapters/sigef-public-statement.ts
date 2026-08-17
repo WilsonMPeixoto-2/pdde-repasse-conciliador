@@ -345,7 +345,7 @@ export function classifySigefMovement(
       || history.includes('TRANSFERENCIA RECEBIDA')
       || history.includes('DEPOSITO ONLINE')
       || history.includes('DEPOSITO CHEQUE BB LIQUIDADO')
-      || history.includes('TED TRANSFERENCIA ELETR.DISPON')
+      || history.includes('TED TRANSF')
     )
   ) {
     return 'ENTRADA_TERCEIRO';
