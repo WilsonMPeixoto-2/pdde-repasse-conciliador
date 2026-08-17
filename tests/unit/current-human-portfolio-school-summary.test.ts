@@ -118,8 +118,31 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
       accountsWithReferencePosition: 1,
       followUpCount: 1,
       paymentSuspended: true,
-      repasseAccountMissing: true,
+      repasseAccountMissing: false,
     });
+  });
+
+  it('sinaliza conta ausente somente quando já existe pagamento informado', () => {
+    const paidWithoutAccount = {
+      ...school,
+      programs: [{
+        ...school.programs[0],
+        installments: [{
+          ...school.programs[0].installments[1],
+          paymentInformedCents: 500_000,
+          paymentInformedDate: '2026-08-10',
+          creditEvidence: {
+            status: 'Conta não exibida',
+            date: null,
+            amountCents: null,
+            document: null,
+          },
+        }],
+      }],
+    };
+
+    expect(buildCurrentPortfolioSchoolSummary(paidWithoutAccount, '2026-06-30').repasseAccountMissing)
+      .toBe(true);
   });
 
   it('preserva zero como valor conhecido e usa null quando nenhuma conta tem posição na referência', () => {
