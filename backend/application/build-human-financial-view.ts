@@ -520,9 +520,9 @@ function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFin
         && installment.paymentInformedCents > 0
       )))
     )),
-    indicator('Conta do repasse não exibida', schools, (school) => (
+    indicator('Pagamento informado sem conta do repasse exibida', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
-        installment.programmedCents > 0 && installment.account === null
+        installment.paymentInformedCents > 0 && installment.account === null
       )))
     )),
     indicator('Conta sem posição pública de saldo', schools, (school) => (
