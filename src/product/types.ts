@@ -3,13 +3,19 @@ import {
   humanAccountSchema,
   humanIndicatorSchema,
   humanPortfolioMetricsSchema,
+  humanPortfolioSchoolSchema,
   humanPositionSchema,
   humanSchoolContentSchema,
   humanSourceSchema,
   humanUnitSchema,
 } from '../../shared/human-financial-contract';
 
-export { humanPortfolioMetricsSchema, humanPositionSchema, humanUnitSchema } from '../../shared/human-financial-contract';
+export {
+  humanPortfolioMetricsSchema,
+  humanPortfolioSchoolSchema,
+  humanPositionSchema,
+  humanUnitSchema,
+} from '../../shared/human-financial-contract';
 
 export const humanPortfolioSchema = z.object({
   title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
@@ -19,7 +25,7 @@ export const humanPortfolioSchema = z.object({
   metrics: humanPortfolioMetricsSchema,
   sources: z.array(humanSourceSchema).min(1),
   indicators: z.array(humanIndicatorSchema),
-  schools: z.array(humanUnitSchema),
+  schools: z.array(humanPortfolioSchoolSchema),
 }).strict().refine((value) => value.schoolCount === value.schools.length, {
   message: 'Cobertura escolar divergente no portfólio humano.',
 }).refine((value) => value.metrics.schoolCount === value.schoolCount, {
@@ -36,3 +42,4 @@ export type HumanAccount = z.infer<typeof humanAccountSchema>;
 export type HumanPosition = z.infer<typeof humanPositionSchema>;
 export type HumanIndicator = z.infer<typeof humanIndicatorSchema>;
 export type HumanUnit = z.infer<typeof humanUnitSchema>;
+export type HumanPortfolioSchool = z.infer<typeof humanPortfolioSchoolSchema>;
