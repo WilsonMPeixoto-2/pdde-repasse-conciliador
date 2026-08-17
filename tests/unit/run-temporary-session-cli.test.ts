@@ -21,29 +21,31 @@ describe('CLI do Modo Sessão', () => {
     const module = await loadCli();
     expect(module.parseTemporarySessionArgs).toBeTypeOf('function');
     if (!module.parseTemporarySessionArgs) return;
+    const parse = module.parseTemporarySessionArgs;
 
-    expect(module.parseTemporarySessionArgs([
+    expect(parse([
       '--ineps', 'all',
       '--workspace', '.tmp/session-a',
       '--output-dir', 'artifacts/session-a',
     ])).toMatchObject({ ineps: 'all' });
 
-    expect(module.parseTemporarySessionArgs([
+    expect(parse([
       '--ineps', '33069247,33069093',
       '--workspace', '.tmp/session-b',
       '--output-dir', 'artifacts/session-b',
-    ]).toMatchObject({ ineps: ['33069247', '33069093'] });
+    ])).toMatchObject({ ineps: ['33069247', '33069093'] });
   });
 
   test('rejeita INEP inválido ou duplicado antes de consultar fontes externas', async () => {
     const module = await loadCli();
     expect(module.parseTemporarySessionArgs).toBeTypeOf('function');
     if (!module.parseTemporarySessionArgs) return;
+    const parse = module.parseTemporarySessionArgs;
 
-    expect(() => module.parseTemporarySessionArgs?.([
+    expect(() => parse([
       '--ineps', '123,33069247',
     ])).toThrow('INEP inválido');
-    expect(() => module.parseTemporarySessionArgs?.([
+    expect(() => parse([
       '--ineps', '33069247,33069247',
     ])).toThrow('INEP duplicado');
   });
