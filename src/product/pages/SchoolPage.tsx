@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { loadHumanSchool } from '../api';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
 import { Timeline2026 } from '../components/Timeline2026';
 import { buildAccountTimeline2026, deriveSchoolSummary } from '../derive';
 import { formatAccount, formatCnpj, formatDate, formatMoney } from '../format';
+import { usePortfolio } from '../PortfolioContext';
 import type { HumanSchool } from '../types';
 
 type State =
@@ -174,18 +174,19 @@ function SchoolContent({ school }: { school: HumanSchool }) {
 
 export function SchoolPage() {
   const { inep = '' } = useParams();
+  const portfolio = usePortfolio();
   const [state, setState] = useState<State>({ status: 'loading', data: null, error: null });
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading', data: null, error: null });
-    loadHumanSchool(inep, controller.signal)
+    portfolio.loadSchool(inep, controller.signal)
       .then((data) => setState({ status: 'ready', data, error: null }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setState({ status: 'error', data: null, error: error instanceof Error ? error.message : 'Não foi possível abrir a unidade.' });
       });
     return () => controller.abort();
-  }, [inep]);
+  }, [inep, portfolio.loadSchool]);
 
   if (state.status === 'loading') return <main className="page loading"><p>Carregando o prontuário financeiro…</p></main>;
   if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir esta unidade.</strong><span>{state.error}</span></div></main>;
