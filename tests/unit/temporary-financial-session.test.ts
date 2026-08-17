@@ -6,7 +6,7 @@ const view: HumanFinancialPortfolioView = {
   fiscalYear: 2026,
   referenceLabel: 'Consulta temporária concluída',
   metrics: {
-    schoolCount: 0,
+    schoolCount: 1,
     accountsTotal: 0,
     accountsWithPosition: 0,
     programmedCents: 0,
@@ -20,13 +20,27 @@ const view: HumanFinancialPortfolioView = {
     information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
   }],
   indicators: [],
-  schools: [],
+  schools: [{
+    school: {
+      inep: '33069247',
+      sme: '0410001',
+      name: 'EM EMA NEGRAO DE LIMA',
+      uex: 'CAIXA ESCOLAR EMA NEGRAO DE LIMA',
+      cnpj: '04500463000173',
+    },
+    programs: [],
+    accounts: [],
+    accounting: [],
+    followUp: [],
+  }],
 };
 
 type SessionModule = {
   runTemporaryFinancialSession?: (options: Record<string, unknown>) => Promise<{
     status: string;
     human: HumanFinancialPortfolioView;
+    portfolio: Record<string, unknown>;
+    schools: Array<{ school: { inep: string }; snapshot: Record<string, unknown> }>;
     workbookBytes: Uint8Array;
     workbookFilename: string;
   }>;
@@ -72,6 +86,14 @@ describe('Modo Sessão financeiro', () => {
     expect(received[0]).not.toHaveProperty('financialSnapshotStore');
     expect(result.status).toBe('COMPLETE');
     expect(result.human).toBe(view);
+    expect(result.portfolio).toMatchObject({
+      fiscalYear: 2026,
+      schoolCount: 1,
+      schools: [{ inep: '33069247', sme: '0410001', name: 'EM EMA NEGRAO DE LIMA' }],
+    });
+    expect(result.portfolio).not.toHaveProperty('runId');
+    expect(result.schools).toHaveLength(1);
+    expect(result.schools[0]?.snapshot).not.toHaveProperty('runId');
     expect(result.workbookFilename).toBe('inteligencia-financeira-pdde-4cre-2026.xlsx');
     expect(Array.from(result.workbookBytes.slice(0, 2))).toEqual([0x50, 0x4b]);
     expect(phases).toEqual(['PREPARING', 'COLLECTING', 'EXPORTING', 'COMPLETE']);
