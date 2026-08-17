@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { humanPortfolioSchoolSchema } from '../../shared/human-financial-contract';
+import {
+  humanPortfolioSchoolSchema,
+  humanSchoolContentSchema,
+} from '../../shared/human-financial-contract';
 import {
   type EvidenceRunProjection,
   type ProjectedExecutionStatus,
@@ -74,21 +77,9 @@ const humanIndicatorSchema = z.object({
   count: z.number().int().nonnegative(),
   units: z.array(humanUnitSchema),
 }).strict();
-const humanSchoolIdentitySchema = z.object({
-  inep: z.string().regex(/^\d{8}$/),
-  sme: z.string().regex(/^\d{7}$/),
-  name: z.string().min(1),
-  uex: z.string(),
-  cnpj: z.string(),
-}).strict();
-const humanSchoolSnapshotSchema = z.object({
+const humanSchoolSnapshotSchema = humanSchoolContentSchema.extend({
   fiscalYear: z.literal(2026),
   runId: evidenceIdentifierSchema,
-  school: humanSchoolIdentitySchema,
-  programs: z.array(z.unknown()),
-  accounts: z.array(z.unknown()),
-  accounting: z.array(z.unknown()),
-  followUp: z.array(z.string()),
 }).strict();
 
 interface SupabaseResult {
