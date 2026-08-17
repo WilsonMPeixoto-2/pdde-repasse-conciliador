@@ -88,6 +88,25 @@ describe('cliente web do Modo Sessão', () => {
     await expect(loadTemporarySchool(key, 'web-session-abc', '33069247')).resolves.toEqual(school);
   });
 
+  test('classifica sessão expirada ou inexistente como falha terminal recuperável pela interface', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(
+      { error: 'Consulta temporária não encontrada ou expirada.' },
+      { status: 404 },
+    )));
+    const { loadTemporarySessionStatus, isTerminalTemporarySessionError } = await api();
+
+    let cause: unknown;
+    try {
+      await loadTemporarySessionStatus('access-key-12345678901234567890', 'expired-session');
+    } catch (error) {
+      cause = error;
+    }
+
+    expect(cause).toBeInstanceOf(Error);
+    expect(isTerminalTemporarySessionError(cause)).toBe(true);
+    expect((cause as Error).message).toMatch(/expirada|não encontrada/i);
+  });
+
   test('baixa o Excel temporário como blob sem colocar a chave na URL', async () => {
     const calls: Array<{ url: string; auth: string | null }> = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
