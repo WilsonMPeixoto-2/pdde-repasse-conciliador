@@ -1,14 +1,22 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadMasterSchools } from '../backend/application/school-catalog';
-import { runTemporaryFinancialSession } from '../backend/application/temporary-financial-session';
+import {
+  runTemporaryFinancialSession,
+  type TemporaryFinancialSessionResult,
+} from '../backend/application/temporary-financial-session';
 
 export interface TemporarySessionCliOptions {
   ineps: 'all' | string[];
   workspace: string;
   outputDir: string;
+}
+
+export interface TemporarySessionOutputEntry {
+  path: string;
+  content: string | Uint8Array;
 }
 
 export function parseTemporarySessionArgs(argv: string[]): TemporarySessionCliOptions {
@@ -45,6 +53,48 @@ export function parseTemporarySessionArgs(argv: string[]): TemporarySessionCliOp
   };
 }
 
+function jsonText(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+export function temporarySessionOutputEntries(
+  result: Pick<
+    TemporaryFinancialSessionResult,
+    'runId' | 'status' | 'portfolio' | 'schools' | 'workbookBytes' | 'workbookFilename'
+  >,
+): TemporarySessionOutputEntry[] {
+  const entries: TemporarySessionOutputEntry[] = [
+    {
+      path: 'portfolio.json',
+      content: jsonText(result.portfolio),
+    },
+    {
+      path: result.workbookFilename,
+      content: result.workbookBytes,
+    },
+    {
+      path: 'session.json',
+      content: jsonText({
+        sessionId: result.runId,
+        status: result.status,
+        fiscalYear: 2026,
+        schoolCount: result.portfolio.schoolCount,
+        workbookFilename: result.workbookFilename,
+        temporary: true,
+        generatedAt: new Date().toISOString(),
+      }),
+    },
+  ];
+
+  for (const item of result.schools) {
+    entries.push({
+      path: `schools/${item.school.inep}.json`,
+      content: jsonText(item.snapshot),
+    });
+  }
+  return entries;
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const options = parseTemporarySessionArgs(argv);
   const master = await loadMasterSchools();
@@ -67,35 +117,19 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     },
   });
 
-  await mkdir(options.outputDir, { recursive: true });
-  await Promise.all([
-    writeFile(
-      resolve(options.outputDir, 'human-financial.json'),
-      `${JSON.stringify(result.human, null, 2)}\n`,
-      'utf8',
-    ),
-    writeFile(resolve(options.outputDir, result.workbookFilename), result.workbookBytes),
-    writeFile(
-      resolve(options.outputDir, 'session.json'),
-      `${JSON.stringify({
-        sessionId: result.runId,
-        status: result.status,
-        fiscalYear: 2026,
-        schoolCount: result.human.schools.length,
-        workbookFilename: result.workbookFilename,
-        temporary: true,
-        generatedAt: new Date().toISOString(),
-      }, null, 2)}\n`,
-      'utf8',
-    ),
-  ]);
+  const entries = temporarySessionOutputEntries(result);
+  await Promise.all(entries.map(async (entry) => {
+    const outputPath = resolve(options.outputDir, entry.path);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, entry.content);
+  }));
 
   console.log(JSON.stringify({
     type: 'session-result',
     sessionId: result.runId,
     status: result.status,
     outputDir: options.outputDir,
-    schools: result.human.schools.length,
+    schools: result.portfolio.schoolCount,
     workbook: result.workbookFilename,
   }));
 }
