@@ -1,0 +1,38 @@
+name: Install Visual Types
+
+on:
+  push:
+    branches:
+      - feat/modo-sessao-temporaria-2026
+    paths:
+      - package.json
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/modo-sessao-temporaria-2026
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Atualizar lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Validar instalacao imutavel
+        run: npm ci
+      - name: Validar projeto
+        run: npm run check
+      - name: Publicar lockfile e remover workflow temporario
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/install-visual-types.yml
+          git add package-lock.json
+          git commit -m "build: integra tipos do tooling visual"
+          git push origin HEAD:feat/modo-sessao-temporaria-2026
