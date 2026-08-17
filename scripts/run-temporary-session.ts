@@ -98,8 +98,6 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     schools: result.human.schools.length,
     workbook: result.workbookFilename,
   }));
-
-  if (result.status !== 'COMPLETE') process.exitCode = 2;
 }
 
 const executedAsScript = process.argv[1]
