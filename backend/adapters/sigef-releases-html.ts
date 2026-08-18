@@ -48,12 +48,6 @@ interface ReleaseAction {
   installmentCode: string | null;
 }
 
-interface ReleaseTable {
-  headers: string[];
-  rows: ReturnType<CheerioAPI['prototype']['toArray']>;
-  headerRowIndex: number;
-}
-
 export interface SigefReleaseHtmlResult {
   query: {
     fiscalYear: number;
@@ -95,16 +89,12 @@ function filterValue($: CheerioAPI, label: string): string {
   throw new Error(`XLS de Liberações não contém o metadado ${label}.`);
 }
 
-function releaseTable($: CheerioAPI, table: Parameters<CheerioAPI>[0]): {
-  headers: string[];
-  rows: ReturnType<typeof $(table).find> extends never ? never[] : ReturnType<typeof $(table).find>['prototype'][];
-  headerRowIndex: number;
-} | null {
+function releaseTable($: CheerioAPI, table: Parameters<CheerioAPI>[0]) {
   const rows = $(table).find('tr').toArray();
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const headers = cellsInRow($, rows[rowIndex]).map(canonicalText);
     if (REQUIRED_HEADERS.every((required) => headers.includes(required))) {
-      return { headers, rows: rows as never, headerRowIndex: rowIndex };
+      return { headers, rows, headerRowIndex: rowIndex };
     }
   }
   return null;
@@ -234,7 +224,7 @@ export function parseSigefReleaseHtml(
     const bankColumn = headerIndex(headers, 'BANCO');
     const agencyColumn = headerIndex(headers, 'AGENCIA');
     const accountColumn = headerIndex(headers, 'CONTA CORRENTE');
-    const rows = (candidate.rows as Parameters<CheerioAPI>[0][]).slice(candidate.headerRowIndex + 1);
+    const rows = candidate.rows.slice(candidate.headerRowIndex + 1);
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
       const cells = cellsInRow($, rows[rowIndex]);
