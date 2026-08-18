@@ -27,6 +27,13 @@ const REQUIRED_HEADERS = [
   'CONTA CORRENTE',
 ] as const;
 
+const HEADER_ANCHORS = [
+  'DATA DE PAGAMENTO',
+  'ORDEM BANCARIA',
+  'VALOR',
+  'PROGRAMA',
+] as const;
+
 const MONTHS: Record<string, number> = {
   JAN: 1,
   FEV: 2,
@@ -93,7 +100,7 @@ function releaseTable($: CheerioAPI, table: Parameters<CheerioAPI>[0]) {
   const rows = $(table).find('tr').toArray();
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const headers = cellsInRow($, rows[rowIndex]).map(canonicalText);
-    if (REQUIRED_HEADERS.every((required) => headers.includes(required))) {
+    if (HEADER_ANCHORS.every((required) => headers.includes(required))) {
       return { headers, rows, headerRowIndex: rowIndex };
     }
   }
@@ -216,6 +223,7 @@ export function parseSigefReleaseHtml(
     if (!candidate) continue;
     releaseTableCount += 1;
     const headers = candidate.headers;
+    for (const required of REQUIRED_HEADERS) headerIndex(headers, required);
     const dateColumn = headerIndex(headers, 'DATA DE PAGAMENTO');
     const orderColumn = headerIndex(headers, 'ORDEM BANCARIA');
     const amountColumn = headerIndex(headers, 'VALOR');
