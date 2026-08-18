@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { runMonitoring } from '../../backend/application/run-monitoring';
+import { runFinancialIntelligenceMonitoring } from '../../backend/application/run-financial-intelligence-monitoring';
 
 const temporaryPaths: string[] = [];
 afterEach(async () => {
@@ -107,7 +107,7 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
       coverageThrough: '2026-08-18',
     }));
 
-    const result = await runMonitoring({
+    const result = await runFinancialIntelligenceMonitoring({
       schools: [school],
       workspacePath: await workspace(),
       fiscalYear: 2026,
@@ -119,6 +119,10 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
       })),
       collectSigefReleases,
       collectSigefAccount,
+      collectPddeInfoPublicPortfolio: vi.fn(async () => ({
+        attendance: [], accounting: [], balances: [], artifacts: [], failures: [],
+        balanceReferenceMonth: null, coverageThrough: null,
+      })),
       now: () => '2026-08-18T13:01:00-03:00',
     } as never) as any;
 
@@ -129,21 +133,27 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
       programCode: '02',
       account: recoveredAccount,
     });
-    expect(result.raw.schools[0].repasses[0]).toMatchObject({
-      account: recoveredAccount,
-      accountSource: 'SIGEF_LIBERACOES',
-      pddeInfoAccount: null,
-    });
+    expect(result.raw.accountRecoveries).toEqual([
+      expect.objectContaining({
+        schoolInep: school.inep,
+        programCode: '02',
+        status: 'RECOVERED',
+        account: recoveredAccount,
+        orderBank: '900001',
+      }),
+    ]);
     expect(result.operational.repasses[0]).toMatchObject({
       account: recoveredAccount,
-      accountSource: 'SIGEF_LIBERACOES',
       bankCreditStatus: 'CREDITO_CONFIRMADO',
       bankCreditAmountCents: 506_500,
     });
     expect(result.fiscal.schools[0].repasses[0].installments[0]).toMatchObject({
       account: recoveredAccount,
-      accountSource: 'SIGEF_LIBERACOES',
       bankCredit: { presentationStatus: 'CREDITO_LOCALIZADO' },
     });
+    expect(result.human.schools[0].programs[0].installments[0]).toMatchObject({
+      account: recoveredAccount,
+    });
+    expect(result.human.schools[0].programs[0].installments[0].note).toMatch(/SIGEF.*Liberações/i);
   });
 });
