@@ -252,9 +252,6 @@ function recomputeRaw(raw: RawMonitoring & { accountRecoveries: SigefReleaseAcco
     mappedAccountsComplete: complete,
     mappedAccountsPartial: partial,
     mappedAccountsFailed: failed,
-    sigefReleaseQueriesAttempted: new Set(raw.accountRecoveries.map((item) => `${item.schoolInep}|${item.programCode}`)).size,
-    sigefReleaseQueriesFailed: releaseFailures,
-    sigefReleaseAccountsRecovered: raw.accountRecoveries.filter((item) => item.status === 'RECOVERED').length,
   };
   raw.status = raw.status === 'COMPLETE' && releaseFailures === 0 && partial === 0 && failed === 0
     ? 'COMPLETE'
