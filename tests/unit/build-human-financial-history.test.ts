@@ -98,4 +98,46 @@ describe('série histórica e métricas do read model humano', () => {
     expect(view.metrics.accountsTotal).toBe(1);
     expect(view.metrics.reportedBalanceCents).toBe(415143);
   });
+
+  it('não infla a carteira com conta histórica zerada, mas preserva saldo residual sem extrato mapeado', () => {
+    const reportsWithHistoricalBalances = {
+      ...publicReports,
+      balances: [
+        ...publicReports.balances,
+        {
+          ...baseBalance,
+          account: '0000000001',
+          programName: 'PDDE/PDE-ESCOLA',
+          coverageThrough: '2026-06-30',
+          checkingBalanceCents: 0,
+          fundBalanceCents: 0,
+          investmentBalanceCents: 0,
+          totalReportedBalanceCents: 0,
+        },
+        {
+          ...baseBalance,
+          account: '0000000002',
+          programName: 'PDDE',
+          coverageThrough: '2026-06-30',
+          checkingBalanceCents: 1450,
+          fundBalanceCents: 0,
+          investmentBalanceCents: 0,
+          totalReportedBalanceCents: 1450,
+        },
+      ],
+    };
+
+    const view = buildHumanFinancialView({
+      fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never,
+      publicReports: reportsWithHistoricalBalances as never,
+    });
+
+    expect(view.schools[0].accounts.map((account) => account.account)).toEqual([
+      '0000549797',
+      '0000000002',
+    ]);
+    expect(view.metrics.accountsTotal).toBe(2);
+    expect(view.metrics.accountsWithPosition).toBe(2);
+    expect(view.metrics.reportedBalanceCents).toBe(416593);
+  });
 });
