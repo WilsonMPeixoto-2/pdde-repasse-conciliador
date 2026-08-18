@@ -48,6 +48,12 @@ interface ReleaseAction {
   installmentCode: string | null;
 }
 
+interface ReleaseTable {
+  headers: string[];
+  rows: ReturnType<CheerioAPI['prototype']['toArray']>;
+  headerRowIndex: number;
+}
+
 export interface SigefReleaseHtmlResult {
   query: {
     fiscalYear: number;
@@ -87,6 +93,21 @@ function filterValue($: CheerioAPI, label: string): string {
     }
   }
   throw new Error(`XLS de Liberações não contém o metadado ${label}.`);
+}
+
+function releaseTable($: CheerioAPI, table: Parameters<CheerioAPI>[0]): {
+  headers: string[];
+  rows: ReturnType<typeof $(table).find> extends never ? never[] : ReturnType<typeof $(table).find>['prototype'][];
+  headerRowIndex: number;
+} | null {
+  const rows = $(table).find('tr').toArray();
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const headers = cellsInRow($, rows[rowIndex]).map(canonicalText);
+    if (REQUIRED_HEADERS.every((required) => headers.includes(required))) {
+      return { headers, rows: rows as never, headerRowIndex: rowIndex };
+    }
+  }
+  return null;
 }
 
 function parseQueryTimestamp(value: string, timezoneOffset: string): { timestamp: string; date: string } {
@@ -198,11 +219,13 @@ export function parseSigefReleaseHtml(
   }
   const query = parseQueryTimestamp(filterValue($, 'Data da consulta'), options.timezoneOffset);
   const releases: SigefRelease[] = [];
-  const tables = $('.listagem table').toArray();
+  let releaseTableCount = 0;
 
-  for (const table of tables) {
-    const headers = $(table).find('thead th').toArray().map((header) => canonicalText($(header).text()));
-    for (const required of REQUIRED_HEADERS) headerIndex(headers, required);
+  for (const table of $('table').toArray()) {
+    const candidate = releaseTable($, table);
+    if (!candidate) continue;
+    releaseTableCount += 1;
+    const headers = candidate.headers;
     const dateColumn = headerIndex(headers, 'DATA DE PAGAMENTO');
     const orderColumn = headerIndex(headers, 'ORDEM BANCARIA');
     const amountColumn = headerIndex(headers, 'VALOR');
@@ -211,11 +234,11 @@ export function parseSigefReleaseHtml(
     const bankColumn = headerIndex(headers, 'BANCO');
     const agencyColumn = headerIndex(headers, 'AGENCIA');
     const accountColumn = headerIndex(headers, 'CONTA CORRENTE');
+    const rows = (candidate.rows as Parameters<CheerioAPI>[0][]).slice(candidate.headerRowIndex + 1);
 
-    const rows = $(table).find('tbody tr').toArray();
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
       const cells = cellsInRow($, rows[rowIndex]);
-      const rowNumber = rowIndex + 2;
+      const rowNumber = candidate.headerRowIndex + rowIndex + 2;
       if (cells.some((cell) => canonicalText(cell) === 'TOTAL')) continue;
       if (cells.every((cell) => !cell)) continue;
       const rawProgram = cells[programColumn] ?? '';
@@ -249,6 +272,10 @@ export function parseSigefReleaseHtml(
     }
   }
 
+  if (releaseTableCount === 0) {
+    throw new Error('XLS de Liberações não contém o cabeçalho obrigatório DATA DE PAGAMENTO.');
+  }
+
   const sourceSnapshot = sourceSnapshotSchema.parse({
     source: 'SIGEF_LIBERACOES',
     status: 'available',
@@ -265,6 +292,6 @@ export function parseSigefReleaseHtml(
     },
     releases,
     source: sourceSnapshot,
-    statistics: { releaseRows: releases.length, tables: tables.length },
+    statistics: { releaseRows: releases.length, tables: releaseTableCount },
   };
 }
