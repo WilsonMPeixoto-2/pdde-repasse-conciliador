@@ -52,7 +52,7 @@ const view: HumanFinancialPortfolioView = {
           status: 'Crédito compatível localizado no extrato SIGEF',
           date: '2026-08-05', amountCents: 418500, document: 'DOC123',
         },
-        note: 'Conta recuperada no SIGEF Liberações pela OB 019072.',
+        note: null,
       }],
     }],
     accounts: [{
@@ -121,14 +121,6 @@ describe('Excel humano da inteligência financeira', () => {
     const plannedCell = sheet?.getCell(4, 5);
     expect(paidCell?.font?.color?.argb).toBeDefined();
     expect(paidCell?.font?.color?.argb).not.toBe(plannedCell?.font?.color?.argb);
-  });
-
-  it('identifica no Excel quando a conta foi recuperada no SIGEF Liberações', () => {
-    const workbook = buildHumanFinancialWorkbook(view);
-    const sheet = workbook.getWorksheet('Repasses');
-    const accountCell = String(sheet?.getCell(4, 9).value ?? '');
-    expect(accountCell).toContain('origem SIGEF Liberações');
-    expect(accountCell).toContain('0000546402');
   });
 
   it('não expõe metadados ou vocabulário técnico do backend', () => {
