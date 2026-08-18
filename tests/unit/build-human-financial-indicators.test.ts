@@ -42,18 +42,21 @@ describe('indicadores acionáveis da visão humana', () => {
       } as never,
     });
 
-    const firstPayment = view.indicators.find((item) => item.label === '1ª parcela com pagamento informado');
-    expect(firstPayment).toEqual(expect.objectContaining({ count: 1 }));
-    expect(firstPayment?.units).toEqual([
+    const missingCredit = view.indicators.find((item) => item.label === 'Pagamento informado sem crédito compatível localizado');
+    expect(missingCredit).toEqual(expect.objectContaining({ count: 1 }));
+    expect(missingCredit?.units).toEqual([
       { sme: '0410001', name: 'ESCOLA A', inep: '33069247' },
     ]);
+    expect(view.indicators.find((item) => item.label === '1ª parcela com pagamento informado')).toBeUndefined();
+    expect(view.schools[0]?.followUp).toContain('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
 
     const missingAccount = view.indicators.find((item) => item.label === 'Pagamento informado sem conta do repasse exibida');
     expect(missingAccount).toEqual(expect.objectContaining({ count: 0, units: [] }));
 
     const partial = view.indicators.find((item) => item.label === 'Informação parcial');
-    expect(partial).toEqual(expect.objectContaining({ count: 1 }));
+    expect(partial).toEqual(expect.objectContaining({ count: 2 }));
     expect(partial?.units).toEqual([
+      { sme: '0410001', name: 'ESCOLA A', inep: '33069247' },
       { sme: '0410003', name: 'ESCOLA B', inep: '33069433' },
     ]);
 
