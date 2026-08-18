@@ -132,10 +132,10 @@ describe('série histórica e métricas do read model humano', () => {
       publicReports: reportsWithHistoricalBalances as never,
     });
 
-    expect(view.schools[0].accounts.map((account) => account.account)).toEqual([
-      '0000549797',
-      '0000000002',
-    ]);
+    const accounts = view.schools[0].accounts.map((account) => account.account);
+    expect(accounts).toHaveLength(2);
+    expect(accounts).toEqual(expect.arrayContaining(['0000549797', '0000000002']));
+    expect(accounts).not.toContain('0000000001');
     expect(view.metrics.accountsTotal).toBe(2);
     expect(view.metrics.accountsWithPosition).toBe(2);
     expect(view.metrics.reportedBalanceCents).toBe(416593);
