@@ -78,7 +78,7 @@ function cellsInRow($: CheerioAPI, element: Parameters<CheerioAPI>[0]): string[]
 
 function filterValue($: CheerioAPI, label: string): string {
   const wanted = canonicalText(label);
-  for (const row of $('#filtros tr').toArray()) {
+  for (const row of $('table tr').toArray()) {
     const cells = cellsInRow($, row);
     for (let index = 0; index < cells.length; index += 1) {
       const current = canonicalText(cells[index]);
