@@ -57,6 +57,13 @@ export interface RunTemporaryFinancialSessionOptions {
   onProgress?: (progress: TemporaryFinancialSessionProgress) => void;
 }
 
+export interface MaterializeTemporaryFinancialSessionInput {
+  runId: string;
+  status: 'COMPLETE' | 'PARTIAL';
+  expectedSchoolCount: number;
+  human: HumanFinancialPortfolioView;
+}
+
 function emit(
   callback: RunTemporaryFinancialSessionOptions['onProgress'],
   phase: TemporaryFinancialSessionPhase,
@@ -77,6 +84,28 @@ function projectForWeb(input: {
     return { school, snapshot: publicSnapshot };
   });
   return { portfolio, schools };
+}
+
+export async function materializeTemporaryFinancialSession(
+  input: MaterializeTemporaryFinancialSessionInput,
+): Promise<TemporaryFinancialSessionResult> {
+  const { portfolio, schools } = projectForWeb({
+    runId: input.runId,
+    expectedSchoolCount: input.expectedSchoolCount,
+    human: input.human,
+  });
+  const workbook = buildHumanFinancialWorkbook(input.human);
+  const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+  return {
+    runId: input.runId,
+    status: input.status,
+    human: input.human,
+    portfolio,
+    schools,
+    workbookBytes,
+    workbookFilename: 'inteligencia-financeira-pdde-4cre-2026.xlsx',
+  };
 }
 
 export async function runTemporaryFinancialSession(
@@ -102,13 +131,12 @@ export async function runTemporaryFinancialSession(
     });
 
     emit(options.onProgress, 'EXPORTING', 'Organizando a visualização e o arquivo Excel.');
-    const { portfolio, schools } = projectForWeb({
+    const session = await materializeTemporaryFinancialSession({
       runId,
+      status: result.status,
       expectedSchoolCount: options.schools.length,
       human: result.human,
     });
-    const workbook = buildHumanFinancialWorkbook(result.human);
-    const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
     const terminalPhase = result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL';
     emit(
       options.onProgress,
@@ -118,15 +146,7 @@ export async function runTemporaryFinancialSession(
         : 'Consulta concluída com cobertura parcial; confira os acompanhamentos.',
     );
 
-    return {
-      runId,
-      status: result.status,
-      human: result.human,
-      portfolio,
-      schools,
-      workbookBytes,
-      workbookFilename: 'inteligencia-financeira-pdde-4cre-2026.xlsx',
-    };
+    return session;
   } catch (cause) {
     emit(
       options.onProgress,
