@@ -382,6 +382,8 @@ function schoolAccounts(
       publicReports,
     );
     const latestPosition = positions.at(-1) ?? null;
+    if (latestPosition?.totalReportedBalanceCents === null
+      || latestPosition?.totalReportedBalanceCents === 0) continue;
     accounts.set(key, {
       program: balance.programName,
       bank: balance.bank,
