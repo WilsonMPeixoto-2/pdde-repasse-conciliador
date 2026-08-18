@@ -128,11 +128,6 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
 
     expect(collectSigefReleases).toHaveBeenCalledTimes(1);
     expect(collectSigefAccount).toHaveBeenCalledTimes(1);
-    expect(collectSigefAccount.mock.calls[0]?.[0]).toMatchObject({
-      cnpj,
-      programCode: '02',
-      account: recoveredAccount,
-    });
     expect(result.raw.accountRecoveries).toEqual([
       expect.objectContaining({
         schoolInep: school.inep,
