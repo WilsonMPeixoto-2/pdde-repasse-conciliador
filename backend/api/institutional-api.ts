@@ -1,5 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
+import {
+  humanPublicPortfolioSchema,
+  humanPublicSchoolSchema,
+} from '../../shared/human-financial-contract';
 import type { EvidenceIntegrityResult } from '../core/evidence';
 import { DATA_PRODUCT_CATALOG, SOURCE_CATALOG } from '../core/source-catalog';
 import type {
@@ -145,6 +149,22 @@ function booleanQuery(url: URL, name: string): boolean | undefined {
   throw new Error(`${name} deve ser true ou false.`);
 }
 
+function withoutInternalRunId(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Retrato humano corrente inválido.');
+  }
+  const { runId: _runId, ...publicValue } = value as Record<string, unknown>;
+  return publicValue;
+}
+
+function publicHumanPortfolio(value: unknown): unknown {
+  return humanPublicPortfolioSchema.parse(withoutInternalRunId(value));
+}
+
+function publicHumanSchool(value: unknown): unknown {
+  return humanPublicSchoolSchema.parse(withoutInternalRunId(value));
+}
+
 async function requestJson(request: Request): Promise<unknown> {
   const contentType = request.headers.get('content-type') ?? '';
   const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
@@ -254,14 +274,18 @@ export function createInstitutionalApi(
             return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');
           }
           const portfolio = await dependencies.readService.getCurrentHumanPortfolio();
-          return portfolio ? json(portfolio) : errorResponse(404, 'Retrato financeiro humano corrente ainda não publicado.');
+          return portfolio
+            ? json(publicHumanPortfolio(portfolio))
+            : errorResponse(404, 'Retrato financeiro humano corrente ainda não publicado.');
         }
         if (segments.length === 5 && segments[2] === 'human' && segments[3] === 'schools') {
           if (!dependencies.readService.getCurrentHumanSchool) {
             return errorResponse(503, 'Read model humano corrente não configurado neste runtime.');
           }
           const school = await dependencies.readService.getCurrentHumanSchool(segments[4]);
-          return school ? json(school) : errorResponse(404, 'Retrato financeiro humano corrente da escola ainda não publicado.');
+          return school
+            ? json(publicHumanSchool(school))
+            : errorResponse(404, 'Retrato financeiro humano corrente da escola ainda não publicado.');
         }
         if (segments.length === 3 && segments[2] === 'portfolio') {
           if (!authorized(request, commandToken)) return errorResponse(401, 'Leitura administrativa não autorizada.');

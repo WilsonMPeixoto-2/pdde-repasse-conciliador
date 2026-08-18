@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { loadHumanSchool } from '../api';
+import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
+import { MovementLedger } from '../components/MovementLedger';
 import { Timeline2026 } from '../components/Timeline2026';
 import { buildAccountTimeline2026, deriveSchoolSummary } from '../derive';
 import { formatAccount, formatCnpj, formatDate, formatMoney } from '../format';
+import { usePortfolio } from '../PortfolioContext';
 import type { HumanSchool } from '../types';
 
 type State =
@@ -111,28 +113,11 @@ function SchoolContent({ school }: { school: HumanSchool }) {
                   summary={`${formatAccount(account.bank, account.agency, account.account)} · ${formatMoney(account.latestPosition?.totalReportedBalanceCents ?? null)}`}
                   defaultOpen={school.accounts.length === 1}
                 >
-                  {account.latestPosition ? (
-                    <div className="metrics-band" style={{ marginBottom: '1rem' }}>
-                      <MetricValue label="Saldo informado" valueCents={account.latestPosition.totalReportedBalanceCents} tone="balance" meta={`Posição ${formatDate(account.latestPosition.referenceDate)}`} />
-                      <MetricValue label="Em aplicações" valueCents={account.latestPosition.applications.totalCents} />
-                      <MetricValue label="Em conta" valueCents={account.latestPosition.checkingBalanceCents} />
-                      <MetricValue label="Fundos" valueCents={account.latestPosition.applications.fundsCents} />
-                    </div>
-                  ) : <p>Não há posição de saldo publicada para esta conta.</p>}
+                  {account.latestPosition
+                    ? <BalanceComposition position={account.latestPosition} />
+                    : <p>Não há posição de saldo publicada para esta conta.</p>}
                   <Timeline2026 months={buildAccountTimeline2026(account.positions)} title="Evolução do saldo informado" />
-                  {account.movements.length > 0 ? (
-                    <div style={{ marginTop: '2rem' }}>
-                      <h3>Movimentações recentes</h3>
-                      <div className="school-list">
-                        {account.movements.slice(0, 8).map((movement, index) => (
-                          <div className="school-row" key={`${movement.date}-${movement.document ?? index}`}>
-                            <span><span className="school-row__name">{movement.description}</span><span className="school-row__meta">{formatDate(movement.date)}{movement.category ? ` · ${movement.category}` : ''}</span></span>
-                            <span className="numeric">{movement.creditCents !== null ? `+ ${formatMoney(movement.creditCents)}` : movement.debitCents !== null ? `− ${formatMoney(movement.debitCents)}` : '—'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                  {account.movements.length > 0 ? <MovementLedger movements={account.movements} /> : null}
                 </Disclosure>
               ))}
               {school.accounts.length === 0 ? <p>Não há conta apresentada para esta unidade no retrato corrente.</p> : null}
@@ -174,18 +159,19 @@ function SchoolContent({ school }: { school: HumanSchool }) {
 
 export function SchoolPage() {
   const { inep = '' } = useParams();
+  const portfolio = usePortfolio();
   const [state, setState] = useState<State>({ status: 'loading', data: null, error: null });
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading', data: null, error: null });
-    loadHumanSchool(inep, controller.signal)
+    portfolio.loadSchool(inep, controller.signal)
       .then((data) => setState({ status: 'ready', data, error: null }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setState({ status: 'error', data: null, error: error instanceof Error ? error.message : 'Não foi possível abrir a unidade.' });
       });
     return () => controller.abort();
-  }, [inep]);
+  }, [inep, portfolio.loadSchool]);
 
   if (state.status === 'loading') return <main className="page loading"><p>Carregando o prontuário financeiro…</p></main>;
   if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir esta unidade.</strong><span>{state.error}</span></div></main>;

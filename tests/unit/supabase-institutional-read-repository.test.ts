@@ -52,6 +52,48 @@ const executionRows: Row[] = [
   },
 ];
 
+const humanSnapshotRows: Row[] = [{
+  fiscal_year: 2026,
+  run_id: 'run-human',
+  title: 'Inteligência Financeira PDDE | 4ª CRE',
+  reference_label: 'Posição financeira pública disponível até 30/06/2026',
+  school_count: 1,
+  metrics: {
+    schoolCount: 1,
+    accountsTotal: 1,
+    accountsWithPosition: 1,
+    programmedCents: 500_000,
+    paymentInformedCents: 500_000,
+    creditLocatedCents: 500_000,
+    reportedBalanceCents: 0,
+    applicationsCents: 0,
+  },
+  sources: [{ name: 'PDDEInfo', information: 'Dados financeiros.' }],
+  indicators: [],
+}];
+
+const humanSchoolRows: Row[] = [{
+  fiscal_year: 2026,
+  school_inep: '33069247',
+  sme: '0410001',
+  school_name: 'EM EMA NEGRAO DE LIMA',
+  summary: {
+    inep: '33069247',
+    sme: '0410001',
+    name: 'EM EMA NEGRAO DE LIMA',
+    programmedCents: 500_000,
+    paymentInformedCents: 500_000,
+    creditLocatedCents: 500_000,
+    knownBalanceCents: 0,
+    referenceDate: '2026-06-30',
+    accountsTotal: 1,
+    accountsWithReferencePosition: 1,
+    followUpCount: 0,
+    paymentSuspended: false,
+    repasseAccountMissing: false,
+  },
+}];
+
 class FakeQuery implements PromiseLike<{ data: Row[]; error: null; count: number }> {
   private filters: Array<(row: Row) => boolean> = [];
   private maximum = 1_000;
@@ -96,10 +138,17 @@ class FakeQuery implements PromiseLike<{ data: Row[]; error: null; count: number
 }
 
 class FakeClient {
+  constructor(private readonly legacyHumanSummary = false) {}
   from(table: string) {
     if (table === 'execution_read_models') return new FakeQuery(executionRows);
     if (table === 'current_finding_events') return new FakeQuery(currentFindingRows);
     if (table === 'evidence_events') return new FakeQuery(eventRows);
+    if (table === 'current_human_financial_snapshots') return new FakeQuery(humanSnapshotRows);
+    if (table === 'current_human_financial_schools') {
+      return new FakeQuery(this.legacyHumanSummary
+        ? humanSchoolRows.map((row) => ({ ...row, summary: null }))
+        : humanSchoolRows);
+    }
     throw new Error(`Tabela inesperada: ${table}`);
   }
 }
@@ -162,5 +211,23 @@ describe('SupabaseInstitutionalReadRepository', () => {
     await expect(repository.listExecutionsByRuns(runIds)).resolves.toEqual([
       expect.objectContaining({ runId: 'run-b', status: 'RUNNING' }),
     ]);
+  });
+
+  test('lê o resumo compacto da carteira sem carregar o snapshot completo da escola', async () => {
+    const repository = new SupabaseInstitutionalReadRepository(new FakeClient());
+    await expect(repository.getCurrentHumanPortfolio()).resolves.toEqual(expect.objectContaining({
+      schoolCount: 1,
+      schools: [expect.objectContaining({
+        inep: '33069247',
+        programmedCents: 500_000,
+        knownBalanceCents: 0,
+        accountsWithReferencePosition: 1,
+      })],
+    }));
+  });
+
+  test('trata retrato legado sem summary como ainda não pronto em vez de fabricar zeros', async () => {
+    const repository = new SupabaseInstitutionalReadRepository(new FakeClient(true));
+    await expect(repository.getCurrentHumanPortfolio()).resolves.toBeNull();
   });
 });

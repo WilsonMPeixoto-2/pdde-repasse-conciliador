@@ -27,6 +27,13 @@ const REQUIRED_HEADERS = [
   'CONTA CORRENTE',
 ] as const;
 
+const HEADER_ANCHORS = [
+  'DATA DE PAGAMENTO',
+  'ORDEM BANCARIA',
+  'VALOR',
+  'PROGRAMA',
+] as const;
+
 const MONTHS: Record<string, number> = {
   JAN: 1,
   FEV: 2,
@@ -78,7 +85,7 @@ function cellsInRow($: CheerioAPI, element: Parameters<CheerioAPI>[0]): string[]
 
 function filterValue($: CheerioAPI, label: string): string {
   const wanted = canonicalText(label);
-  for (const row of $('#filtros tr').toArray()) {
+  for (const row of $('table tr').toArray()) {
     const cells = cellsInRow($, row);
     for (let index = 0; index < cells.length; index += 1) {
       const current = canonicalText(cells[index]);
@@ -87,6 +94,17 @@ function filterValue($: CheerioAPI, label: string): string {
     }
   }
   throw new Error(`XLS de Liberações não contém o metadado ${label}.`);
+}
+
+function releaseTable($: CheerioAPI, table: Parameters<CheerioAPI>[0]) {
+  const rows = $(table).find('tr').toArray();
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const headers = cellsInRow($, rows[rowIndex]).map(canonicalText);
+    if (HEADER_ANCHORS.every((required) => headers.includes(required))) {
+      return { headers, rows, headerRowIndex: rowIndex };
+    }
+  }
+  return null;
 }
 
 function parseQueryTimestamp(value: string, timezoneOffset: string): { timestamp: string; date: string } {
@@ -150,6 +168,9 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
     if (text.includes('MANUTENCAO ESCOLAR') || text.includes('PDDE ED BASICA') || text.includes('PDDE BASICO')) {
       return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
     }
+    if (installmentCode && /^PDDE (?:1|2|PRIMEIRA|SEGUNDA|P1|P2)\b/.test(text)) {
+      return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
+    }
   }
   if (programCode === '0B') {
     if (text.includes('EDUCACAO CONECTADA')) return { programName: 'PDDE Qualidade', actionCode: 'EDUCACAO_CONECTADA', installmentCode };
@@ -195,10 +216,13 @@ export function parseSigefReleaseHtml(
   }
   const query = parseQueryTimestamp(filterValue($, 'Data da consulta'), options.timezoneOffset);
   const releases: SigefRelease[] = [];
-  const tables = $('.listagem table').toArray();
+  let releaseTableCount = 0;
 
-  for (const table of tables) {
-    const headers = $(table).find('thead th').toArray().map((header) => canonicalText($(header).text()));
+  for (const table of $('table').toArray()) {
+    const candidate = releaseTable($, table);
+    if (!candidate) continue;
+    releaseTableCount += 1;
+    const headers = candidate.headers;
     for (const required of REQUIRED_HEADERS) headerIndex(headers, required);
     const dateColumn = headerIndex(headers, 'DATA DE PAGAMENTO');
     const orderColumn = headerIndex(headers, 'ORDEM BANCARIA');
@@ -208,11 +232,11 @@ export function parseSigefReleaseHtml(
     const bankColumn = headerIndex(headers, 'BANCO');
     const agencyColumn = headerIndex(headers, 'AGENCIA');
     const accountColumn = headerIndex(headers, 'CONTA CORRENTE');
+    const rows = candidate.rows.slice(candidate.headerRowIndex + 1);
 
-    const rows = $(table).find('tbody tr').toArray();
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
       const cells = cellsInRow($, rows[rowIndex]);
-      const rowNumber = rowIndex + 2;
+      const rowNumber = candidate.headerRowIndex + rowIndex + 2;
       if (cells.some((cell) => canonicalText(cell) === 'TOTAL')) continue;
       if (cells.every((cell) => !cell)) continue;
       const rawProgram = cells[programColumn] ?? '';
@@ -246,6 +270,10 @@ export function parseSigefReleaseHtml(
     }
   }
 
+  if (releaseTableCount === 0) {
+    throw new Error('XLS de Liberações não contém o cabeçalho obrigatório DATA DE PAGAMENTO.');
+  }
+
   const sourceSnapshot = sourceSnapshotSchema.parse({
     source: 'SIGEF_LIBERACOES',
     status: 'available',
@@ -262,6 +290,6 @@ export function parseSigefReleaseHtml(
     },
     releases,
     source: sourceSnapshot,
-    statistics: { releaseRows: releases.length, tables: tables.length },
+    statistics: { releaseRows: releases.length, tables: releaseTableCount },
   };
 }

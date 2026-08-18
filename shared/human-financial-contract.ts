@@ -24,6 +24,21 @@ export const humanUnitSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
 }).strict();
 
+export const humanPortfolioSchoolSchema = humanUnitSchema.extend({
+  programmedCents: humanNonNegativeMoneySchema,
+  paymentInformedCents: humanNonNegativeMoneySchema,
+  creditLocatedCents: humanNonNegativeMoneySchema,
+  knownBalanceCents: humanMoneySchema.nullable(),
+  referenceDate: humanIsoDateSchema.nullable(),
+  accountsTotal: z.number().int().nonnegative(),
+  accountsWithReferencePosition: z.number().int().nonnegative(),
+  followUpCount: z.number().int().nonnegative(),
+  paymentSuspended: z.boolean(),
+  repasseAccountMissing: z.boolean(),
+}).strict().refine((value) => value.accountsWithReferencePosition <= value.accountsTotal, {
+  message: 'Cobertura de contas da unidade não pode exceder o total.',
+});
+
 export const humanSourceSchema = z.object({
   name: z.string().min(1),
   information: z.string().min(1),
@@ -141,4 +156,23 @@ export const humanSchoolContentSchema = z.object({
   accounts: z.array(humanAccountSchema),
   accounting: z.array(humanAccountingSchema),
   followUp: z.array(z.string()),
+}).strict();
+
+export const humanPublicPortfolioSchema = z.object({
+  title: z.literal('Inteligência Financeira PDDE | 4ª CRE'),
+  fiscalYear: z.literal(2026),
+  referenceLabel: z.string().min(1),
+  schoolCount: z.number().int().positive(),
+  metrics: humanPortfolioMetricsSchema,
+  sources: z.array(humanSourceSchema).min(1),
+  indicators: z.array(humanIndicatorSchema),
+  schools: z.array(humanPortfolioSchoolSchema),
+}).strict().refine((value) => value.schoolCount === value.schools.length, {
+  message: 'Cobertura escolar divergente no portfólio humano.',
+}).refine((value) => value.metrics.schoolCount === value.schoolCount, {
+  message: 'Métricas e cobertura escolar divergem.',
+});
+
+export const humanPublicSchoolSchema = humanSchoolContentSchema.extend({
+  fiscalYear: z.literal(2026),
 }).strict();

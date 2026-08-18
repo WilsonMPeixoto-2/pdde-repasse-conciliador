@@ -3,9 +3,12 @@ import { createInstitutionalApi } from '../../backend/api/institutional-api';
 
 const COMMAND_TOKEN = 'pdde-admin-human-view-2026-abcdef';
 const school = { inep: '33069093', sme: '0410002', nome: 'EM ALBINO SOUZA CRUZ' };
+const RUN_ID = 'human-api-test-run-2026-08-17';
 
 function fixture() {
   const humanSchool = {
+    fiscalYear: 2026 as const,
+    runId: RUN_ID,
     school: {
       inep: school.inep,
       sme: school.sme,
@@ -19,16 +22,42 @@ function fixture() {
     followUp: [],
   };
   const humanPortfolio = {
-    title: 'Inteligência Financeira PDDE | 4ª CRE',
-    fiscalYear: 2026,
+    title: 'Inteligência Financeira PDDE | 4ª CRE' as const,
+    fiscalYear: 2026 as const,
+    runId: RUN_ID,
     referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
+    schoolCount: 1,
+    metrics: {
+      schoolCount: 1,
+      accountsTotal: 0,
+      accountsWithPosition: 0,
+      programmedCents: 0,
+      paymentInformedCents: 0,
+      creditLocatedCents: 0,
+      reportedBalanceCents: null,
+      applicationsCents: null,
+    },
     sources: [
       { name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.' },
     ],
     indicators: [
       { label: 'Conta do repasse não exibida', count: 1, units: [{ sme: school.sme, name: school.nome, inep: school.inep }] },
     ],
-    schools: [humanSchool],
+    schools: [{
+      sme: school.sme,
+      name: school.nome,
+      inep: school.inep,
+      programmedCents: 0,
+      paymentInformedCents: 0,
+      creditLocatedCents: 0,
+      knownBalanceCents: null,
+      referenceDate: null,
+      accountsTotal: 0,
+      accountsWithReferencePosition: 0,
+      followUpCount: 0,
+      paymentSuspended: false,
+      repasseAccountMissing: false,
+    }],
   };
   const readService = {
     listSchools: vi.fn(() => ({ items: [school], total: 1 })),
@@ -71,7 +100,7 @@ describe('API do read model humano corrente', () => {
       title: 'Inteligência Financeira PDDE | 4ª CRE',
       fiscalYear: 2026,
       referenceLabel: 'Posição financeira pública disponível até 30/06/2026',
-      schools: [{ school: { inep: school.inep, sme: school.sme } }],
+      schools: [{ inep: school.inep, sme: school.sme }],
     });
     expect(readService.getCurrentHumanPortfolio).toHaveBeenCalledTimes(1);
   });

@@ -9,10 +9,12 @@
     "noUnusedParameters": true
   },
   "include": [
+    "api/**/*.ts",
     "backend/core/**/*.ts",
     "backend/adapters/**/*.ts",
     "backend/application/**/*.ts",
     "backend/analytics/**/*.ts",
+    "backend/infrastructure/**/*.ts",
     "backend/orchestration/**/*.ts",
     "backend/report/**/*.ts",
     "backend/api/**/*.ts",

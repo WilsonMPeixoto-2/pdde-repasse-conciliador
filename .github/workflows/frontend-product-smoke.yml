@@ -5,6 +5,7 @@ on:
       - 'src/**'
       - 'shared/**'
       - 'scripts/frontend-product-smoke.mjs'
+      - 'scripts/frontend-session-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -15,6 +16,7 @@ on:
       - 'src/**'
       - 'shared/**'
       - 'scripts/frontend-product-smoke.mjs'
+      - 'scripts/frontend-session-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -38,8 +40,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Gerar build do produto
         run: npm run build
-      - name: Navegar e validar desktop/mobile
+      - name: Navegar e validar produto persistente desktop/mobile
         run: node scripts/frontend-product-smoke.mjs
+      - name: Navegar e validar Modo Sessão desktop/mobile
+        run: node scripts/frontend-session-smoke.mjs
       - name: Preservar screenshots
         if: always()
         uses: actions/upload-artifact@v4

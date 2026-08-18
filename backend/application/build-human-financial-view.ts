@@ -382,6 +382,8 @@ function schoolAccounts(
       publicReports,
     );
     const latestPosition = positions.at(-1) ?? null;
+    if (latestPosition?.totalReportedBalanceCents === null
+      || latestPosition?.totalReportedBalanceCents === 0) continue;
     accounts.set(key, {
       program: balance.programName,
       bank: balance.bank,
@@ -432,6 +434,12 @@ function followUpFor(
   if (accounts.some((account) => account.latestPosition === null)) {
     messages.push('Há conta sem posição pública de saldo disponível na data desta consulta.');
   }
+  if (school.repasses.some((repasse) => repasse.installments.some((installment) => (
+    installment.amountPaidInformedCents > 0
+    && installment.bankCredit.presentationStatus === 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
+  )))) {
+    messages.push('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
+  }
   return [...new Set(messages)];
 }
 
@@ -466,6 +474,8 @@ function buildPortfolioMetrics(
   let creditLocatedCents = 0;
   let reportedBalanceCents = 0;
   let applicationsCents = 0;
+  let reportedBalanceKnown = true;
+  let applicationsKnown = true;
 
   for (const school of schools) {
     for (const program of school.programs) {
@@ -483,14 +493,20 @@ function buildPortfolioMetrics(
       if (!account.latestPosition || !referenceDate
         || account.latestPosition.referenceDate !== referenceDate) continue;
       accountsWithPosition += 1;
-      if (account.latestPosition.totalReportedBalanceCents !== null) {
+      if (account.latestPosition.totalReportedBalanceCents === null) {
+        reportedBalanceKnown = false;
+      } else {
         reportedBalanceCents += account.latestPosition.totalReportedBalanceCents;
       }
-      if (account.latestPosition.applications.totalCents !== null) {
+      if (account.latestPosition.applications.totalCents === null) {
+        applicationsKnown = false;
+      } else {
         applicationsCents += account.latestPosition.applications.totalCents;
       }
     }
   }
+
+  const hasAlignedAccounts = referenceDate !== null && accountsWithPosition > 0;
 
   return {
     schoolCount: schools.length,
@@ -499,22 +515,22 @@ function buildPortfolioMetrics(
     programmedCents,
     paymentInformedCents,
     creditLocatedCents,
-    reportedBalanceCents: referenceDate ? reportedBalanceCents : null,
-    applicationsCents: referenceDate ? applicationsCents : null,
+    reportedBalanceCents: hasAlignedAccounts && reportedBalanceKnown ? reportedBalanceCents : null,
+    applicationsCents: hasAlignedAccounts && applicationsKnown ? applicationsCents : null,
   };
 }
 
 function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {
   return [
-    indicator('1ª parcela com pagamento informado', schools, (school) => (
+    indicator('Pagamento informado sem crédito compatível localizado', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
-        /1\s*ª|1a|primeira/i.test(installment.installment ?? '')
-        && installment.paymentInformedCents > 0
+        installment.paymentInformedCents > 0
+        && installment.creditEvidence.status === 'Crédito não localizado'
       )))
     )),
-    indicator('Conta do repasse não exibida', schools, (school) => (
+    indicator('Pagamento informado sem conta do repasse exibida', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
-        installment.programmedCents > 0 && installment.account === null
+        installment.paymentInformedCents > 0 && installment.account === null
       )))
     )),
     indicator('Conta sem posição pública de saldo', schools, (school) => (

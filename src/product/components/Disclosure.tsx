@@ -1,4 +1,5 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
 
 export function Disclosure(props: {
   title: string;
@@ -7,25 +8,20 @@ export function Disclosure(props: {
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(props.defaultOpen ?? false);
-  const id = useId();
   return (
-    <section className="disclosure">
-      <button
-        className="disclosure__trigger"
-        type="button"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span>
-          <span className="disclosure__title">{props.title}</span>
-          {props.summary ? <span className="disclosure__summary"> · {props.summary}</span> : null}
-        </span>
-        <span className="disclosure__chevron" aria-hidden="true">›</span>
-      </button>
-      <div id={id} className="disclosure__content" hidden={!open}>
-        {props.children}
-      </div>
-    </section>
+    <Collapsible.Root open={open} onOpenChange={setOpen} asChild>
+      <section className="disclosure">
+        <Collapsible.Trigger className="disclosure__trigger">
+          <span>
+            <span className="disclosure__title">{props.title}</span>
+            {props.summary ? <span className="disclosure__summary"> · {props.summary}</span> : null}
+          </span>
+          <span className="disclosure__chevron" aria-hidden="true">›</span>
+        </Collapsible.Trigger>
+        <Collapsible.Content className="disclosure__content">
+          {props.children}
+        </Collapsible.Content>
+      </section>
+    </Collapsible.Root>
   );
 }

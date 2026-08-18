@@ -1,40 +1,115 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { PortfolioSchoolList } from '../components/PortfolioSchoolList';
 import { SchoolSearch } from '../components/SchoolSearch';
 import { schoolMatchesSearch } from '../derive';
 import { usePortfolio } from '../PortfolioContext';
+import { derivePortfolioSchoolTriage } from '../visual/portfolio-school-triage';
+
+type FilterMode = 'all' | 'attention' | 'coverage' | 'suspended';
+type SortMode = 'attention' | 'sme';
+
+function matchesFilter(
+  mode: FilterMode,
+  school: Parameters<typeof derivePortfolioSchoolTriage>[0],
+): boolean {
+  const triage = derivePortfolioSchoolTriage(school);
+  if (mode === 'attention') return triage.needsAttention;
+  if (mode === 'coverage') {
+    return school.accountsTotal === 0
+      || school.accountsWithReferencePosition < school.accountsTotal;
+  }
+  if (mode === 'suspended') return school.paymentSuspended;
+  return true;
+}
 
 export function SchoolsPage() {
   const state = usePortfolio();
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<FilterMode>('all');
+  const [sort, setSort] = useState<SortMode>('attention');
   const schools = state.status === 'ready' ? state.data.schools : [];
-  const filtered = useMemo(
-    () => schools.filter((school) => schoolMatchesSearch(school, query)),
-    [schools, query],
-  );
+
+  const counts = useMemo(() => ({
+    all: schools.length,
+    attention: schools.filter((school) => matchesFilter('attention', school)).length,
+    coverage: schools.filter((school) => matchesFilter('coverage', school)).length,
+    suspended: schools.filter((school) => matchesFilter('suspended', school)).length,
+  }), [schools]);
+
+  const filtered = useMemo(() => {
+    const result = schools
+      .filter((school) => schoolMatchesSearch(school, query))
+      .filter((school) => matchesFilter(filter, school));
+
+    return [...result].sort((left, right) => {
+      if (sort === 'attention') {
+        const priority = derivePortfolioSchoolTriage(right).priority
+          - derivePortfolioSchoolTriage(left).priority;
+        if (priority !== 0) return priority;
+      }
+      return left.sme.localeCompare(right.sme)
+        || left.name.localeCompare(right.name, 'pt-BR');
+    });
+  }, [filter, query, schools, sort]);
 
   if (state.status === 'loading') return <main className="page loading"><p>Carregando unidades…</p></main>;
   if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir a carteira.</strong><span>{state.error}</span></div></main>;
 
+  const filters: Array<{ mode: FilterMode; label: string }> = [
+    { mode: 'all', label: 'Todas' },
+    { mode: 'attention', label: 'Com atenção' },
+    { mode: 'coverage', label: 'Cobertura incompleta' },
+    { mode: 'suspended', label: 'Pagamento suspenso' },
+  ];
+
   return (
-    <main className="page">
+    <main className="page portfolio-schools-page">
       <div className="eyebrow">Carteira · 2026</div>
       <h1>Unidades da 4ª CRE</h1>
-      <p className="lead">Busque uma unidade pelo nome, código SME ou INEP e abra diretamente seu prontuário financeiro.</p>
-      <section className="section" aria-label="Busca e lista de unidades">
+      <p className="lead">Use a carteira para localizar rapidamente unidades com cobertura incompleta, apontamentos de acompanhamento ou suspensão de pagamento. Os rótulos indicam onde olhar, não concluem irregularidade.</p>
+
+      <section className="section portfolio-schools-controls" aria-label="Busca, filtros e ordenação da carteira">
         <SchoolSearch value={query} onChange={setQuery} visibleCount={filtered.length} totalCount={schools.length} />
-        <div className="school-list" style={{ marginTop: '2rem' }}>
-          {filtered.map((school) => (
-            <Link className="school-row" key={school.inep} to={`/unidades/${school.inep}`}>
-              <span>
-                <span className="school-row__name">{school.sme} · {school.name}</span>
-                <span className="school-row__meta">INEP {school.inep}</span>
-              </span>
-              <span className="school-row__arrow" aria-hidden="true">→</span>
-            </Link>
-          ))}
+
+        <div className="portfolio-schools-toolbar">
+          <div className="portfolio-schools-filters" aria-label="Filtros da carteira" style={{ flexWrap: 'wrap', overflowX: 'visible' }}>
+            {filters.map((item) => (
+              <button
+                className="portfolio-schools-filter"
+                data-active={filter === item.mode ? 'true' : 'false'}
+                key={item.mode}
+                type="button"
+                aria-pressed={filter === item.mode}
+                onClick={() => setFilter(item.mode)}
+              >
+                <span>{item.label}</span>
+                <strong>{counts[item.mode]}</strong>
+              </button>
+            ))}
+          </div>
+
+          <label className="portfolio-schools-sort">
+            <span>Ordenação</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}>
+              <option value="attention">Atenção primeiro</option>
+              <option value="sme">Código SME</option>
+            </select>
+          </label>
         </div>
-        {filtered.length === 0 ? <div className="empty-state"><div><strong>Nenhuma unidade encontrada.</strong><span>Confira o nome, código SME ou INEP informado.</span></div></div> : null}
+      </section>
+
+      <section className="section portfolio-schools-results" aria-labelledby="portfolio-schools-results-title">
+        <div className="section-heading portfolio-schools-results__heading">
+          <div>
+            <div className="eyebrow">Leitura por unidade</div>
+            <h2 id="portfolio-schools-results-title">{filtered.length} {filtered.length === 1 ? 'unidade' : 'unidades'} no recorte</h2>
+          </div>
+          <p>Previsto, pagamento informado e crédito localizado permanecem separados. Saldo e cobertura referem-se à posição pública indicada na própria linha.</p>
+        </div>
+
+        {filtered.length > 0
+          ? <PortfolioSchoolList schools={filtered} />
+          : <div className="empty-state"><div><strong>Nenhuma unidade encontrada.</strong><span>Altere a busca ou o filtro para ampliar o recorte.</span></div></div>}
       </section>
     </main>
   );

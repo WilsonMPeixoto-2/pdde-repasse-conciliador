@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import {
+  humanPortfolioSchoolSchema,
+  humanSchoolContentSchema,
+} from '../../shared/human-financial-contract';
+import {
   type EvidenceRunProjection,
   type ProjectedExecutionStatus,
 } from '../application/evidence-history';
@@ -46,7 +50,7 @@ const CURRENT_HUMAN_SNAPSHOT_COLUMNS = [
   'fiscal_year', 'run_id', 'title', 'reference_label', 'school_count',
   'metrics', 'sources', 'indicators',
 ].join(',');
-const CURRENT_HUMAN_SCHOOL_COLUMNS = ['school_inep', 'sme', 'school_name'].join(',');
+const CURRENT_HUMAN_SCHOOL_COLUMNS = ['school_inep', 'sme', 'school_name', 'summary'].join(',');
 const RUN_ID_BATCH_SIZE = 40;
 const projectedStatusSchema = z.enum(['QUEUED', 'RUNNING', 'COMPLETE', 'PARTIAL', 'FAILED', 'UNKNOWN']);
 const currentFiscalMetricsSchema = z.object({
@@ -73,21 +77,9 @@ const humanIndicatorSchema = z.object({
   count: z.number().int().nonnegative(),
   units: z.array(humanUnitSchema),
 }).strict();
-const humanSchoolIdentitySchema = z.object({
-  inep: z.string().regex(/^\d{8}$/),
-  sme: z.string().regex(/^\d{7}$/),
-  name: z.string().min(1),
-  uex: z.string(),
-  cnpj: z.string(),
-}).strict();
-const humanSchoolSnapshotSchema = z.object({
+const humanSchoolSnapshotSchema = humanSchoolContentSchema.extend({
   fiscalYear: z.literal(2026),
   runId: evidenceIdentifierSchema,
-  school: humanSchoolIdentitySchema,
-  programs: z.array(z.unknown()),
-  accounts: z.array(z.unknown()),
-  accounting: z.array(z.unknown()),
-  followUp: z.array(z.string()),
 }).strict();
 
 interface SupabaseResult {
@@ -343,8 +335,8 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
     if (!Array.isArray(snapshotResult.data)) throw new Error('Read model humano corrente retornou formato inválido.');
     if (snapshotResult.data.length === 0) return null;
     const snapshot = record(snapshotResult.data[0]);
-    // Durante rollout de uma migration, um retrato legado sem métricas não deve
-    // virar zeros artificiais no produto. Ele é tratado como ainda não pronto.
+    // Durante rollout de migrations, retratos legados sem métricas ou sem resumo
+    // compacto não viram zeros artificiais. O produto aguarda a próxima publicação.
     if (snapshot.metrics === null || snapshot.metrics === undefined) return null;
 
     const schoolResult = await this.client.from('current_human_financial_schools')
@@ -354,13 +346,21 @@ export class SupabaseInstitutionalReadRepository implements InstitutionalReadRep
       .limit(500);
     if (schoolResult.error) throw new Error(`Read models humanos das escolas: ${message(schoolResult.error)}.`);
     if (!Array.isArray(schoolResult.data)) throw new Error('Read models humanos das escolas retornaram formato inválido.');
+    if (schoolResult.data.some((raw) => {
+      const summary = record(raw).summary;
+      return summary === null || summary === undefined;
+    })) return null;
+
     const schools = schoolResult.data.map((raw) => {
       const row = record(raw);
-      return humanUnitSchema.parse({
-        inep: row.school_inep,
-        sme: row.sme,
-        name: row.school_name,
-      });
+      const summary = humanPortfolioSchoolSchema.parse(row.summary);
+      const inep = z.string().regex(/^\d{8}$/).parse(row.school_inep);
+      const sme = z.string().regex(/^\d{7}$/).parse(row.sme);
+      const name = z.string().min(1).parse(row.school_name);
+      if (summary.inep !== inep || summary.sme !== sme || summary.name !== name) {
+        throw new Error(`Resumo humano divergente da identidade persistida: ${inep}.`);
+      }
+      return summary;
     });
     const schoolCount = z.number().int().positive().parse(Number(snapshot.school_count));
     if (schools.length !== schoolCount) {

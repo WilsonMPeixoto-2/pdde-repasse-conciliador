@@ -286,7 +286,7 @@
   padding: var(--space-8) 0 var(--space-4);
 }
 .timeline svg { width: 100%; min-height: 220px; overflow: visible; }
-.timeline__segment { stroke: var(--ink-300); stroke-width: 3; }
+.timeline__segment { fill: none; stroke: var(--ink-300); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .timeline__segment--active { stroke: var(--paid-600); }
 .timeline__point { cursor: pointer; }
 .timeline__point circle { fill: var(--paper); stroke: var(--paid-600); stroke-width: 4; transition: r var(--duration-fast), fill var(--duration-fast); }

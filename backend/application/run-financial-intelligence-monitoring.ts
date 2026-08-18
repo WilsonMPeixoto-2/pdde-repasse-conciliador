@@ -9,6 +9,11 @@ import {
 } from './collect-pddeinfo-public-portfolio';
 import { buildHumanFinancialView } from './build-human-financial-view';
 import {
+  recoverSigefReleaseAccounts,
+  type RecoverSigefReleaseAccountsOptions,
+  type SigefReleaseAccountRecovery,
+} from './recover-sigef-release-accounts';
+import {
   runMonitoring,
   type RunMonitoringOptions,
   type RunMonitoringResult,
@@ -23,12 +28,14 @@ export interface RunFinancialIntelligenceMonitoringOptions extends RunMonitoring
   collectPddeInfoPublicPortfolio?: (
     options: CollectPddeInfoPublicPortfolioOptions,
   ) => Promise<PddeInfoPublicPortfolioResult>;
+  collectSigefReleases?: RecoverSigefReleaseAccountsOptions['collectSigefReleases'];
   financialSnapshotStore?: FinancialSnapshotStore;
 }
 
 export interface RunFinancialIntelligenceMonitoringResult extends Omit<RunMonitoringResult, 'status' | 'raw' | 'paths'> {
   status: 'COMPLETE' | 'PARTIAL';
   raw: RunMonitoringResult['raw'] & {
+    accountRecoveries: SigefReleaseAccountRecovery[];
     publicReports: Omit<PddeInfoPublicPortfolioResult, 'artifacts'>;
   };
   human: ReturnType<typeof buildHumanFinancialView>;
@@ -209,11 +216,34 @@ async function preserveJsonArtifact(input: {
   });
 }
 
+function annotateRecoveredAccounts(
+  human: ReturnType<typeof buildHumanFinancialView>,
+  recoveries: readonly SigefReleaseAccountRecovery[],
+): void {
+  for (const recovery of recoveries) {
+    if (recovery.status !== 'RECOVERED' || !recovery.account) continue;
+    const school = human.schools.find((item) => item.school.inep === recovery.schoolInep);
+    if (!school) continue;
+    const program = school.programs.find((item) => item.name === recovery.action);
+    if (!program) continue;
+    const installment = program.installments.find((item) => (
+      item.installment === recovery.installment
+      && item.paymentInformedCents === recovery.amountCents
+    ));
+    if (!installment) continue;
+    const evidence = recovery.orderBank
+      ? `Conta recuperada no SIGEF Liberações pela OB ${recovery.orderBank}.`
+      : 'Conta recuperada no SIGEF Liberações.';
+    installment.note = installment.note ? `${installment.note} ${evidence}` : evidence;
+  }
+}
+
 export async function runFinancialIntelligenceMonitoring(
   options: RunFinancialIntelligenceMonitoringOptions,
 ): Promise<RunFinancialIntelligenceMonitoringResult> {
   const {
     collectPddeInfoPublicPortfolio: publicCollector = collectPddeInfoPublicPortfolio,
+    collectSigefReleases,
     financialSnapshotStore,
     ...baseOptions
   } = options;
@@ -233,9 +263,17 @@ export async function runFinancialIntelligenceMonitoring(
   }
 
   try {
-    const base = await runMonitoring({
+    const initial = await runMonitoring({
       ...baseOptions,
       manageExecutionLifecycle: false,
+    });
+    const base = await recoverSigefReleaseAccounts({
+      base: initial,
+      workspacePath: options.workspacePath,
+      fiscalYear: 2026,
+      ...(options.signal ? { signal: options.signal } : {}),
+      ...(collectSigefReleases ? { collectSigefReleases } : {}),
+      ...(options.collectSigefAccount ? { collectSigefAccount: options.collectSigefAccount } : {}),
     });
     const reports = await publicCollector({
       schools: options.schools,
@@ -271,6 +309,7 @@ export async function runFinancialIntelligenceMonitoring(
       fiscalView: base.fiscal,
       publicReports: reports,
     });
+    annotateRecoveredAccounts(human, base.raw.accountRecoveries);
     const status: 'COMPLETE' | 'PARTIAL' = base.status === 'COMPLETE' && reports.failures.length === 0
       ? 'COMPLETE'
       : 'PARTIAL';
