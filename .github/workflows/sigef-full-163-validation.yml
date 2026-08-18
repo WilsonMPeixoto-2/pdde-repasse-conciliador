@@ -3,12 +3,14 @@ on:
   pull_request:
     paths:
       - 'backend/application/run-monitoring.ts'
+      - 'backend/application/run-financial-intelligence-monitoring.ts'
+      - 'backend/application/temporary-financial-session.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
-      - 'scripts/monitor-live-2026.ts'
-      - 'scripts/monitor-all-163.ts'
+      - 'backend/report/human-financial-workbook.ts'
+      - 'scripts/run-temporary-session.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
   workflow_dispatch:
 permissions:
@@ -16,7 +18,7 @@ permissions:
 jobs:
   full-163:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,15 +26,26 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Extrair e organizar as 163 UEs em fontes reais
-        run: node --import tsx scripts/monitor-all-163.ts
-      - name: Preservar resultado integral
+      - name: Extrair, conciliar e materializar o produto para as 163 UEs
+        env:
+          PDDE_SESSION_ID: full-163-${{ github.run_id }}
+        run: >-
+          node --import tsx scripts/run-temporary-session.ts
+          --ineps "all"
+          --workspace ".tmp/monitor-all-163"
+          --output-dir "artifacts/full-163-session"
+      - name: Exigir cobertura completa da carteira real
+        run: >-
+          node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); if(s.status!=='COMPLETE'||s.schoolCount!==163){console.error('Validação 163 incompleta',s);process.exit(2)} console.log(JSON.stringify({status:s.status,schoolCount:s.schoolCount,workbook:s.workbookFilename}))"
+      - name: Preservar produto e evidências integrais
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sigef-full-163-2026
           path: |
-            artifacts/monitor-all-163-2026.json
+            artifacts/full-163-session/
+            .tmp/monitor-all-163/financial-intelligence.json
+            .tmp/monitor-all-163/human-financial.json
             .tmp/monitor-all-163/pddeinfo/**/*.html
             .tmp/monitor-all-163/sigef/**/*.html
           if-no-files-found: warn
