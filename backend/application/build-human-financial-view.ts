@@ -432,6 +432,12 @@ function followUpFor(
   if (accounts.some((account) => account.latestPosition === null)) {
     messages.push('Há conta sem posição pública de saldo disponível na data desta consulta.');
   }
+  if (school.repasses.some((repasse) => repasse.installments.some((installment) => (
+    installment.amountPaidInformedCents > 0
+    && installment.bankCredit.presentationStatus === 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
+  )))) {
+    messages.push('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
+  }
   return [...new Set(messages)];
 }
 
@@ -514,10 +520,10 @@ function buildPortfolioMetrics(
 
 function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {
   return [
-    indicator('1ª parcela com pagamento informado', schools, (school) => (
+    indicator('Pagamento informado sem crédito compatível localizado', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
-        /1\s*ª|1a|primeira/i.test(installment.installment ?? '')
-        && installment.paymentInformedCents > 0
+        installment.paymentInformedCents > 0
+        && installment.creditEvidence.status === 'Crédito não localizado'
       )))
     )),
     indicator('Pagamento informado sem conta do repasse exibida', schools, (school) => (
