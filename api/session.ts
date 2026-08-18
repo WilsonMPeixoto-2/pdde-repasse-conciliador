@@ -247,7 +247,7 @@ async function handleTemporarySessionRequest(
   request: Request,
   options: TemporarySessionApiOptions,
 ): Promise<Response> {
-  const accessKey = z.string().min(24).parse(options.accessKey);
+  const accessKey = z.string().min(1).parse(options.accessKey);
   if (!authorized(request, accessKey)) {
     return json({ error: 'Acesso ao Modo Sessão não autorizado.' }, 401);
   }
