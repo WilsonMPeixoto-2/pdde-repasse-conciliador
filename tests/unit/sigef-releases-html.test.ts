@@ -113,6 +113,22 @@ describe('parseSigefReleaseHtml', () => {
     ]);
   });
 
+  test('aceita a nomenclatura genérica PDDE - 1ª parc. usada no SIGEF', async () => {
+    const row = '<tr><td>05/AGO/26</td><td>900001</td><td>5.065,00</td><td>PDDE - 1ª parc. 2026</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
+
+    const result = await parse(releaseHtml(row), { fiscalYear: 2026 });
+
+    expect(result?.releases).toEqual([
+      expect.objectContaining({
+        programCode: '02',
+        actionCode: 'PDDE_BASICO',
+        installmentCode: '1',
+        amountCents: 506_500,
+        destinationAccount: { bank: '001', agency: '0249', number: '00012345X' },
+      }),
+    ]);
+  });
+
   test('rejeita arquivo de entidade fora da relação autorizada', async () => {
     await expect(parse(releaseHtml(basicRows), {
       targetCnpjs: ['00000000000000'],
