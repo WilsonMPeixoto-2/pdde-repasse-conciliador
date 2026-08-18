@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { zipSync } from 'fflate';
 import { describe, expect, test } from 'vitest';
 
@@ -32,6 +33,22 @@ function json(value: unknown, status = 200, headers?: HeadersInit): Response {
 }
 
 describe('ponte de sessão via GitHub Actions', () => {
+  test('a validação real das 163 UEs produz o mesmo pacote consumido pelo produto em uma única coleta', async () => {
+    const workflow = await readFile(
+      new URL('../../.github/workflows/sigef-full-163-validation.yml', import.meta.url),
+      'utf8',
+    );
+
+    expect(workflow).toContain('node --import tsx scripts/run-temporary-session.ts');
+    expect(workflow).toContain('--ineps "all"');
+    expect(workflow).toContain('--workspace ".tmp/monitor-all-163"');
+    expect(workflow).toContain('--output-dir "artifacts/full-163-session"');
+    expect(workflow).toContain('artifacts/full-163-session/');
+    expect(workflow).toContain('.tmp/monitor-all-163/financial-intelligence.json');
+    expect(workflow).toContain('.tmp/monitor-all-163/human-financial.json');
+    expect(workflow).not.toContain('scripts/monitor-all-163.ts');
+  });
+
   test('dispara workflow manual com sessão opaca e INEPs validados', async () => {
     const module = await loadBridge();
     expect(module.createGithubActionsTemporarySessionClient).toBeTypeOf('function');
