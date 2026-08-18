@@ -44,6 +44,19 @@ type SessionModule = {
     workbookBytes: Uint8Array;
     workbookFilename: string;
   }>;
+  materializeTemporaryFinancialSession?: (input: {
+    runId: string;
+    status: 'COMPLETE' | 'PARTIAL';
+    expectedSchoolCount: number;
+    human: HumanFinancialPortfolioView;
+  }) => Promise<{
+    status: string;
+    human: HumanFinancialPortfolioView;
+    portfolio: Record<string, unknown>;
+    schools: Array<{ school: { inep: string }; snapshot: Record<string, unknown> }>;
+    workbookBytes: Uint8Array;
+    workbookFilename: string;
+  }>;
 };
 
 async function loadSessionModule(): Promise<SessionModule> {
@@ -55,6 +68,32 @@ async function loadSessionModule(): Promise<SessionModule> {
 }
 
 describe('Modo Sessão financeiro', () => {
+  test('materializa carteira, prontuários e Excel a partir do mesmo resultado humano sem nova coleta', async () => {
+    const module = await loadSessionModule();
+    expect(module.materializeTemporaryFinancialSession).toBeTypeOf('function');
+    if (!module.materializeTemporaryFinancialSession) return;
+
+    const result = await module.materializeTemporaryFinancialSession({
+      runId: 'full-163-real',
+      status: 'COMPLETE',
+      expectedSchoolCount: 1,
+      human: view,
+    });
+
+    expect(result.status).toBe('COMPLETE');
+    expect(result.human).toBe(view);
+    expect(result.portfolio).toMatchObject({
+      fiscalYear: 2026,
+      schoolCount: 1,
+      schools: [{ inep: '33069247', sme: '0410001', name: 'EM EMA NEGRAO DE LIMA' }],
+    });
+    expect(result.portfolio).not.toHaveProperty('runId');
+    expect(result.schools).toHaveLength(1);
+    expect(result.schools[0]?.snapshot).not.toHaveProperty('runId');
+    expect(result.workbookFilename).toBe('inteligencia-financeira-pdde-4cre-2026.xlsx');
+    expect(Array.from(result.workbookBytes.slice(0, 2))).toEqual([0x50, 0x4b]);
+  });
+
   test('oferece execução temporária sem exigir persistência institucional', async () => {
     const module = await loadSessionModule();
     expect(module.runTemporaryFinancialSession).toBeTypeOf('function');
