@@ -150,6 +150,9 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
     if (text.includes('MANUTENCAO ESCOLAR') || text.includes('PDDE ED BASICA') || text.includes('PDDE BASICO')) {
       return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
     }
+    if (installmentCode && /^PDDE (?:1|2|PRIMEIRA|SEGUNDA|P1|P2)\b/.test(text)) {
+      return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
+    }
   }
   if (programCode === '0B') {
     if (text.includes('EDUCACAO CONECTADA')) return { programName: 'PDDE Qualidade', actionCode: 'EDUCACAO_CONECTADA', installmentCode };
