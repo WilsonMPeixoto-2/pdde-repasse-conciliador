@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { gunzipSync, strFromU8 } from 'fflate';
 import { describe, expect, test } from 'vitest';
 
 describe('experiência pública da carteira financeira', () => {
@@ -14,5 +15,34 @@ describe('experiência pública da carteira financeira', () => {
     const api = await readFile(new URL('../../src/product/api.ts', import.meta.url), 'utf8');
 
     expect(api).toContain('/data/pdde-2026-snapshot.json');
+  });
+
+  test('o snapshot publicado reconstitui a carteira real das 163 unidades', async () => {
+    const publicRoot = new URL('../../public/', import.meta.url);
+    const manifest = JSON.parse(
+      await readFile(new URL('data/pdde-2026-snapshot.json', publicRoot), 'utf8'),
+    ) as {
+      encoding: string;
+      parts: string[];
+      source: { workflowRunId: number; artifactId: number };
+    };
+
+    expect(manifest.encoding).toBe('gzip-base64-parts');
+    expect(manifest.source).toEqual(expect.objectContaining({
+      workflowRunId: 32164281411,
+      artifactId: 9335143477,
+    }));
+
+    const encoded = (await Promise.all(manifest.parts.map((part) =>
+      readFile(new URL(part.replace(/^\//, ''), publicRoot), 'utf8'),
+    ))).join('');
+    const compressed = Uint8Array.from(Buffer.from(encoded.replace(/\s+/g, ''), 'base64'));
+    const snapshot = JSON.parse(strFromU8(gunzipSync(compressed))) as {
+      portfolio: { schoolCount: number };
+      schools: Record<string, unknown>;
+    };
+
+    expect(snapshot.portfolio.schoolCount).toBe(163);
+    expect(Object.keys(snapshot.schools)).toHaveLength(163);
   });
 });
