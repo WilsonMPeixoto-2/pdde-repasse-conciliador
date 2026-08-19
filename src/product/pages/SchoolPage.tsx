@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
@@ -25,6 +25,7 @@ function programTotals(program: HumanSchool['programs'][number]) {
 
 function SchoolContent({ school }: { school: HumanSchool }) {
   const [infoOpen, setInfoOpen] = useState(false);
+  const { hash } = useLocation();
   const summary = deriveSchoolSummary(school);
   const firstMovementAccountIndex = school.accounts.findIndex((account) => account.movements.length > 0);
   const hasMovements = firstMovementAccountIndex >= 0;
@@ -118,7 +119,10 @@ function SchoolContent({ school }: { school: HumanSchool }) {
                   key={`${account.bank}-${account.agency}-${account.account}-${account.program}`}
                   title={account.program}
                   summary={`${formatAccount(account.bank, account.agency, account.account)} · ${formatMoney(account.latestPosition?.totalReportedBalanceCents ?? null)}`}
-                  defaultOpen={school.accounts.length === 1}
+                  defaultOpen={
+                    school.accounts.length === 1
+                    || (hash === '#movimentacoes' && accountIndex === firstMovementAccountIndex)
+                  }
                 >
                   {account.latestPosition
                     ? <BalanceComposition position={account.latestPosition} />
