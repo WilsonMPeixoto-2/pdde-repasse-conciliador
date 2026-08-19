@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/unidades", "destination": "/index.html" },
+    { "source": "/unidades/:path*", "destination": "/index.html" },
+    { "source": "/repasses", "destination": "/index.html" },
+    { "source": "/saldos", "destination": "/index.html" },
+    { "source": "/indicadores/:path*", "destination": "/index.html" }
+  ]
+}
