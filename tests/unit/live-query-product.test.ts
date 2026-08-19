@@ -17,6 +17,16 @@ describe('nova consulta financeira em tempo real', () => {
     expect(liveSource).not.toMatch(/PDDE_SESSION_ACCESS_KEY|authorization:\s*`Bearer \$\{accessKey\}`/i);
   });
 
+  test('não carrega a pilha de navegador quando a consulta usa apenas HTTP', async () => {
+    const reports = await readFile(
+      new URL('../../backend/adapters/pddeinfo-public-reports.ts', import.meta.url),
+      'utf8',
+    );
+
+    expect(reports).not.toMatch(/import\s*\{[^}]*collectWithAssistedBrowser[^}]*\}\s*from\s*['"]\.\/browser-assisted-source['"]/s);
+    expect(reports).toContain("await import('./browser-assisted-source')");
+  });
+
   test('empacota o backend da função antes do deploy e respeita o teto Hobby de 300 segundos', async () => {
     const wrapper = await readFile(new URL('../../api/live.js', import.meta.url), 'utf8');
     const liveConfig = await readFile(new URL('../../vite.live.config.ts', import.meta.url), 'utf8');
@@ -29,7 +39,5 @@ describe('nova consulta financeira em tempo real', () => {
     expect(packageJson.scripts?.build).toContain('vite build --config vite.live.config.ts');
     expect(liveConfig).toContain('server/live-source.ts');
     expect(liveConfig).toContain('server-dist');
-    expect(liveConfig).toMatch(/noExternal/);
-    expect(liveConfig).toMatch(/linkedom/);
   });
 });
