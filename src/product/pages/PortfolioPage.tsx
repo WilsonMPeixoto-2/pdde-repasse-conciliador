@@ -1,3 +1,5 @@
+import { FinancialTaskLinks } from '../components/FinancialTaskLinks';
+import { GlobalSchoolFinder } from '../components/GlobalSchoolFinder';
 import { IndicatorLink } from '../components/IndicatorLink';
 import { MetricValue } from '../components/MetricValue';
 import { PortfolioExecutiveOverview } from '../components/PortfolioExecutiveOverview';
@@ -55,12 +57,12 @@ export function PortfolioPage() {
 
   return (
     <main className="page">
-      <section aria-labelledby="portfolio-title">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 34rem' }}>
+      <section className="portfolio-hero" aria-labelledby="portfolio-title">
+        <div className="portfolio-hero__layout">
+          <div className="portfolio-hero__copy">
             <div className="eyebrow">Exercício 2026 · 4ª CRE</div>
             <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
-            <p className="lead">Uma leitura consolidada dos repasses, contas, saldos e movimentações das unidades da 4ª CRE. Os valores abaixo mantêm separados pagamento informado, crédito localizado e posição de saldo publicada.</p>
+            <p className="lead">Consulte rapidamente repasses, contas, saldos e movimentações das escolas da 4ª CRE. A plataforma mantém separadas as diferentes evidências financeiras para não transformar indicação em comprovação.</p>
           </div>
           <div className="live-refresh-control">
             <button
@@ -103,6 +105,20 @@ export function PortfolioPage() {
               </span>
             ) : null}
           </div>
+        </div>
+      </section>
+
+      <section className="section financial-entry" aria-labelledby="financial-entry-title">
+        <div className="section-heading financial-entry__heading">
+          <div>
+            <div className="eyebrow">Acesso rápido</div>
+            <h2 id="financial-entry-title">O que você precisa consultar?</h2>
+          </div>
+          <p>Comece pela escola ou abra diretamente a visão de repasses, saldos e contas.</p>
+        </div>
+        <div className="financial-entry__grid">
+          <GlobalSchoolFinder schools={portfolio.schools} />
+          <FinancialTaskLinks />
         </div>
       </section>
 
