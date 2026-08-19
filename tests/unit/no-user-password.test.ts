@@ -8,7 +8,8 @@ describe('experiência pública da carteira financeira', () => {
     const page = await readFile(new URL('../../src/product/pages/PortfolioPage.tsx', import.meta.url), 'utf8');
 
     expect(dialog).not.toMatch(/Chave de acesso|accessKey|type="password"/i);
-    expect(page).not.toMatch(/SessionStartDialog|Nova consulta|Modo Sessão/i);
+    expect(page).not.toMatch(/SessionStartDialog|Modo Sessão|type="password"|Chave de acesso/i);
+    expect(page).toContain('Fazer nova consulta');
   });
 
   test('carrega a publicação financeira diretamente de um snapshot do site', async () => {

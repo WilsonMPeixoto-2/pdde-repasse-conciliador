@@ -6,10 +6,7 @@ import {
   acquireWithFallback,
   type AcquisitionStrategy,
 } from '../application/source-acquisition-route';
-import {
-  collectWithAssistedBrowser,
-  type HumanInterventionHandler,
-} from './browser-assisted-source';
+import type { HumanInterventionHandler } from './browser-assisted-source';
 
 export type PddeInfoPublicReportKind =
   | 'ATTENDANCE'
@@ -292,6 +289,7 @@ export async function fetchPddeInfoPublicReport(
     strategies.push({
       kind: 'BROWSER_ASSISTED',
       run: async () => {
+        const { collectWithAssistedBrowser } = await import('./browser-assisted-source');
         const result = await collectWithAssistedBrowser({
           url: sourceUrl,
           interactive: options.interactiveBrowser ?? false,

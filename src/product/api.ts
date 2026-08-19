@@ -12,6 +12,14 @@ const publishedSnapshotSchema = z.object({
   schools: z.record(z.string(), humanSchoolSchema),
 }).passthrough();
 
+const liveSchoolQueryResultSchema = z.object({
+  generatedAt: z.string().min(1),
+  status: z.enum(['COMPLETE', 'PARTIAL']),
+  portfolio: humanPortfolioSchema,
+  school: humanSchoolSchema,
+}).strict();
+
+export type LiveSchoolQueryResult = z.infer<typeof liveSchoolQueryResultSchema>;
 type PublishedSnapshot = z.infer<typeof publishedSnapshotSchema>;
 let publishedSnapshotPromise: Promise<PublishedSnapshot> | null = null;
 
@@ -141,6 +149,37 @@ export async function loadHumanSchool(inep: string, signal?: AbortSignal): Promi
   const school = (await loadPublishedSnapshot(signal)).schools[inep];
   if (!school) throw new Error('A unidade não foi localizada no retrato financeiro publicado.');
   return school;
+}
+
+export async function runLiveSchoolQuery(
+  inep: string,
+  signal?: AbortSignal,
+): Promise<LiveSchoolQueryResult> {
+  if (!/^\d{8}$/.test(inep)) throw new Error('INEP inválido.');
+  let response: Response;
+  try {
+    response = await fetch('/api/live', {
+      method: 'POST',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ inep }),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('Não foi possível consultar a unidade agora.');
+  }
+
+  const body = await readJson(response).catch(() => null) as { error?: unknown } | null;
+  if (!response.ok) {
+    const message = typeof body?.error === 'string' && body.error.trim()
+      ? body.error
+      : `A consulta da unidade ${inep} não pôde ser concluída.`;
+    throw new Error(message);
+  }
+  return liveSchoolQueryResultSchema.parse(body);
 }
 
 export async function startTemporarySession(

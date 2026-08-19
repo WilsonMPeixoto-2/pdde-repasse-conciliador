@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.live.config.ts",
     "preview": "vite preview",
     "pddeinfo:collect": "node --import tsx scripts/collect-pddeinfo.ts",
     "monitor:live": "node --import tsx scripts/monitor-live-2026.ts",

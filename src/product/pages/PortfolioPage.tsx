@@ -8,10 +8,23 @@ function Loading() {
   return <main className="page loading"><p>Carregando a posição financeira de 2026…</p></main>;
 }
 
+function liveTime(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function PortfolioPage() {
   const state = usePortfolio();
 
-  if (state.status === 'loading' || state.status === 'idle' || state.status === 'running') return <Loading />;
+  if (state.status === 'loading') return <Loading />;
 
   if (state.status === 'error') {
     return (
@@ -29,13 +42,45 @@ export function PortfolioPage() {
 
   const portfolio = state.data;
   const visibleIndicators = portfolio.indicators.filter((item) => item.count > 0).slice(0, 6);
+  const generatedAt = liveTime(state.liveGeneratedAt);
+  const progress = state.refreshProgress;
 
   return (
     <main className="page">
       <section aria-labelledby="portfolio-title">
-        <div className="eyebrow">Exercício 2026 · 4ª CRE</div>
-        <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
-        <p className="lead">Uma leitura consolidada dos repasses, contas, saldos e movimentações das unidades da 4ª CRE. Os valores abaixo mantêm separados pagamento informado, crédito localizado e posição de saldo publicada.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 34rem' }}>
+            <div className="eyebrow">Exercício 2026 · 4ª CRE</div>
+            <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
+            <p className="lead">Uma leitura consolidada dos repasses, contas, saldos e movimentações das unidades da 4ª CRE. Os valores abaixo mantêm separados pagamento informado, crédito localizado e posição de saldo publicada.</p>
+          </div>
+          <div style={{ display: 'grid', gap: '.65rem', justifyItems: 'start', maxWidth: '25rem' }}>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={state.refreshing}
+              aria-busy={state.refreshing}
+              onClick={() => void state.refreshLive()}
+            >
+              Fazer nova consulta
+            </button>
+            {state.refreshing ? (
+              <span style={{ color: 'var(--ink-600)', fontSize: '.86rem', lineHeight: 1.45 }} aria-live="polite">
+                Consultando PDDEInfo e SIGEF. {progress ? `${progress.completed} de ${progress.total} unidades concluídas.` : 'Preparando a consulta.'} O retrato atual permanece disponível durante a atualização.
+              </span>
+            ) : null}
+            {state.refreshError ? (
+              <span style={{ color: 'var(--danger-700, #9b1c1c)', fontSize: '.86rem', lineHeight: 1.45 }} role="alert">
+                {state.refreshError}
+              </span>
+            ) : null}
+            {state.source === 'live' && generatedAt ? (
+              <span style={{ color: 'var(--ink-600)', fontSize: '.86rem', lineHeight: 1.45 }} aria-live="polite">
+                Nova consulta concluída em {generatedAt}.
+              </span>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <section className="section" aria-labelledby="position-title">
