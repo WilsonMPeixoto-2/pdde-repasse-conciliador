@@ -17,6 +17,13 @@ describe('nova consulta financeira em tempo real', () => {
     expect(liveSource).not.toMatch(/PDDE_SESSION_ACCESS_KEY|authorization:\s*`Bearer \$\{accessKey\}`/i);
   });
 
+  test('empacota o catálogo das 163 UEs em vez de depender de arquivo no filesystem da Function', async () => {
+    const liveSource = await readFile(new URL('../../server/live-source.ts', import.meta.url), 'utf8');
+
+    expect(liveSource).toContain("../backend/schools4cre.json");
+    expect(liveSource).not.toContain('loadMasterSchools');
+  });
+
   test('não carrega a pilha de navegador quando a consulta usa apenas HTTP', async () => {
     const reports = await readFile(
       new URL('../../backend/adapters/pddeinfo-public-reports.ts', import.meta.url),
