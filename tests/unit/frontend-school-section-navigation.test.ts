@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
@@ -26,5 +27,16 @@ describe('navegação local do prontuário', () => {
     const html = render(true, true);
     expect(html).toContain('href="#movimentacoes"');
     expect(html).toContain('href="#prestacao-contas"');
+  });
+
+  test('prontuário possui alvos únicos e abre a conta que contém movimentações quando necessário', () => {
+    const source = readFileSync('src/product/pages/SchoolPage.tsx', 'utf8');
+    expect(source).toContain('id="resumo"');
+    expect(source).toContain('id="repasses"');
+    expect(source).toContain('id="contas-saldos"');
+    expect(source).toContain("? 'movimentacoes' : undefined");
+    expect(source).toContain('id="prestacao-contas"');
+    expect(source).toContain("hash === '#movimentacoes'");
+    expect(source).toContain('accountIndex === firstMovementAccountIndex');
   });
 });
