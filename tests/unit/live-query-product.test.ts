@@ -19,12 +19,17 @@ describe('nova consulta financeira em tempo real', () => {
 
   test('empacota o backend da função antes do deploy e respeita o teto Hobby de 300 segundos', async () => {
     const wrapper = await readFile(new URL('../../api/live.js', import.meta.url), 'utf8');
+    const liveConfig = await readFile(new URL('../../vite.live.config.ts', import.meta.url), 'utf8');
     const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')) as {
       scripts?: Record<string, string>;
     };
 
     expect(wrapper).toContain("../server-dist/live-source.js");
     expect(wrapper).toMatch(/maxDuration:\s*300/);
-    expect(packageJson.scripts?.build).toContain('vite build --ssr server/live-source.ts --outDir server-dist');
+    expect(packageJson.scripts?.build).toContain('vite build --config vite.live.config.ts');
+    expect(liveConfig).toContain('server/live-source.ts');
+    expect(liveConfig).toContain('server-dist');
+    expect(liveConfig).toMatch(/noExternal/);
+    expect(liveConfig).toMatch(/linkedom/);
   });
 });
