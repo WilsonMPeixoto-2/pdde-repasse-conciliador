@@ -1,5 +1,19 @@
+import { gunzipSync, strFromU8 } from 'fflate';
 import { z } from 'zod';
 import { humanPortfolioSchema, humanSchoolSchema, type HumanPortfolio, type HumanSchool } from './types';
+
+const publishedSnapshotManifestSchema = z.object({
+  encoding: z.literal('gzip-base64-parts'),
+  parts: z.array(z.string().min(1)).min(1),
+}).passthrough();
+
+const publishedSnapshotSchema = z.object({
+  portfolio: humanPortfolioSchema,
+  schools: z.record(z.string(), humanSchoolSchema),
+}).passthrough();
+
+type PublishedSnapshot = z.infer<typeof publishedSnapshotSchema>;
+let publishedSnapshotPromise: Promise<PublishedSnapshot> | null = null;
 
 const temporarySessionStartSchema = z.object({
   sessionId: z.string().min(1),
@@ -52,6 +66,39 @@ async function request(path: string, signal?: AbortSignal): Promise<unknown> {
   return readJson(response);
 }
 
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value.replace(/\s+/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+async function loadPublishedSnapshot(signal?: AbortSignal): Promise<PublishedSnapshot> {
+  if (!publishedSnapshotPromise) {
+    publishedSnapshotPromise = (async () => {
+      const manifest = publishedSnapshotManifestSchema.parse(
+        await request('/data/pdde-2026-snapshot.json', signal),
+      );
+
+      const responses = await Promise.all(manifest.parts.map(async (part) => {
+        const response = await fetch(part, { signal, headers: { Accept: 'text/plain' } });
+        if (!response.ok) throw new Error('O retrato financeiro publicado está incompleto.');
+        return response.text();
+      }));
+
+      const compressed = decodeBase64(responses.join(''));
+      const json = strFromU8(gunzipSync(compressed));
+      return publishedSnapshotSchema.parse(JSON.parse(json));
+    })().catch((error) => {
+      publishedSnapshotPromise = null;
+      throw error;
+    });
+  }
+  return publishedSnapshotPromise;
+}
+
 async function temporaryRequest(
   accessKey: string,
   path: string,
@@ -86,12 +133,14 @@ async function temporaryRequest(
 }
 
 export async function loadHumanPortfolio(signal?: AbortSignal): Promise<HumanPortfolio> {
-  return humanPortfolioSchema.parse(await request('/api/current/human/portfolio', signal));
+  return (await loadPublishedSnapshot(signal)).portfolio;
 }
 
 export async function loadHumanSchool(inep: string, signal?: AbortSignal): Promise<HumanSchool> {
   if (!/^\d{8}$/.test(inep)) throw new Error('INEP inválido.');
-  return humanSchoolSchema.parse(await request(`/api/current/human/schools/${encodeURIComponent(inep)}`, signal));
+  const school = (await loadPublishedSnapshot(signal)).schools[inep];
+  if (!school) throw new Error('A unidade não foi localizada no retrato financeiro publicado.');
+  return school;
 }
 
 export async function startTemporarySession(
