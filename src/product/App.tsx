@@ -2,9 +2,11 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppHeader } from './components/AppHeader';
 import { RouteEffects } from './components/RouteEffects';
 import { PortfolioProvider } from './PortfolioContext';
+import { BalancesOverviewPage } from './pages/BalancesOverviewPage';
 import { IndicatorPage } from './pages/IndicatorPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PortfolioPage } from './pages/PortfolioPage';
+import { RepasseOverviewPage } from './pages/RepasseOverviewPage';
 import { SchoolPage } from './pages/SchoolPage';
 import { SchoolsPage } from './pages/SchoolsPage';
 import { VisualProviders } from './visual/VisualProviders';
@@ -14,6 +16,7 @@ import './design/portfolio-executive.css';
 import './design/portfolio-schools.css';
 import './design/session.css';
 import './design/live-refresh.css';
+import './design/findability.css';
 
 export function App() {
   return (
@@ -27,6 +30,8 @@ export function App() {
               <Route path="/" element={<PortfolioPage />} />
               <Route path="/unidades" element={<SchoolsPage />} />
               <Route path="/unidades/:inep" element={<SchoolPage />} />
+              <Route path="/repasses" element={<RepasseOverviewPage />} />
+              <Route path="/saldos" element={<BalancesOverviewPage />} />
               <Route path="/indicadores/:slug" element={<IndicatorPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

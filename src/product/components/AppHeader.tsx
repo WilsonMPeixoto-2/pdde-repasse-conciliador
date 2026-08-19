@@ -10,8 +10,10 @@ export function AppHeader() {
           <span className="brand__name brand__name--mobile">Inteligência PDDE</span>
         </NavLink>
         <nav className="main-nav" aria-label="Navegação principal">
-          <NavLink to="/" end>Visão geral</NavLink>
-          <NavLink to="/unidades">Unidades</NavLink>
+          <NavLink to="/" end>Início</NavLink>
+          <NavLink to="/unidades">Escolas</NavLink>
+          <NavLink to="/repasses">Repasses</NavLink>
+          <NavLink to="/saldos">Saldos e contas</NavLink>
           <span className="year-pill">2026</span>
         </nav>
       </div>

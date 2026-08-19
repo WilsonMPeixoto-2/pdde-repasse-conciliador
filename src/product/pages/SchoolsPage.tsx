@@ -26,7 +26,7 @@ export function SchoolsPage() {
   const state = usePortfolio();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [sort, setSort] = useState<SortMode>('attention');
+  const [sort, setSort] = useState<SortMode>('sme');
   const schools = state.status === 'ready' ? state.data.schools : [];
 
   const counts = useMemo(() => ({
@@ -64,35 +64,38 @@ export function SchoolsPage() {
 
   return (
     <main className="page portfolio-schools-page">
-      <div className="eyebrow">Carteira · 2026</div>
+      <div className="eyebrow">Escolas · 2026</div>
       <h1>Unidades da 4ª CRE</h1>
-      <p className="lead">Use a carteira para localizar rapidamente unidades com cobertura incompleta, apontamentos de acompanhamento ou suspensão de pagamento. Os rótulos indicam onde olhar, não concluem irregularidade.</p>
+      <p className="lead">Localize e compare as escolas por nome, código SME ou INEP. A lista mostra os valores básicos de repasse e saldo; filtros de acompanhamento continuam disponíveis quando você precisar investigar situações específicas.</p>
 
       <section className="section portfolio-schools-controls" aria-label="Busca, filtros e ordenação da carteira">
         <SchoolSearch value={query} onChange={setQuery} visibleCount={filtered.length} totalCount={schools.length} />
 
         <div className="portfolio-schools-toolbar">
-          <div className="portfolio-schools-filters" aria-label="Filtros da carteira" style={{ flexWrap: 'wrap', overflowX: 'visible' }}>
-            {filters.map((item) => (
-              <button
-                className="portfolio-schools-filter"
-                data-active={filter === item.mode ? 'true' : 'false'}
-                key={item.mode}
-                type="button"
-                aria-pressed={filter === item.mode}
-                onClick={() => setFilter(item.mode)}
-              >
-                <span>{item.label}</span>
-                <strong>{counts[item.mode]}</strong>
-              </button>
-            ))}
+          <div className="portfolio-schools-filter-group">
+            <span className="portfolio-schools-filter-group__label">Filtros de acompanhamento</span>
+            <div className="portfolio-schools-filters" aria-label="Filtros da carteira">
+              {filters.map((item) => (
+                <button
+                  className="portfolio-schools-filter"
+                  data-active={filter === item.mode ? 'true' : 'false'}
+                  key={item.mode}
+                  type="button"
+                  aria-pressed={filter === item.mode}
+                  onClick={() => setFilter(item.mode)}
+                >
+                  <span>{item.label}</span>
+                  <strong>{counts[item.mode]}</strong>
+                </button>
+              ))}
+            </div>
           </div>
 
           <label className="portfolio-schools-sort">
             <span>Ordenação</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}>
-              <option value="attention">Atenção primeiro</option>
               <option value="sme">Código SME</option>
+              <option value="attention">Atenção primeiro</option>
             </select>
           </label>
         </div>

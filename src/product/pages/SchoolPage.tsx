@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MetricValue } from '../components/MetricValue';
 import { MovementLedger } from '../components/MovementLedger';
+import { SchoolSectionNav } from '../components/SchoolSectionNav';
 import { Timeline2026 } from '../components/Timeline2026';
 import { buildAccountTimeline2026, deriveSchoolSummary } from '../derive';
 import { formatAccount, formatCnpj, formatDate, formatMoney } from '../format';
@@ -24,10 +25,14 @@ function programTotals(program: HumanSchool['programs'][number]) {
 
 function SchoolContent({ school }: { school: HumanSchool }) {
   const [infoOpen, setInfoOpen] = useState(false);
+  const { hash } = useLocation();
   const summary = deriveSchoolSummary(school);
+  const firstMovementAccountIndex = school.accounts.findIndex((account) => account.movements.length > 0);
+  const hasMovements = firstMovementAccountIndex >= 0;
+  const hasAccounting = school.accounting.length > 0;
 
   return (
-    <main className="page">
+    <main className="page school-financial-page">
       <header className="entity-header">
         <div>
           <div className="eyebrow">Prontuário financeiro · 2026</div>
@@ -38,15 +43,17 @@ function SchoolContent({ school }: { school: HumanSchool }) {
       </header>
 
       {infoOpen ? (
-        <section style={{ padding: '1.4rem 0', borderBottom: '1px solid var(--ink-100)' }} aria-label="Informações da unidade executora">
+        <section className="school-executor-info" aria-label="Informações da unidade executora">
           <strong>Unidade executora</strong>
-          <p style={{ margin: '.45rem 0 0', color: 'var(--ink-600)' }}>{school.school.uex || 'Não informada'} · CNPJ {formatCnpj(school.school.cnpj)}</p>
+          <p>{school.school.uex || 'Não informada'} · CNPJ {formatCnpj(school.school.cnpj)}</p>
         </section>
       ) : null}
 
-      <section className="section" aria-labelledby="school-position-title">
+      <SchoolSectionNav hasMovements={hasMovements} hasAccounting={hasAccounting} />
+
+      <section id="resumo" tabIndex={-1} className="section school-section-target" aria-labelledby="school-position-title">
         <div className="section-heading">
-          <div><div className="eyebrow">Posição da unidade</div><h2 id="school-position-title">Leitura financeira</h2></div>
+          <div><div className="eyebrow">Resumo</div><h2 id="school-position-title">Posição financeira da escola</h2></div>
           <p>{summary.balanceReferenceDate ? `Saldo informado com referência mais recente em ${formatDate(summary.balanceReferenceDate)}.` : 'Ainda não há posição de saldo disponível para esta unidade.'}</p>
         </div>
         <div className="metrics-band">
@@ -57,11 +64,12 @@ function SchoolContent({ school }: { school: HumanSchool }) {
         </div>
       </section>
 
-      <div className="two-column section">
+      <div className="two-column section school-financial-detail">
         <div>
-          <section aria-labelledby="programs-title">
+          <section id="repasses" tabIndex={-1} className="school-section-target" aria-labelledby="programs-title">
             <div className="section-heading">
               <div><div className="eyebrow">Programas e parcelas</div><h2 id="programs-title">Repasses</h2></div>
+              <p>Consulte cada programa e parcela sem confundir pagamento informado com crédito localizado.</p>
             </div>
             <div className="program-list">
               {school.programs.map((program) => {
@@ -100,32 +108,40 @@ function SchoolContent({ school }: { school: HumanSchool }) {
             </div>
           </section>
 
-          <section className="section" aria-labelledby="accounts-title">
+          <section id="contas-saldos" tabIndex={-1} className="section school-section-target" aria-labelledby="accounts-title">
             <div className="section-heading">
-              <div><div className="eyebrow">Contas e aplicações</div><h2 id="accounts-title">Posição e evolução</h2></div>
-              <p>Cada linha temporal mostra somente os meses efetivamente observados para aquela conta.</p>
+              <div><div className="eyebrow">Contas, aplicações e evolução</div><h2 id="accounts-title">Contas e saldos</h2></div>
+              <p>Abra cada conta para consultar banco, agência, conta, composição e evolução do saldo informado.</p>
             </div>
             <div className="program-list">
-              {school.accounts.map((account) => (
+              {school.accounts.map((account, accountIndex) => (
                 <Disclosure
                   key={`${account.bank}-${account.agency}-${account.account}-${account.program}`}
                   title={account.program}
                   summary={`${formatAccount(account.bank, account.agency, account.account)} · ${formatMoney(account.latestPosition?.totalReportedBalanceCents ?? null)}`}
-                  defaultOpen={school.accounts.length === 1}
+                  defaultOpen={
+                    school.accounts.length === 1
+                    || (hash === '#movimentacoes' && accountIndex === firstMovementAccountIndex)
+                  }
                 >
                   {account.latestPosition
                     ? <BalanceComposition position={account.latestPosition} />
                     : <p>Não há posição de saldo publicada para esta conta.</p>}
                   <Timeline2026 months={buildAccountTimeline2026(account.positions)} title="Evolução do saldo informado" />
-                  {account.movements.length > 0 ? <MovementLedger movements={account.movements} /> : null}
+                  {account.movements.length > 0 ? (
+                    <MovementLedger
+                      id={accountIndex === firstMovementAccountIndex ? 'movimentacoes' : undefined}
+                      movements={account.movements}
+                    />
+                  ) : null}
                 </Disclosure>
               ))}
               {school.accounts.length === 0 ? <p>Não há conta apresentada para esta unidade no retrato corrente.</p> : null}
             </div>
           </section>
 
-          {school.accounting.length > 0 ? (
-            <section className="section" aria-labelledby="accounting-title">
+          {hasAccounting ? (
+            <section id="prestacao-contas" tabIndex={-1} className="section school-section-target" aria-labelledby="accounting-title">
               <div className="section-heading"><div><div className="eyebrow">Prestação de contas</div><h2 id="accounting-title">Situação informada</h2></div></div>
               <div className="school-list">
                 {school.accounting.map((item, index) => (
@@ -146,10 +162,10 @@ function SchoolContent({ school }: { school: HumanSchool }) {
             <div className="followup-list">
               {school.followUp.map((item) => <div className="followup" key={item}>{item}</div>)}
             </div>
-          ) : <p style={{ color: 'var(--ink-600)' }}>Nenhum apontamento de acompanhamento no retrato atual.</p>}
-          <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--ink-200)', color: 'var(--ink-600)', fontSize: '.82rem' }}>
-            <strong style={{ color: 'var(--ink-950)' }}>Como interpretar</strong>
-            <p style={{ marginTop: '.5rem' }}>Pagamento informado, ordem FNDE, crédito localizado e saldo publicado representam evidências diferentes. A tela mantém essas etapas separadas.</p>
+          ) : <p className="school-followup-empty">Nenhum apontamento de acompanhamento no retrato atual.</p>}
+          <div className="school-reading-note">
+            <strong>Como interpretar</strong>
+            <p>Pagamento informado, ordem FNDE, crédito localizado e saldo publicado representam evidências diferentes. A tela mantém essas etapas separadas.</p>
           </div>
         </aside>
       </div>

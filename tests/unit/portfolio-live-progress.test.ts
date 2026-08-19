@@ -39,6 +39,8 @@ vi.mock('../../src/product/PortfolioContext', () => ({
   }),
 }));
 
+vi.mock('../../src/product/components/FinancialTaskLinks', () => ({ FinancialTaskLinks: () => null }));
+vi.mock('../../src/product/components/GlobalSchoolFinder', () => ({ GlobalSchoolFinder: () => null }));
 vi.mock('../../src/product/components/IndicatorLink', () => ({ IndicatorLink: () => null }));
 vi.mock('../../src/product/components/MetricValue', () => ({ MetricValue: () => null }));
 vi.mock('../../src/product/components/PortfolioExecutiveOverview', () => ({ PortfolioExecutiveOverview: () => null }));
