@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 
 export function Disclosure(props: {
@@ -8,6 +8,11 @@ export function Disclosure(props: {
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(props.defaultOpen ?? false);
+
+  useEffect(() => {
+    if (props.defaultOpen) setOpen(true);
+  }, [props.defaultOpen]);
+
   return (
     <Collapsible.Root open={open} onOpenChange={setOpen} asChild>
       <section className="disclosure">
