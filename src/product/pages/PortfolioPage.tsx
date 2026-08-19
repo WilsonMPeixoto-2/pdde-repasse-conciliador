@@ -21,6 +21,11 @@ function liveTime(value: string | null): string | null {
   }).format(date);
 }
 
+function progressPercent(completed: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.min(100, Math.max(0, Math.round((completed / total) * 100)));
+}
+
 export function PortfolioPage() {
   const state = usePortfolio();
 
@@ -44,6 +49,9 @@ export function PortfolioPage() {
   const visibleIndicators = portfolio.indicators.filter((item) => item.count > 0).slice(0, 6);
   const generatedAt = liveTime(state.liveGeneratedAt);
   const progress = state.refreshProgress;
+  const completed = progress?.completed ?? 0;
+  const total = progress?.total ?? portfolio.schoolCount;
+  const percentage = progressPercent(completed, total);
 
   return (
     <main className="page">
@@ -54,7 +62,7 @@ export function PortfolioPage() {
             <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
             <p className="lead">Uma leitura consolidada dos repasses, contas, saldos e movimentações das unidades da 4ª CRE. Os valores abaixo mantêm separados pagamento informado, crédito localizado e posição de saldo publicada.</p>
           </div>
-          <div style={{ display: 'grid', gap: '.65rem', justifyItems: 'start', maxWidth: '25rem' }}>
+          <div className="live-refresh-control">
             <button
               className="button button--primary"
               type="button"
@@ -65,17 +73,32 @@ export function PortfolioPage() {
               Fazer nova consulta
             </button>
             {state.refreshing ? (
-              <span style={{ color: 'var(--ink-600)', fontSize: '.86rem', lineHeight: 1.45 }} aria-live="polite">
-                Consultando PDDEInfo e SIGEF. {progress ? `${progress.completed} de ${progress.total} unidades concluídas.` : 'Preparando a consulta.'} O retrato atual permanece disponível durante a atualização.
-              </span>
+              <div className="live-refresh-status">
+                <div className="live-refresh-status__header">
+                  <strong>Atualizando dados financeiros</strong>
+                  <span>{percentage}%</span>
+                </div>
+                <progress
+                  className="live-refresh-progress"
+                  value={completed}
+                  max={total > 0 ? total : 1}
+                  aria-label="Progresso da nova consulta"
+                  aria-valuetext={`${completed} de ${total} unidades concluídas`}
+                />
+                <div className="live-refresh-status__meta">
+                  <span aria-live="polite">{completed} de {total} unidades concluídas</span>
+                  <span>Consultando PDDEInfo e SIGEF</span>
+                </div>
+                <small>O retrato atual permanece disponível durante a atualização.</small>
+              </div>
             ) : null}
             {state.refreshError ? (
-              <span style={{ color: 'var(--danger-700, #9b1c1c)', fontSize: '.86rem', lineHeight: 1.45 }} role="alert">
+              <span className="live-refresh-message live-refresh-message--error" role="alert">
                 {state.refreshError}
               </span>
             ) : null}
             {state.source === 'live' && generatedAt ? (
-              <span style={{ color: 'var(--ink-600)', fontSize: '.86rem', lineHeight: 1.45 }} aria-live="polite">
+              <span className="live-refresh-message" aria-live="polite">
                 Nova consulta concluída em {generatedAt}.
               </span>
             ) : null}
