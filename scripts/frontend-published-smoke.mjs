@@ -61,13 +61,33 @@ async function assertNoHorizontalOverflow(page) {
   }
 }
 
+async function assertCoreNavigation(page) {
+  for (const name of ['Início', 'Escolas', 'Repasses', 'Saldos e contas']) {
+    await page.getByRole('link', { name, exact: true }).first().waitFor();
+  }
+}
+
+async function assertSchoolAnchor(page, expectedHash, expectedHeading) {
+  const firstSchool = page.locator('.financial-overview-row').first();
+  await firstSchool.waitFor();
+  await firstSchool.click();
+  await page.waitForLoadState('networkidle');
+  if (!page.url().includes(expectedHash)) {
+    throw new Error(`Navegação da escola não preservou a âncora ${expectedHash}: ${page.url()}`);
+  }
+  await page.getByRole('heading', { name: expectedHeading, exact: true }).waitFor();
+  await assertNoHorizontalOverflow(page);
+}
+
 async function smoke(viewport, suffix) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
 
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
+  await page.getByRole('heading', { name: 'O que você precisa consultar?' }).waitFor();
   await page.getByText(/163 unidades/i).first().waitFor();
+  await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
@@ -75,9 +95,28 @@ async function smoke(viewport, suffix) {
   await page.goto(`${base}/unidades`, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: 'Unidades da 4ª CRE' }).waitFor();
   await page.getByRole('heading', { name: '163 unidades no recorte' }).waitFor();
+  await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({ path: new URL(`unidades-${suffix}.png`, output).pathname, fullPage: true });
+
+  await page.goto(`${base}/repasses`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Repasses 2026' }).waitFor();
+  await page.getByRole('heading', { name: 'Valores do repasse' }).waitFor();
+  await assertCoreNavigation(page);
+  await assertNoPasswordUi(page);
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({ path: new URL(`repasses-${suffix}.png`, output).pathname, fullPage: true });
+  await assertSchoolAnchor(page, '#repasses', 'Repasses');
+
+  await page.goto(`${base}/saldos`, { waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Saldos e contas 2026' }).waitFor();
+  await page.getByRole('heading', { name: 'Saldo conhecido e cobertura' }).waitFor();
+  await assertCoreNavigation(page);
+  await assertNoPasswordUi(page);
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({ path: new URL(`saldos-${suffix}.png`, output).pathname, fullPage: true });
+  await assertSchoolAnchor(page, '#contas-saldos', 'Contas e saldos');
 
   await context.close();
 }
@@ -85,7 +124,7 @@ async function smoke(viewport, suffix) {
 try {
   await smoke({ width: 1440, height: 1000 }, 'desktop');
   await smoke({ width: 390, height: 844 }, 'mobile');
-  console.log('Frontend publicado sem senha: desktop/mobile aprovados com carteira real de 163 unidades.');
+  console.log('Frontend financeiro aprovado em desktop/mobile: home, escolas, repasses, saldos e âncoras do prontuário.');
 } finally {
   await browser.close();
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
