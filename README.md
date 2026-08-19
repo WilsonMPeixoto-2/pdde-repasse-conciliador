@@ -57,7 +57,10 @@ A versão de código **v0.5.0** já contém:
 - publicação atômica dos dois read models no PostgreSQL;
 - Excel humano orientado ao trabalho fiscal;
 - Excel de auditoria técnica preservado separadamente;
-- testes unitários, propriedades, PGlite/Postgres e validações live controladas.
+- frontend fiscal React/Vite publicado no Vercel;
+- consulta ao vivo da carteira a partir do site, com concorrência e retentativas controladas;
+- preservação do retrato anterior durante a atualização e bloqueio de promoção quando qualquer unidade termina com cobertura parcial;
+- testes unitários, propriedades, PGlite/Postgres, smoke desktop/mobile e validações live controladas.
 
 ## Baseline público comprovado nas 163 UEs
 
@@ -124,7 +127,7 @@ Fatos financeiros normalizados
 
 O runtime institucional usa `backend/application/run-financial-intelligence-monitoring.ts` e publica os read models técnico e humano **na mesma transação** quando uma execução completa cobre toda a carteira institucional.
 
-Uma coleta parcial ou um subconjunto de escolas nunca substitui o retrato corrente oficial.
+Uma coleta parcial ou um subconjunto de escolas nunca substitui o retrato corrente oficial. A mesma regra vale para a consulta ao vivo do frontend: um resultado parcial pode ser diagnosticado, mas não é promovido a novo retrato da carteira.
 
 ## Design da informação para pessoas, não para tabelas do banco
 
@@ -150,19 +153,19 @@ Explicações realmente necessárias ficam em ajuda contextual, detalhe sob dema
 
 Se o sistema mostra “47 unidades” ou “111 unidades”, o usuário precisa conseguir identificar imediatamente **quais são essas unidades**.
 
-O read model humano já implementa cada indicador como:
+O read model humano implementa cada indicador como:
 
 ```text
 rótulo + quantidade + lista nominal das unidades
 ```
 
-No site, isso deve virar filtro/drill-down. No Excel, os números apontam para uma lista nominal na aba `Acompanhamento`.
+No site, os indicadores funcionam como entrada para filtro/drill-down da carteira. No Excel, os números apontam para uma lista nominal na aba `Acompanhamento`.
 
 ### Cor tem função semântica
 
 A apresentação diferencia visualmente `Previsto` de `Pagamento informado`. O Excel humano usa verde de forma consistente para a dimensão de pagamento informado, sem depender exclusivamente da cor para transmitir o estado.
 
-As decisões de produto que ainda exigem deliberação estão em [`docs/PRODUCT_DECISION_GATE_2026.md`](docs/PRODUCT_DECISION_GATE_2026.md).
+O histórico das decisões e critérios de produto permanece registrado em [`docs/PRODUCT_DECISION_GATE_2026.md`](docs/PRODUCT_DECISION_GATE_2026.md).
 
 ## Excel humano 2026
 
@@ -250,18 +253,31 @@ A integração permanece desabilitada quando `PORTAL_TRANSPARENCIA_API_KEY` não
 
 Nenhuma chave deve ser incluída em código, frontend, planilha ou documentação pública. A primeira consulta autenticada real será executada somente depois de a credencial oficial ser configurada como segredo de backend.
 
-## O que ainda NÃO está implantado
+## Estado de implantação
 
-É importante distinguir código validado de plataforma publicada:
+É importante distinguir o que já está publicado do que ainda depende da camada institucional persistente.
 
-- não existe projeto Supabase dedicado conectado a este repositório;
-- as migrations ainda não foram aplicadas ao banco canônico desta plataforma;
-- o backend institucional ainda não opera como serviço implantado permanente;
-- não existe frontend fiscal novo publicado;
-- não existe site novo desta plataforma publicado no Vercel;
-- o Portal da Transparência ainda aguarda credencial oficial.
+### Já publicado / operacional para validação
 
-O frontend legado presente no repositório não deve ser confundido com a experiência fiscal que será construída após o gate de decisões de produto.
+- frontend fiscal React/Vite integrado à `main` e publicado automaticamente no Vercel;
+- navegação da visão da carteira para indicadores, unidades, programas, contas e séries financeiras;
+- retrato financeiro 2026 previamente publicado como base estável da experiência;
+- ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela;
+- endpoint server-side `/api/live` para executar a coleta de uma unidade com o pipeline financeiro real;
+- atualização do retrato no navegador somente quando todas as unidades solicitadas terminam sem falha e sem cobertura parcial;
+- smoke automatizado desktop/mobile e CI com testes, TypeScript e build.
+
+### Ainda pendente para a camada institucional definitiva
+
+- projeto Supabase dedicado conectado a este repositório;
+- aplicação das migrations no banco canônico da plataforma;
+- persistência durável das execuções disparadas pelo site, seus artefatos, evidências e histórico;
+- publicação durável de um novo retrato completo para que ele sobreviva a recarregamento de página e novas sessões;
+- backend institucional permanente usando fila/worker e os stores já implementados;
+- credencial oficial do Portal da Transparência;
+- definição e publicação do PDF executivo final.
+
+A consulta ao vivo publicada hoje é deliberadamente conservadora: enquanto a persistência dedicada não for ligada, o resultado completo atualiza a sessão do navegador; ao recarregar a página, a aplicação volta ao retrato estável previamente publicado. Resultado parcial ou falho nunca substitui esse retrato.
 
 ## Verificação
 
@@ -284,6 +300,7 @@ A suíte cobre, entre outros pontos:
 - rollback quando a visão humana é inconsistente;
 - indicadores com quantidade igual à lista nominal;
 - bloqueio de metadados técnicos na projeção humana;
+- consulta ao vivo com limite de concorrência, retentativas e bloqueio de retrato parcial;
 - navegação interna e diferenciação semântica no Excel.
 
 ## Estrutura principal
@@ -294,6 +311,8 @@ A suíte cobre, entre outros pontos:
 - `backend/report/` — Excel/PDF e projeções de apresentação;
 - `backend/api/` — API institucional;
 - `backend/runtime/` — composição do serviço/worker;
+- `src/product/` — frontend fiscal e contratos de consumo do read model humano;
+- `api/` — entrypoints server-side publicados no Vercel;
 - `scripts/` — CLIs e exportações;
 - `supabase/migrations/` — schema institucional versionado;
 - `tests/` — regras, regressões, propriedades e integrações.
@@ -315,14 +334,14 @@ A documentação é memória institucional, não substituto da fonte de verdade.
 
 ## Próximos gates reais
 
-A fundação de dados 2026 já foi comprovada na carteira completa. As próximas dependências externas são:
+A fundação de dados e a primeira experiência web operacional de 2026 já foram comprovadas. Os próximos gates são:
 
 1. escolher/criar o **Supabase dedicado** e aplicar as migrations;
-2. configurar a credencial oficial do **Portal da Transparência** como segredo;
-3. revisar o gate de decisões de produto antes do frontend final;
-4. construir a API orientada ao read model humano;
-5. projetar e implementar o frontend fiscal;
-6. definir o formato final do PDF executivo.
+2. conectar o backend institucional aos stores persistentes e à fila/worker já implementados;
+3. persistir execuções completas disparadas pelo site e publicar atomicamente o novo retrato estável;
+4. configurar a credencial oficial do **Portal da Transparência** como segredo e executar a primeira validação autenticada controlada;
+5. consolidar histórico de execuções, evidências e comparação temporal na experiência fiscal;
+6. definir e publicar o formato final do PDF executivo.
 
 ## Governança dos repositórios
 
