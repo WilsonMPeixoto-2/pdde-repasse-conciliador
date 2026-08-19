@@ -11,9 +11,20 @@ describe('nova consulta financeira em tempo real', () => {
 
   test('usa endpoint próprio de consulta ao vivo sem depender de segredo no navegador', async () => {
     const api = await readFile(new URL('../../src/product/api.ts', import.meta.url), 'utf8');
-    const liveEndpoint = await readFile(new URL('../../api/live.ts', import.meta.url), 'utf8');
+    const liveSource = await readFile(new URL('../../server/live-source.ts', import.meta.url), 'utf8');
 
     expect(api).toContain('/api/live');
-    expect(liveEndpoint).not.toMatch(/PDDE_SESSION_ACCESS_KEY|authorization:\s*`Bearer \$\{accessKey\}`/i);
+    expect(liveSource).not.toMatch(/PDDE_SESSION_ACCESS_KEY|authorization:\s*`Bearer \$\{accessKey\}`/i);
+  });
+
+  test('empacota o backend da função antes do deploy e respeita o teto Hobby de 300 segundos', async () => {
+    const wrapper = await readFile(new URL('../../api/live.js', import.meta.url), 'utf8');
+    const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(wrapper).toContain("../server-dist/live-source.js");
+    expect(wrapper).toMatch(/maxDuration:\s*300/);
+    expect(packageJson.scripts?.build).toContain('vite build --ssr server/live-source.ts --outDir server-dist');
   });
 });
