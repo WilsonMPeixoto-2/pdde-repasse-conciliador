@@ -43,6 +43,7 @@ export function PortfolioPage() {
   const portfolio = state.data;
   const visibleIndicators = portfolio.indicators.filter((item) => item.count > 0).slice(0, 6);
   const generatedAt = liveTime(state.liveGeneratedAt);
+  const progress = state.refreshProgress;
 
   return (
     <main className="page">
@@ -53,7 +54,7 @@ export function PortfolioPage() {
             <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
             <p className="lead">Uma leitura consolidada dos repasses, contas, saldos e movimentações das unidades da 4ª CRE. Os valores abaixo mantêm separados pagamento informado, crédito localizado e posição de saldo publicada.</p>
           </div>
-          <div style={{ display: 'grid', gap: '.65rem', justifyItems: 'start', maxWidth: '24rem' }}>
+          <div style={{ display: 'grid', gap: '.65rem', justifyItems: 'start', maxWidth: '25rem' }}>
             <button
               className="button button--primary"
               type="button"
@@ -65,7 +66,7 @@ export function PortfolioPage() {
             </button>
             {state.refreshing ? (
               <span style={{ color: 'var(--ink-600)', fontSize: '.86rem', lineHeight: 1.45 }} aria-live="polite">
-                Consultando PDDEInfo e SIGEF. O retrato atual continua disponível enquanto os dados são atualizados.
+                Consultando PDDEInfo e SIGEF. {progress ? `${progress.completed} de ${progress.total} unidades concluídas.` : 'Preparando a consulta.'} O retrato atual permanece disponível durante a atualização.
               </span>
             ) : null}
             {state.refreshError ? (
