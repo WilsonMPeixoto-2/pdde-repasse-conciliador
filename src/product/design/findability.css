@@ -361,11 +361,9 @@
 
   .financial-overview-row,
   .financial-overview-row--balances {
-    grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(125px, 0.75fr)) 20px;
+    grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(115px, 0.75fr)) 20px;
   }
 
-  .financial-overview-row:not(.financial-overview-row--balances) .financial-overview-row__metric:nth-of-type(4),
-  .financial-overview-row--balances .financial-overview-row__metric:nth-of-type(4),
   .financial-overview-row__status {
     display: none;
   }
