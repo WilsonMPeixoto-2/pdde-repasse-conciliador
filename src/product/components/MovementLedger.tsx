@@ -52,11 +52,11 @@ function amountLabel(entry: MovementLedgerEntry) {
   );
 }
 
-export function MovementLedger(props: { movements: readonly HumanMovement[] }) {
+export function MovementLedger(props: { movements: readonly HumanMovement[]; id?: string }) {
   const model = useMemo(() => buildMovementLedger(props.movements), [props.movements]);
 
   return (
-    <section className="movement-ledger" aria-label="Movimentações financeiras da conta">
+    <section id={props.id} className="movement-ledger" aria-label="Movimentações financeiras da conta">
       <div className="movement-ledger__heading">
         <div>
           <span className="movement-ledger__eyebrow">Extrato disponível</span>
