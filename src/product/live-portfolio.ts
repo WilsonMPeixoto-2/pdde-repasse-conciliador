@@ -324,5 +324,14 @@ export async function runLivePortfolioQuery(
     );
   }
 
-  return buildLivePortfolio(results as LiveSchoolQueryResult[]);
+  const live = buildLivePortfolio(results as LiveSchoolQueryResult[]);
+  if (live.status === 'PARTIAL') {
+    const partialCount = (results as LiveSchoolQueryResult[])
+      .filter((result) => result.status === 'PARTIAL').length;
+    throw new Error(
+      `A nova consulta terminou com cobertura parcial em ${partialCount} de ${ineps.length} unidades. O retrato anterior foi preservado.`,
+    );
+  }
+
+  return live;
 }
