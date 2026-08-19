@@ -110,8 +110,10 @@ A página `/unidades` continua sendo a carteira completa, mas passa a servir pri
   - saldo conhecido;
   - cobertura;
   - situação;
-- filtros `Com atenção`, `Cobertura incompleta` e `Pagamento suspenso` passam a uma camada visual secundária;
-- ordenação padrão deixa de enfatizar necessariamente `Atenção primeiro`; a implementação deve privilegiar localização previsível, preferencialmente SME/nome, mantendo `Atenção primeiro` como opção.
+- `Todas` é o filtro ativo por padrão;
+- filtros `Com atenção`, `Cobertura incompleta` e `Pagamento suspenso` permanecem disponíveis, porém visualmente agrupados como filtros de acompanhamento secundários;
+- ordenação padrão será **Código SME**, com desempate por nome da unidade;
+- `Atenção primeiro` permanece como opção explícita de ordenação.
 
 ## 7. Nova página Repasses
 
@@ -177,7 +179,7 @@ A rota `/unidades/:inep` ganha navegação local explícita e previsível.
 - **Movimentações** → `#movimentacoes`
 - **Prestação de contas** → `#prestacao-contas`
 
-Os itens que não possuírem conteúdo real podem ser omitidos ou desabilitados de forma clara. Não criar seções vazias apenas para preencher o menu.
+Os itens que não possuírem conteúdo real serão omitidos. Não criar seções vazias nem controles desabilitados apenas para preencher o menu.
 
 ### Resumo
 
@@ -203,7 +205,7 @@ A seção passa a ter título inequívoco `Contas e saldos`, preservando:
 
 ### Movimentações
 
-Quando houver movimentos, eles devem ser alcançáveis por `#movimentacoes`. A implementação pode manter o ledger dentro do contexto da conta, desde que o link local leve o usuário para a primeira área de movimentação disponível e o título deixe claro o conteúdo.
+Quando houver pelo menos um movimento, o item `Movimentações` será exibido na navegação local. Haverá um único alvo `id="movimentacoes"` imediatamente antes do primeiro ledger de movimentos disponível. Os demais ledgers continuam agrupados dentro de suas respectivas contas, evitando IDs duplicados e sem criar uma segunda cópia dos movimentos.
 
 ## 10. URLs e navegação contextual
 
@@ -214,7 +216,7 @@ Os links entre visões devem usar âncoras semânticas:
 - `/unidades/:inep#movimentacoes`
 - `/unidades/:inep#prestacao-contas`
 
-Ao navegar para uma URL com hash, a aplicação deve deslocar o foco/viewport para a seção correspondente sem quebrar a navegação por teclado.
+Ao navegar para uma URL com hash, a aplicação deve deslocar o viewport para a seção correspondente e mover o foco programaticamente para o título/landmark da seção, preservando navegação por teclado.
 
 ## 11. Componentes propostos
 
