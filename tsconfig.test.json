@@ -19,6 +19,7 @@
     "backend/report/**/*.ts",
     "backend/api/**/*.ts",
     "backend/runtime/**/*.ts",
+    "server/**/*.ts",
     "scripts/**/*.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
