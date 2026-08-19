@@ -7,12 +7,11 @@ import { prepareCurrentHumanFinancialSnapshot } from '../backend/application/cur
 import { runFinancialIntelligenceMonitoring } from '../backend/application/run-financial-intelligence-monitoring.ts';
 
 export const config = {
-  maxDuration: 800,
+  maxDuration: 300,
 };
 
-const inepSchema = z.string().regex(/^\d{8}$/);
 const requestSchema = z.object({
-  ineps: z.union([z.literal('all'), z.array(inepSchema).min(1).max(163)]).default('all'),
+  inep: z.string().regex(/^\d{8}$/),
 }).strict();
 
 function json(value: unknown, status = 200): Response {
@@ -34,20 +33,16 @@ export default {
     const workspacePath = join('/tmp', runId);
 
     try {
-      const input = requestSchema.parse(await request.json().catch(() => ({ ineps: 'all' })));
+      const input = requestSchema.parse(await request.json());
       const master = await loadMasterSchools();
-      const masterByInep = new Map(master.map((school) => [school.inep, school]));
-      const schools = input.ineps === 'all'
-        ? master
-        : input.ineps.map((inep) => {
-            const school = masterByInep.get(inep);
-            if (!school) throw new Error(`INEP ${inep} não pertence à lista-mestre da 4ª CRE.`);
-            return school;
-          });
+      const school = master.find((item) => item.inep === input.inep);
+      if (!school) {
+        return json({ error: 'A unidade informada não pertence à lista-mestre da 4ª CRE.' }, 404);
+      }
 
       await mkdir(workspacePath, { recursive: true });
       const result = await runFinancialIntelligenceMonitoring({
-        schools,
+        schools: [school],
         workspacePath,
         fiscalYear: 2026,
         runId,
@@ -55,24 +50,21 @@ export default {
       });
       const prepared = prepareCurrentHumanFinancialSnapshot({
         runId,
-        expectedSchoolCount: schools.length,
+        expectedSchoolCount: 1,
         human: result.human,
       });
       const { runId: _portfolioRunId, ...portfolio } = prepared.portfolio;
-      const snapshots = Object.fromEntries(prepared.schools.map(({ school, snapshot }) => {
-        const { runId: _schoolRunId, ...publicSnapshot } = snapshot;
-        return [school.inep, publicSnapshot];
-      }));
+      const { runId: _schoolRunId, ...snapshot } = prepared.schools[0].snapshot;
 
       return json({
         generatedAt: new Date().toISOString(),
         status: result.status,
         portfolio,
-        schools: snapshots,
+        school: snapshot,
       });
     } catch (cause) {
-      if (cause instanceof z.ZodError) {
-        return json({ error: 'Escopo da consulta inválido.' }, 400);
+      if (cause instanceof z.ZodError || cause instanceof SyntaxError) {
+        return json({ error: 'Unidade inválida para a nova consulta.' }, 400);
       }
       return json({
         error: cause instanceof Error ? cause.message : 'Não foi possível concluir a nova consulta.',
