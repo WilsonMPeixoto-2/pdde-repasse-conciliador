@@ -1,0 +1,96 @@
+name: Materializar snapshot financeiro estático
+
+on:
+  push:
+    branches:
+      - fix/remove-user-session-password
+    paths:
+      - .github/workflows/publish-static-snapshot.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+        with:
+          ref: fix/remove-user-session-password
+
+      - name: Baixar artefato real validado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/9335143477/zip" \
+            > snapshot-artifact.zip
+          mkdir -p snapshot-artifact
+          unzip -q snapshot-artifact.zip -d snapshot-artifact
+
+      - name: Materializar carteira, prontuários e Excel
+        run: |
+          python - <<'PY'
+          import glob
+          import json
+          import os
+          import shutil
+
+          base = 'snapshot-artifact/artifacts/full-163-session'
+          with open(f'{base}/portfolio.json', encoding='utf-8') as handle:
+              portfolio = json.load(handle)
+
+          schools = {}
+          for path in sorted(glob.glob(f'{base}/schools/*.json')):
+              with open(path, encoding='utf-8') as handle:
+                  school = json.load(handle)
+              schools[school['school']['inep']] = school
+
+          if len(schools) != 163:
+              raise SystemExit(f'Esperadas 163 escolas, encontradas {len(schools)}')
+          if portfolio.get('schoolCount') != 163:
+              raise SystemExit(f"Carteira inválida: schoolCount={portfolio.get('schoolCount')}")
+
+          os.makedirs('public/data', exist_ok=True)
+          snapshot = {
+              'publishedAt': '2026-08-18T17:22:35Z',
+              'source': {
+                  'workflowRunId': 32164281411,
+                  'artifactId': 9335143477,
+                  'artifactName': 'sigef-full-163-2026',
+              },
+              'portfolio': portfolio,
+              'schools': schools,
+          }
+          with open('public/data/pdde-2026-snapshot.json', 'w', encoding='utf-8') as handle:
+              json.dump(snapshot, handle, ensure_ascii=False, separators=(',', ':'))
+
+          shutil.copyfile(
+              f'{base}/inteligencia-financeira-pdde-4cre-2026.xlsx',
+              'public/data/inteligencia-financeira-pdde-4cre-2026.xlsx',
+          )
+          PY
+
+      - name: Validar artefatos publicados
+        run: |
+          test -s public/data/pdde-2026-snapshot.json
+          test -s public/data/inteligencia-financeira-pdde-4cre-2026.xlsx
+          python - <<'PY'
+          import json
+          with open('public/data/pdde-2026-snapshot.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          assert data['portfolio']['schoolCount'] == 163
+          assert len(data['schools']) == 163
+          PY
+
+      - name: Gravar snapshot na branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/pdde-2026-snapshot.json public/data/inteligencia-financeira-pdde-4cre-2026.xlsx
+          git diff --cached --quiet && exit 0
+          git commit -m "data: publica retrato financeiro validado das 163 UEs"
+          git push origin HEAD:fix/remove-user-session-password
