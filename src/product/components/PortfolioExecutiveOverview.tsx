@@ -86,14 +86,14 @@ export function PortfolioExecutiveOverview({ portfolio }: { portfolio: HumanPort
           </div>
 
           <div className="portfolio-executive__coverage-summary">
-            <div>
+            <Link className="portfolio-executive__coverage-action" to="/unidades?filtro=atencao">
               <strong>{summary.attentionCount}</strong>
               <span>{unitLabel(summary.attentionCount).replace(/^\d+\s/, '')} com atenção</span>
-            </div>
-            <div>
+            </Link>
+            <Link className="portfolio-executive__coverage-action" to="/unidades?filtro=cobertura">
               <strong>{summary.coverageIncompleteCount}</strong>
               <span>com cobertura incompleta</span>
-            </div>
+            </Link>
           </div>
           <p className="portfolio-executive__coverage-sentence">
             {unitLabel(summary.attentionCount)} com atenção · {summary.coverageIncompleteCount} com cobertura incompleta
@@ -101,11 +101,16 @@ export function PortfolioExecutiveOverview({ portfolio }: { portfolio: HumanPort
 
           <div className="portfolio-executive__status-list" aria-label="Distribuição das unidades por situação">
             {statusRows(summary.statusCounts).map((item) => (
-              <div className="portfolio-executive__status" data-status={item.key} key={item.key}>
+              <Link
+                className="portfolio-executive__status"
+                data-status={item.key}
+                key={item.key}
+                to={`/unidades?status=${item.key}`}
+              >
                 <span className="portfolio-executive__status-marker" aria-hidden="true" />
                 <span>{item.label}</span>
                 <strong>{item.count}</strong>
-              </div>
+              </Link>
             ))}
           </div>
 
