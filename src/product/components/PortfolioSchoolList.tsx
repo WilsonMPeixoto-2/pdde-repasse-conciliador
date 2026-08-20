@@ -44,12 +44,12 @@ function RepasseStages({ school }: { school: HumanPortfolioSchool }) {
         <strong>{formatMoney(school.programmedCents)}</strong>
       </div>
       <div className="portfolio-school__stage">
-        <span className="portfolio-school__stage-label">Pagamento</span>
+        <span className="portfolio-school__stage-label">Pagamento informado</span>
         <span className="portfolio-school__bar"><span className="portfolio-school__fill portfolio-school__fill--paid" style={stageStyle(school.paymentInformedCents, maximum)} /></span>
         <strong>{formatMoney(school.paymentInformedCents)}</strong>
       </div>
       <div className="portfolio-school__stage">
-        <span className="portfolio-school__stage-label">Crédito</span>
+        <span className="portfolio-school__stage-label">Crédito localizado</span>
         <span className="portfolio-school__bar"><span className="portfolio-school__fill portfolio-school__fill--credit" style={stageStyle(school.creditLocatedCents, maximum)} /></span>
         <strong>{formatMoney(school.creditLocatedCents)}</strong>
       </div>
