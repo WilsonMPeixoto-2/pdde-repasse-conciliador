@@ -136,7 +136,7 @@ describe('Excel humano da inteligência financeira', () => {
       indicators: [
         ...view.indicators,
         {
-          label: 'Informação parcial',
+          label: 'Outra informação parcial',
           count: 1,
           units: [{ sme: '0410001', name: 'EM EMA NEGRAO DE LIMA', inep: '33069247' }],
         },
@@ -151,7 +151,7 @@ describe('Excel humano da inteligência financeira', () => {
     ));
     expect(schoolRows).toHaveLength(1);
     expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('1ª parcela com pagamento informado');
-    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('Informação parcial');
+    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('Outra informação parcial');
   });
 
   it('diferencia visualmente pagamento informado do valor previsto', () => {

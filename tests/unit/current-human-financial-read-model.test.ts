@@ -85,7 +85,7 @@ describe('prepareCurrentHumanFinancialSnapshot', () => {
       human: {
         ...human,
         indicators: [{
-          label: 'Informação parcial',
+          label: 'Outra informação parcial',
           count: 1,
           units: [{ sme: '0499999', name: 'FORA DA CARTEIRA', inep: '33999999' }],
         }],

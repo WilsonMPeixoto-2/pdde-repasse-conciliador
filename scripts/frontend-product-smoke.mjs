@@ -93,7 +93,7 @@ const portfolio = {
   indicators: [
     { label: 'Conta do repasse não exibida', count: 3, units: units.slice(0, 3) },
     { label: '1ª parcela com pagamento informado', count: 2, units: units.slice(0, 2) },
-    { label: 'Informação parcial', count: 1, units: [units[0]] },
+    { label: 'Outra informação parcial', count: 1, units: [units[0]] },
   ],
   schools: portfolioSchools,
 };
