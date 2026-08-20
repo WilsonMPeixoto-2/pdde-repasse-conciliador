@@ -71,4 +71,10 @@ describe('integração da leitura operacional no prontuário', () => {
     expect(smoke).toContain("encoding: 'gzip-base64-parts'");
     expect(smoke).not.toContain('/api/current/human/portfolio');
   });
+
+  it('carrega os estilos do extrato financeiro na aplicação', () => {
+    const app = readFileSync('src/product/App.tsx', 'utf8');
+
+    expect(app).toContain("import './design/movement-ledger.css';");
+  });
 });
