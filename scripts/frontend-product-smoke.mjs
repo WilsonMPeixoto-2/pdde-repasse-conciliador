@@ -264,7 +264,7 @@ async function validatePortfolioSchools(context, suffix) {
   if (!(await rows.first().innerText()).includes('EM ALBINO SOUZA CRUZ')) {
     throw new Error('A ordenação padrão não respeitou o código SME.');
   }
-  await page.getByLabel('Ordenação').selectOption('attention');
+  await page.locator('.portfolio-schools-sort select').selectOption('attention');
   await rows.first().getByText('EM CIDADE NOVA', { exact: true }).waitFor();
 
   await page.getByRole('button', { name: /Cobertura incompleta/i }).click();
