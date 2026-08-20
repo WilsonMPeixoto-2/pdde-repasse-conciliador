@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 20/08/2026, segundo marco publicado em PR rascunho; validação visual no CI pendente
+**Última atualização:** 20/08/2026, segundo marco implementado, publicado e validado; PR mantido em rascunho
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -27,6 +27,9 @@ Não reconstruir decisões a partir de documentos antigos isolados. O código e 
 - árvore idêntica local/remota: `72f0bf8b0d1260f4ae6006fe52de2e7adf70ebc5`;
 - branch local do segundo marco: `codex/school-operational-reading`;
 - PR em rascunho do segundo marco: [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38);
+- head local do segundo marco antes do checkpoint documental final: `0a8c1166ae0be5f039c396ae8d38161916da9f8d`;
+- head remoto equivalente antes do checkpoint documental final: `7e4a4492c691874b3580a5b358677e4e50de852d`;
+- árvore idêntica local/remota: `5714e75c5f8fc96b03979f330c595d58e7e1c66f`;
 - o segundo marco está empilhado sobre a árvore do PR nº 37;
 - nenhum merge ou deploy está autorizado.
 
@@ -52,7 +55,7 @@ Evidência do head remoto:
 - 0 em `Outra informação parcial`;
 - 0 erros de fórmula.
 
-## 4. Segundo marco autorizado
+## 4. Segundo marco implementado e validado
 
 **Nome:** leitura operacional da escola.
 
@@ -88,60 +91,72 @@ O prontuário atual já contém toda a informação necessária. O defeito de pr
 
 A correção promove o acompanhamento para o resumo, cria destinos úteis e elimina a barra lateral duplicada.
 
-## 6. Baseline local do segundo marco
+## 6. Verificação final do segundo marco
 
-Dependências instaladas com cache dentro do workspace. O wrapper `npm test` foi bloqueado pelo ambiente antes de iniciar o runner; o binário local equivalente executou normalmente.
+Verificação local executada após a última correção de produto:
 
-Comando executado:
-
-```bash
-./node_modules/.bin/vitest run
-```
-
-Resultado:
-
-- 131 arquivos aprovados;
-- 4 arquivos ignorados;
-- 433 testes aprovados;
-- 6 testes ignorados;
-- duração: 27,97 s.
-
-## 7. Ponto exato de retomada
-
-No checkpoint atual:
-
-- branch local e remoto: `codex/school-operational-reading`;
-- commit local de implementação: `57a48d42688e1b955f8c73d5eb33dc9b19bf2ece`;
-- commit remoto equivalente: `0a840bdc09e0f9386abccf056b277e05dad9cfe3`;
-- árvore idêntica local/remota da implementação: `204de61da6b7ed1ad5417caaad3b9d544e9887b4`;
-- os SHAs dos commits diferem porque o Git CLI não possuía credencial de escrita e o commit remoto foi reconstruído sobre o head remoto do PR nº 37 pelo conector autenticado; os 13 blobs e a árvore integral foram comparados antes da atualização do branch;
-- PR em rascunho [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38), com base intencional `codex/stabilize-human-workbook`, 1 commit à frente e 0 atrás no momento da abertura;
-- Tasks 1 e 2 do plano foram concluídas por ciclos vermelho-verde;
-- a implementação da Task 3 foi concluída; apenas o smoke visual permanece bloqueado pelo ambiente;
-- `SchoolOperationalSummary` substitui as quatro métricas genéricas por uma cadeia probatória de três estágios, saldo contextual separado e pontos acionáveis;
-- `SchoolPage` mantém programas, parcelas, contas, posições, movimentos e prestação de contas em fluxo vertical e não repete a antiga lateral de acompanhamento;
-- o derivador distingue pagamento suspenso, conta ausente, crédito não localizado, crédito a conferir, consulta inconclusiva, posição de saldo ausente, fonte indisponível e apontamento residual;
-- mensagens já representadas por fatos estruturados não são repetidas;
-- uma mensagem conhecida continua visível como apontamento residual se o fato estruturado correspondente estiver ausente, evitando perda silenciosa de evidência;
-- a escola sem ocorrências recebe `Sem apontamento no retrato atual` e uma ressalva de acompanhamento, sem declaração de regularidade;
-- o CSS próprio usa três estágios no desktop, empilhamento até 700 px, saldo separado, ações textuais, foco herdado e números tabulares;
-- o smoke foi ampliado para exigir a nova síntese, as quatro leituras textuais, ação de repasses, ausência de duplicação e ausência de overflow global.
-
-Verificações executadas:
-
-- testes afetados: 7 arquivos e 17 testes aprovados;
-- regressão completa final: 134 arquivos aprovados, 4 ignorados, 442 testes aprovados e 6 ignorados;
-- uma execução ampla anterior teve timeout simultâneo na inicialização de cinco suítes PGlite; as cinco passaram isoladas em conjunto e a repetição integral passou, sem alteração nesses testes;
+- `./node_modules/.bin/vitest run`: 134 arquivos aprovados, 4 ignorados; 444 testes aprovados, 6 ignorados;
 - `./node_modules/.bin/tsc -p tsconfig.test.json --noEmit`: aprovado;
 - `./node_modules/.bin/vite build`: aprovado;
 - `./node_modules/.bin/vite build --config vite.live.config.ts`: aprovado;
-- `node scripts/frontend-product-smoke.mjs`: não executou as asserções porque falta `/root/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`;
-- a tentativa anterior de instalar o navegador falhou por download truncado; portanto não há aprovação visual local nem capturas novas deste marco;
-- stage dos 13 caminhos, commit local, publicação do branch e abertura do PR em rascunho foram autorizados e executados;
-- nenhum merge ou deploy foi executado;
-- os workflows `Verificação contínua` e `Frontend Product Smoke 2026` foram disparados para o PR nº 38 e devem ser consultados antes de qualquer decisão de integração.
+- `git diff --check`: aprovado.
 
-Primeiros passos recomendados:
+Verificação do head remoto `7e4a4492c691874b3580a5b358677e4e50de852d`:
+
+- `Verificação contínua`: run `32429811537`, aprovado;
+- `Frontend Product Smoke 2026`: run `32429811398`, execução nº 366, aprovado;
+- smoke determinístico aprovado em 1440×1000 e 390×844;
+- smoke do retrato publicado aprovado em desktop e mobile;
+- artefato `frontend-product-smoke-2026`, ID `9428694273`;
+- digest do artefato conferido: `sha256:1358f51ab9850faa2befc6a0043cecbaf5a3391cf067c786376b2bc519fb2290`;
+- `school-desktop.png` e `school-mobile.png` inspecionados em resolução original;
+- auditoria registrada em `docs/audits/2026-08-20-leitura-operacional-escola.md`.
+
+O navegador continua ausente no ambiente Work local. Isso não foi ocultado: o gate visual foi executado pelo workflow autorizado, e o ZIP baixado foi comparado ao digest publicado antes da inspeção.
+
+## 7. Ponto exato de retomada
+
+### Estado funcional
+
+- `SchoolOperationalSummary` apresenta a cadeia probatória de três estágios, o saldo datado e os pontos acionáveis antes dos detalhes;
+- `SchoolPage` preserva programas, parcelas, contas, posições, movimentos e prestação de contas em fluxo vertical;
+- a antiga lateral duplicada de acompanhamento foi removida;
+- o derivador distingue pagamento suspenso, conta ausente, crédito não localizado, crédito a conferir, consulta inconclusiva, posição de saldo ausente, fonte indisponível e apontamento residual;
+- mensagens cobertas por fatos estruturados não são repetidas;
+- uma mensagem conhecida continua visível quando o fato estruturado correspondente está ausente;
+- ausência de apontamentos não é apresentada como certificação de regularidade;
+- o extrato financeiro voltou a carregar sua folha de estilos e possui teste de integração para impedir nova perda silenciosa.
+
+### Cronologia das falhas encontradas e eliminadas
+
+1. o workflow visual executava somente o smoke do retrato publicado e não exercitava o novo prontuário determinístico;
+2. ao ligar o roteiro correto ao workflow, ele revelou que o fixture ainda simulava endpoints antigos;
+3. o fixture foi migrado para o snapshot `gzip-base64-parts` consumido pela aplicação atual;
+4. a execução seguinte revelou uma expectativa antiga de ordenação automática; o roteiro passou a validar SME por padrão e `Atenção primeiro` quando selecionado;
+5. um seletor acessível ambíguo foi tornado específico ao controle de ordenação;
+6. com o smoke verde, a inspeção humana revelou o extrato visualmente sem estrutura;
+7. a causa era `movement-ledger.css` existente, mas não importado; um teste vermelho comprovou a lacuna, o import foi restaurado e um novo artefato verde foi inspecionado.
+
+Essa sequência não representa mudanças repetidas de objetivo. Foram camadas de regressão no gate e uma regressão visual preexistente, cada uma comprovada antes da correção.
+
+### Estado Git e publicação
+
+- branch local e remota: `codex/school-operational-reading`;
+- head local antes do checkpoint documental final: `0a8c1166ae0be5f039c396ae8d38161916da9f8d`;
+- head remoto equivalente antes do checkpoint documental final: `7e4a4492c691874b3580a5b358677e4e50de852d`;
+- árvore idêntica local/remota: `5714e75c5f8fc96b03979f330c595d58e7e1c66f`;
+- os SHAs dos commits locais e remotos diferem porque o Git CLI não possui credencial HTTPS interativa; cada commit remoto foi reconstruído pelo conector autenticado e sua árvore foi comparada à árvore local antes do avanço normal da branch;
+- PR [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) aberto, mesclável e ainda em rascunho;
+- base intencional: `codex/stabilize-human-workbook`, correspondente ao PR nº 37;
+- nenhum merge, marcação como pronto ou deploy foi executado.
+
+### Riscos restantes, sem bloquear este marco
+
+- no mobile, a navegação interna horizontal deixa o próximo item parcialmente visível; a indicação do gesto pode ser melhorada em marco posterior;
+- a página móvel é longa porque todos os detalhes foram preservados; qualquer recolhimento adicional deve ser validado com usuários;
+- contraste numérico, leitor de tela e reflow em 200%/400% ainda exigem auditoria de acessibilidade própria.
+
+### Primeiros passos da próxima sessão
 
 ```bash
 git status --short --branch
@@ -149,11 +164,10 @@ git status --short --branch
 
 Depois:
 
-1. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38);
-2. confirmar o resultado dos dois workflows;
-3. baixar o artefato do smoke e inspecionar `school-desktop.png` e `school-mobile.png`;
-4. manter o PR em rascunho até a validação visual;
-5. não mesclar nem executar deploy sem nova autorização específica.
+1. ler `docs/audits/2026-08-20-leitura-operacional-escola.md`;
+2. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) e confirmar que continua rascunho;
+3. não mesclar nem executar deploy sem autorização específica;
+4. tratar a navegação interna mobile e a densidade do prontuário como candidatos do próximo marco, sem reabrir decisões financeiras já consolidadas.
 
 ## 8. Disciplina de checkpoint
 

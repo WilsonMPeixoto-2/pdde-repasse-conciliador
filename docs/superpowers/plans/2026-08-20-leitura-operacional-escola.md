@@ -139,13 +139,13 @@ Expected: PASS.
 
 Modificar `scripts/frontend-product-smoke.mjs` para exigir `Leitura rápida desta escola`, os três estágios financeiros, o primeiro link de acompanhamento e uma única ocorrência do texto de fonte indisponível.
 
-- [ ] **Step 2: executar o smoke e confirmar a lacuna visual/comportamental**
+- [x] **Step 2: executar o smoke e confirmar a lacuna visual/comportamental**
 
 Run: `node scripts/frontend-product-smoke.mjs`
 
 Expected: FAIL antes da integração do novo resumo ou antes das regras responsivas.
 
-Bloqueio local registrado em 20/08/2026: o runner não alcança as asserções porque o executável Chromium do Playwright não está instalado. A tentativa de instalação feita neste ambiente foi interrompida por download truncado.
+O bloqueio local permaneceu porque o executável Chromium do Playwright não está instalado. O smoke foi então ligado ao workflow visual do PR. A primeira execução útil confirmou duas lacunas do próprio roteiro: ele ainda simulava endpoints removidos e exigia uma ordenação padrão diferente da interface atual. O fixture passou a servir o mesmo snapshot `gzip-base64-parts` consumido pela aplicação e passou a validar separadamente a ordenação padrão por SME e a opção `Atenção primeiro`.
 
 - [x] **Step 3: criar o CSS do componente**
 
@@ -159,7 +159,7 @@ Implementar:
 - valores com `font-variant-numeric: tabular-nums`;
 - quebra segura de valores e textos longos.
 
-- [ ] **Step 4: importar o CSS e executar o smoke**
+- [x] **Step 4: importar o CSS e executar o smoke**
 
 Adicionar `import './design/school-operational.css';` em `src/product/App.tsx`.
 
@@ -167,7 +167,7 @@ Run: `node scripts/frontend-product-smoke.mjs`
 
 Expected: PASS em 1440×1000 e 390×844, sem overflow horizontal.
 
-O CSS já está importado e os dois builds foram aprovados. O smoke e as capturas continuam pendentes até existir um Chromium utilizável no ambiente ou até a execução do CI autorizado.
+O CSS foi importado, os dois builds foram aprovados e o smoke determinístico passou no CI em desktop e mobile na execução nº 366 (`32429811398`). O mesmo workflow executou depois o smoke da publicação real.
 
 ### Task 4: Regressão completa e evidência visual
 
@@ -196,7 +196,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 2: executar verificação ampla**
+- [x] **Step 2: executar verificação ampla**
 
 Run:
 
@@ -211,7 +211,17 @@ git diff --check
 
 Expected: todos os comandos com exit code 0.
 
-- [ ] **Step 3: inspecionar as duas capturas da escola**
+Resultado final:
+
+- 134 arquivos de teste aprovados e 4 ignorados;
+- 444 testes aprovados e 6 ignorados;
+- typecheck aprovado;
+- build frontend e build live aprovados;
+- `git diff --check` aprovado;
+- `Verificação contínua` aprovada no run `32429811537`;
+- `Frontend Product Smoke 2026` aprovado no run `32429811398`.
+
+- [x] **Step 3: inspecionar as duas capturas da escola**
 
 Verificar visualmente:
 
@@ -221,6 +231,8 @@ Verificar visualmente:
 - sequência financeira legível;
 - saldo visualmente separado;
 - ausência de cortes ou overflow.
+
+As capturas finais foram inspecionadas em resolução original. A auditoria detectou uma folha de estilos existente, mas não importada, para o extrato financeiro. O problema recebeu teste de regressão, correção, novo CI e novas capturas antes da aceitação. Evidência e riscos restantes estão em `docs/audits/2026-08-20-leitura-operacional-escola.md`.
 
 - [x] **Step 4: atualizar o checkpoint**
 
