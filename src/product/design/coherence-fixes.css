@@ -62,6 +62,20 @@
 }
 
 @media (max-width: 700px) {
+  .metrics-band > .metric {
+    padding-inline: 0.45rem;
+  }
+
+  .metrics-band > .metric:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .metrics-band > .metric .metric-value {
+    font-size: clamp(1.05rem, 4.5vw, 1.28rem);
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+  }
+
   .financial-overview-row__status small {
     display: block;
     color: var(--ink-500);
