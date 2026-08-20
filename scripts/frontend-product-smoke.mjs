@@ -116,10 +116,10 @@ const school = {
           note: null,
         },
         {
-          installment: '2ª Parcela', programmedCents: 506500, paymentInformedCents: 0,
-          paymentInformedDate: null, paymentOrderDate: null,
+          installment: '2ª Parcela', programmedCents: 506500, paymentInformedCents: 100000,
+          paymentInformedDate: '2026-08-07', paymentOrderDate: null,
           account: { bank: '001', agency: '0249', number: '0000549797' },
-          creditEvidence: { status: 'Pagamento não informado', date: null, amountCents: null, document: null },
+          creditEvidence: { status: 'Crédito não localizado', date: null, amountCents: null, document: null },
           note: null,
         },
       ],
@@ -159,7 +159,10 @@ const school = {
     },
   ],
   accounting: [{ program: 'PDDE', status: 'ADIMPLENTE', paymentSuspended: false, expectedTotalCents: 1013000 }],
-  followUp: ['Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.'],
+  followUp: [
+    'Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.',
+    'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.',
+  ],
 };
 
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
@@ -289,6 +292,21 @@ async function smoke(viewport, suffix) {
   await page.waitForFunction(() => window.scrollY <= 2 && document.activeElement?.tagName === 'MAIN');
   await assertNoTechnicalMetadata(page);
   await assertNoMainOverflow(page);
+
+  const operationalSummary = page.getByRole('region', { name: 'Leitura rápida desta escola' });
+  await operationalSummary.waitFor();
+  await operationalSummary.getByText('Previsto', { exact: true }).waitFor();
+  await operationalSummary.getByText('Pagamento informado', { exact: true }).waitFor();
+  await operationalSummary.getByText('Crédito compatível localizado', { exact: true }).waitFor();
+  await operationalSummary.getByText('Saldo informado', { exact: true }).waitFor();
+  await operationalSummary.getByRole('link', { name: 'Ver repasses' }).waitFor();
+  const sourceUnavailable = page.getByText(
+    'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.',
+    { exact: true },
+  );
+  if (await sourceUnavailable.count() !== 1) {
+    throw new Error('O apontamento de fonte indisponível deve aparecer uma única vez no prontuário.');
+  }
 
   const programDisclosure = page.getByRole('button', { name: /PDDE \/ PDDE Básico/ });
   await programDisclosure.click();

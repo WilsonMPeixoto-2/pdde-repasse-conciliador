@@ -30,13 +30,14 @@ describe('navegação local do prontuário', () => {
   });
 
   test('prontuário possui alvos únicos e abre a conta que contém movimentações quando necessário', () => {
-    const source = readFileSync('src/product/pages/SchoolPage.tsx', 'utf8');
-    expect(source).toContain('id="resumo"');
-    expect(source).toContain('id="repasses"');
-    expect(source).toContain('id="contas-saldos"');
-    expect(source).toContain("? 'movimentacoes' : undefined");
-    expect(source).toContain('id="prestacao-contas"');
-    expect(source).toContain("hash === '#movimentacoes'");
-    expect(source).toContain('accountIndex === firstMovementAccountIndex');
+    const pageSource = readFileSync('src/product/pages/SchoolPage.tsx', 'utf8');
+    const summarySource = readFileSync('src/product/components/SchoolOperationalSummary.tsx', 'utf8');
+    expect(summarySource).toContain('id="resumo"');
+    expect(pageSource).toContain('id="repasses"');
+    expect(pageSource).toContain('id="contas-saldos"');
+    expect(pageSource).toContain("? 'movimentacoes' : undefined");
+    expect(pageSource).toContain('id="prestacao-contas"');
+    expect(pageSource).toContain("hash === '#movimentacoes'");
+    expect(pageSource).toContain('accountIndex === firstMovementAccountIndex');
   });
 });
