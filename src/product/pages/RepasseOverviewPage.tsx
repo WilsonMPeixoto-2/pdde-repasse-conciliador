@@ -55,7 +55,7 @@ export function RepasseOverviewPage() {
             <span>Previsto em 2026</span>
             <span>Pagamento informado</span>
             <span>Crédito localizado</span>
-            <span>Situação</span>
+            <span>Acompanhamento geral</span>
           </div>
           {filtered.map((school) => {
             const triage = derivePortfolioSchoolTriage(school);
@@ -83,7 +83,10 @@ export function RepasseOverviewPage() {
                   <small>Crédito localizado</small>
                   <strong>{formatMoney(school.creditLocatedCents)}</strong>
                 </span>
-                <span className="financial-overview-row__status">{triage.label}</span>
+                <span className="financial-overview-row__status">
+                  <small>Acompanhamento geral</small>
+                  <strong>{triage.label}</strong>
+                </span>
                 <span className="financial-overview-row__arrow" aria-hidden="true">→</span>
               </Link>
             );
