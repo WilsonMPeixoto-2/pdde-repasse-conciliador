@@ -5,6 +5,7 @@ on:
       - 'src/**'
       - 'shared/**'
       - 'public/data/**'
+      - 'scripts/frontend-product-smoke.mjs'
       - 'scripts/frontend-published-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'
@@ -16,6 +17,7 @@ on:
       - 'src/**'
       - 'shared/**'
       - 'public/data/**'
+      - 'scripts/frontend-product-smoke.mjs'
       - 'scripts/frontend-published-smoke.mjs'
       - '.github/workflows/frontend-product-smoke.yml'
       - 'package.json'
@@ -40,6 +42,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Gerar build do produto
         run: npm run build
+      - name: Validar prontuário financeiro com cenário determinístico
+        run: node scripts/frontend-product-smoke.mjs
       - name: Navegar e validar produto publicado desktop/mobile
         run: node scripts/frontend-published-smoke.mjs
       - name: Preservar screenshots

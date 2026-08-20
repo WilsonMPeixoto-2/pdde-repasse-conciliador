@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
@@ -53,5 +54,17 @@ describe('integração da leitura operacional no prontuário', () => {
     expect(html).not.toContain('O que merece atenção');
     expect(html).not.toContain('sidebar-sticky');
     expect(html.match(new RegExp(sourceUnavailable, 'g'))).toHaveLength(1);
+  });
+
+  it('mantém o smoke determinístico do prontuário ligado ao workflow visual', () => {
+    const workflow = readFileSync('.github/workflows/frontend-product-smoke.yml', 'utf8');
+    const productSmoke = 'scripts/frontend-product-smoke.mjs';
+    const publishedSmoke = 'scripts/frontend-published-smoke.mjs';
+
+    expect(workflow.split(productSmoke)).toHaveLength(4);
+    expect(workflow).toContain(`run: node ${productSmoke}`);
+    expect(workflow.indexOf(`run: node ${productSmoke}`)).toBeLessThan(
+      workflow.indexOf(`run: node ${publishedSmoke}`),
+    );
   });
 });
