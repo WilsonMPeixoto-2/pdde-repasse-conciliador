@@ -235,11 +235,11 @@ Registrar commit local, árvore, testes, arquivos alterados, riscos restantes e 
 - Consumes: diff verificado e autorização do usuário.
 - Produces: escopo pronto para stage, commit, push e PR em rascunho, sem executar merge ou deploy.
 
-- [ ] **Step 1: revisar o diff integral**
+- [x] **Step 1: revisar o diff integral**
 
 Run: `git status --short --branch && git diff --check && git diff --stat && git diff`
 
-- [ ] **Step 2: solicitar autorizações externas separadas**
+- [x] **Step 2: solicitar autorizações externas separadas**
 
 Antes de executar cada ação, confirmar autorização para:
 
@@ -248,6 +248,6 @@ Antes de executar cada ação, confirmar autorização para:
 3. push do branch;
 4. criação ou atualização de um único PR em rascunho.
 
-- [ ] **Step 3: preservar limites**
+- [x] **Step 3: preservar limites**
 
 Não alterar `main`, não marcar PR como pronto, não mesclar e não executar deploy.

@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 20/08/2026, implementação do segundo marco concluída localmente; validação visual pendente
+**Última atualização:** 20/08/2026, segundo marco publicado em PR rascunho; validação visual no CI pendente
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -26,6 +26,7 @@ Não reconstruir decisões a partir de documentos antigos isolados. O código e 
 - head local equivalente do primeiro marco: `00b66fef0151721ff742c1ee1cdb3c4f6fa50a88`;
 - árvore idêntica local/remota: `72f0bf8b0d1260f4ae6006fe52de2e7adf70ebc5`;
 - branch local do segundo marco: `codex/school-operational-reading`;
+- PR em rascunho do segundo marco: [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38);
 - o segundo marco está empilhado sobre a árvore do PR nº 37;
 - nenhum merge ou deploy está autorizado.
 
@@ -109,9 +110,12 @@ Resultado:
 
 No checkpoint atual:
 
-- branch: `codex/school-operational-reading`;
-- o `HEAD` ainda é a base `00b66fef0151721ff742c1ee1cdb3c4f6fa50a88`, árvore `72f0bf8b0d1260f4ae6006fe52de2e7adf70ebc5`;
-- há 13 caminhos locais modificados ou novos e nenhum deles foi staged;
+- branch local e remoto: `codex/school-operational-reading`;
+- commit local de implementação: `57a48d42688e1b955f8c73d5eb33dc9b19bf2ece`;
+- commit remoto equivalente: `0a840bdc09e0f9386abccf056b277e05dad9cfe3`;
+- árvore idêntica local/remota da implementação: `204de61da6b7ed1ad5417caaad3b9d544e9887b4`;
+- os SHAs dos commits diferem porque o Git CLI não possuía credencial de escrita e o commit remoto foi reconstruído sobre o head remoto do PR nº 37 pelo conector autenticado; os 13 blobs e a árvore integral foram comparados antes da atualização do branch;
+- PR em rascunho [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38), com base intencional `codex/stabilize-human-workbook`, 1 commit à frente e 0 atrás no momento da abertura;
 - Tasks 1 e 2 do plano foram concluídas por ciclos vermelho-verde;
 - a implementação da Task 3 foi concluída; apenas o smoke visual permanece bloqueado pelo ambiente;
 - `SchoolOperationalSummary` substitui as quatro métricas genéricas por uma cadeia probatória de três estágios, saldo contextual separado e pontos acionáveis;
@@ -133,24 +137,23 @@ Verificações executadas:
 - `./node_modules/.bin/vite build --config vite.live.config.ts`: aprovado;
 - `node scripts/frontend-product-smoke.mjs`: não executou as asserções porque falta `/root/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell`;
 - a tentativa anterior de instalar o navegador falhou por download truncado; portanto não há aprovação visual local nem capturas novas deste marco;
-- nenhuma ação externa de stage, commit, push ou PR do segundo marco foi executada.
+- stage dos 13 caminhos, commit local, publicação do branch e abertura do PR em rascunho foram autorizados e executados;
+- nenhum merge ou deploy foi executado;
+- os workflows `Verificação contínua` e `Frontend Product Smoke 2026` foram disparados para o PR nº 38 e devem ser consultados antes de qualquer decisão de integração.
 
-Primeiros comandos recomendados:
+Primeiros passos recomendados:
 
 ```bash
 git status --short --branch
-git diff --check
-./node_modules/.bin/vitest run tests/unit/frontend-school-operational-reading.test.ts tests/unit/frontend-school-operational-summary.test.ts tests/unit/frontend-school-operational-page.test.ts
 ```
 
-Depois, em um ambiente com Chromium do Playwright disponível:
+Depois:
 
-```bash
-./node_modules/.bin/vite build
-node scripts/frontend-product-smoke.mjs
-```
-
-Inspecionar `artifacts/frontend-product-smoke/school-desktop.png` e `school-mobile.png`. Somente após essa validação revisar o diff integral e solicitar autorizações separadas para stage, commit, push e PR em rascunho. Merge e deploy continuam fora do escopo.
+1. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38);
+2. confirmar o resultado dos dois workflows;
+3. baixar o artefato do smoke e inspecionar `school-desktop.png` e `school-mobile.png`;
+4. manter o PR em rascunho até a validação visual;
+5. não mesclar nem executar deploy sem nova autorização específica.
 
 ## 8. Disciplina de checkpoint
 
