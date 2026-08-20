@@ -103,11 +103,26 @@ export function normalizeSearchText(value: string): string {
     .trim();
 }
 
+function identifierQuery(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || !/^[\d\s./-]+$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/\D/g, '');
+  return digits || null;
+}
+
 export function schoolMatchesSearch(
   school: { sme: string; inep: string; name: string },
   query: string,
 ): boolean {
   const wanted = normalizeSearchText(query);
   if (!wanted) return true;
-  return normalizeSearchText(`${school.sme} ${school.inep} ${school.name}`).includes(wanted);
+
+  if (normalizeSearchText(`${school.sme} ${school.inep} ${school.name}`).includes(wanted)) {
+    return true;
+  }
+
+  const digits = identifierQuery(query);
+  if (!digits) return false;
+  return school.sme.replace(/\D/g, '').includes(digits)
+    || school.inep.replace(/\D/g, '').includes(digits);
 }
