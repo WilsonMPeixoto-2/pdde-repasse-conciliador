@@ -71,4 +71,18 @@ describe('PortfolioExecutiveOverview', () => {
     expect(html).not.toContain('percentual de execução');
     expect(html).not.toContain('score');
   });
+
+  it('transforma os números agregados em entradas operacionais para seus subconjuntos', () => {
+    const html = renderToStaticMarkup(createElement(
+      MemoryRouter,
+      null,
+      createElement(PortfolioExecutiveOverview, { portfolio }),
+    ));
+
+    expect(html).toContain('href="/unidades?filtro=atencao"');
+    expect(html).toContain('href="/unidades?filtro=cobertura"');
+    expect(html).toContain('href="/unidades?status=suspended"');
+    expect(html).toContain('href="/unidades?status=partial"');
+    expect(html).toContain('href="/unidades?status=ready"');
+  });
 });
