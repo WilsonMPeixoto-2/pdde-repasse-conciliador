@@ -60,7 +60,7 @@ export function BalancesOverviewPage() {
             <span>Saldo conhecido</span>
             <span>Referência</span>
             <span>Cobertura</span>
-            <span>Situação</span>
+            <span>Acompanhamento geral</span>
           </div>
           {filtered.map((school) => {
             const triage = derivePortfolioSchoolTriage(school);
@@ -88,7 +88,10 @@ export function BalancesOverviewPage() {
                   <small>Cobertura</small>
                   <strong>{coverageLabel(school)}</strong>
                 </span>
-                <span className="financial-overview-row__status">{triage.label}</span>
+                <span className="financial-overview-row__status">
+                  <small>Acompanhamento geral</small>
+                  <strong>{triage.label}</strong>
+                </span>
                 <span className="financial-overview-row__arrow" aria-hidden="true">→</span>
               </Link>
             );
