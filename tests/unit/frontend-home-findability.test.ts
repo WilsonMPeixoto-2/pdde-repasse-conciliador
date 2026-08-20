@@ -40,7 +40,7 @@ describe('encontrabilidade da página inicial', () => {
     }));
 
     expect(html).toContain('6 de 8 resultados');
-    expect(html.match(/global-school-finder__result/g)?.length).toBe(6);
+    expect(html.match(/class="global-school-finder__result"/g)?.length).toBe(6);
   });
 
   test('expõe atalhos operacionais para dados básicos', () => {
