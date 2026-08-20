@@ -261,9 +261,11 @@ async function validatePortfolioSchools(context, suffix) {
 
   const rows = page.locator('.portfolio-school');
   if (await rows.count() !== 4) throw new Error('A carteira não apresentou as quatro unidades do fixture.');
-  if (!(await rows.first().innerText()).includes('EM CIDADE NOVA')) {
-    throw new Error('A ordenação padrão não priorizou a unidade com pagamento suspenso.');
+  if (!(await rows.first().innerText()).includes('EM ALBINO SOUZA CRUZ')) {
+    throw new Error('A ordenação padrão não respeitou o código SME.');
   }
+  await page.getByLabel('Ordenação').selectOption('attention');
+  await rows.first().getByText('EM CIDADE NOVA', { exact: true }).waitFor();
 
   await page.getByRole('button', { name: /Cobertura incompleta/i }).click();
   await page.getByRole('heading', { name: '1 unidade no recorte' }).waitFor();
