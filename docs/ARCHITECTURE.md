@@ -1,358 +1,173 @@
 # Arquitetura atual e direção de evolução
 
-## Estado atual — v0.5.0 / baseline 14/08/2026
+## Estado corrente — 19/08/2026
 
-O repositório possui hoje **duas camadas maduras que ainda precisam ser unidas institucionalmente**:
+A arquitetura canônica já une o **motor financeiro**, o **read model humano** e o **produto web publicado**. A infraestrutura institucional persistente também existe em código, mas ainda não está conectada a um Supabase dedicado.
 
-1. o motor financeiro atual, já capaz de coletar PDDEInfo + SIGEF, produzir visão operacional/fiscal e Excel v3;
-2. a infraestrutura institucional em código, com API, fila, worker, evidências, Storage e migrations Supabase/Postgres.
+O estado factual resumido está em [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md).
 
-Além delas, permanecem no repositório arquivos de frontend/runtime de uma geração anterior do extrator. Esse legado **não representa uma aplicação atualmente publicada**.
+## Princípio arquitetural
 
-A arquitetura continua deliberadamente determinística. IA, navegador automatizado ou agentes podem auxiliar pesquisa, diagnóstico e adaptação de estrutura, mas não decidem o resultado financeiro final.
+O sistema é deliberadamente determinístico nas conclusões financeiras. IA, navegador automatizado ou agentes podem ajudar a coletar, diagnosticar mudanças e melhorar a experiência, mas não decidem o resultado da conciliação.
 
-## Fluxo financeiro atualmente comprovado
-
-```text
-Lista-mestre 163 escolas
-        │
-        ▼
-PDDEInfo HTTP por INEP
-        │
-        ├── identidade da escola / UEx / CNPJ
-        ├── contas atuais por programa
-        ├── repasses / ações / parcelas
-        └── HTML bruto preservável
-        │
-        ▼
-Contas mapeadas
-        │
-        ▼
-SIGEF Extrato público direto
-        │
-        ├── valida identidade bancária retornada
-        ├── coleta páginas / cobertura
-        ├── histórico e documento
-        ├── crédito / débito
-        └── contraparte quando disponível
-        │
-        ▼
-Monitor bruto
-        │
-        ├── histórico recebido da fonte
-        └── filtro operacional para 2026
-        │
-        ▼
-Visão operacional 2026
-        │
-        ├── repasses e estados de associação
-        ├── movimentos normalizados
-        └── registros candidatos à conferência
-        │
-        ▼
-Visão fiscal humana
-        │
-        ├── escola → programa/ação → parcela
-        ├── escola → conta → extrato cronológico
-        └── linguagem neutra de evidência
-        │
-        ├── JSON fiscal
-        └── Excel Fiscal v3
-```
-
-Em 14/08/2026 esse fluxo foi validado na carteira integral:
-
-- 163/163 escolas PDDEInfo;
-- 284/284 contas SIGEF completas;
-- 394 movimentos pertencentes a 2026;
-- 520 registros de repasse/parcela;
-- 0 contas parciais/falhas na rodada.
-
-Detalhes: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).
-
-## Coleta PDDEInfo
-
-Principais módulos:
-
-1. `backend/adapters/pddeinfo-http.ts` — consulta pública e política HTTP;
-2. `backend/adapters/pddeinfo-html.ts` — interpretação/identidade;
-3. `backend/adapters/pddeinfo-normalizer.ts` — pagamentos, ações, parcelas e contas;
-4. `backend/application/collect-pddeinfo.ts` — orquestração da coleta institucional existente;
-5. scripts de monitoramento — reutilizam a mesma fonte no fluxo financeiro atual.
-
-Invariantes:
-
-- identidade devolvida precisa corresponder ao INEP/SME consultado;
-- conta parcial é erro, não dado aceitável;
-- mais de uma conta corrente candidata para o mesmo programa não é escolhida arbitrariamente;
-- destinação financeira relevante desconhecida gera erro explícito;
-- valores são validados em centavos inteiros;
-- conta corrente ausente não é preenchida com histórico ou outro programa.
-
-## SIGEF Extrato público direto
-
-O adaptador atual é `backend/adapters/sigef-public-statement.ts`.
-
-A rota é construída com:
-
-- banco;
-- agência;
-- conta;
-- CNPJ da UEx;
-- código de programa;
-- período.
-
-O adaptador:
-
-- valida a identidade da página retornada;
-- preserva conta alfanumérica e dígito `X`;
-- trata encoding legado;
-- possui timeout/controle de falha;
-- observa paginação/cobertura;
-- produz movimentos com operação, valor, data, documento, histórico e contraparte;
-- classifica tecnicamente alguns históricos sem substituir o texto original;
-- mantém resultado `COMPLETE`, `PARTIAL` ou `ERROR`.
-
-Códigos efetivamente usados na rodada integral de 14/08/2026:
-
-- `02` — PDDE Básico;
-- `0B` — PDDE Qualidade;
-- `0A` — PDDE Equidade.
-
-O normalizador também conhece `Z9` para Educação Integral. Novos códigos devem ser comprovados pela fonte, não deduzidos por nome.
-
-## Regra temporal
-
-O monitor bruto pode receber movimentos históricos porque a própria fonte SIGEF pode devolvê-los. Isso não altera o contrato do produto:
-
-> **a visão operacional corrente é 2026.**
-
-Portanto:
-
-- movimentos anteriores podem ser preservados no bruto/evidência;
-- a visão operacional/fiscal deve filtrar o exercício;
-- histórico não preenche lacunas de 2026;
-- uma futura visualização histórica deverá ser separada.
-
-Essa regra deverá ser reforçada quando `MONITORING` virar job institucional.
-
-## Visão operacional
-
-`backend/application/build-monitoring-operational-view.ts` transforma o monitor bruto em duas coleções principais:
-
-### Repasses
-
-Cada registro conserva:
-
-- escola;
-- programa;
-- ação;
-- parcela;
-- valor programado;
-- pagamento informado;
-- data PDDEInfo;
-- conta correspondente, quando exibida;
-- associação bancária, quando possível.
-
-Estados técnicos atuais incluem:
-
-- `PROGRAMADO_NAO_PAGO`;
-- `CREDITO_CONFIRMADO`;
-- `PAGO_SEM_CONTA_ATUAL`;
-- `PAGO_CREDITO_NAO_LOCALIZADO`;
-- `CREDITO_AMBIGUO`;
-- `CONSULTA_INCONCLUSIVA`.
-
-Esses nomes são internos. A camada humana deve usar linguagem proporcional à prova, como **“Crédito compatível localizado no extrato SIGEF”**.
-
-### Movimentações
-
-As categorias auxiliares atuais incluem:
-
-- `REPASSE_FNDE`;
-- `APLICACAO_FINANCEIRA`;
-- `RESGATE_APLICACAO`;
-- `PAGAMENTO_TRANSFERENCIA`;
-- `PAGAMENTO_CARTAO`;
-- `RENDIMENTO_FINANCEIRO`;
-- `ENTRADA_TERCEIRO`;
-- `TARIFA_BANCARIA`;
-- `ESTORNO_REVERSAO`;
-- `MOVIMENTO_NAO_CLASSIFICADO`.
-
-Categoria auxiliar nunca substitui `history` e `document` originais.
-
-## Visão fiscal humana
-
-`backend/application/build-fiscal-human-view.ts` organiza a informação para leitura humana.
-
-Contrato principal:
+A aplicação também separa **fato observado**, **conclusão derivada** e **apresentação humana**.
 
 ```text
-Escola
-├── Repasses
-│   └── Programa/Ação
-│       └── Parcela
-└── Extratos
-    └── Conta/Programa
-        └── Movimentações cronológicas
+fontes públicas
+   │
+   ▼
+evidência bruta / observações
+   │
+   ▼
+normalização específica da fonte
+   │
+   ▼
+conciliação e classificação determinística
+   │
+   ├──────────────► visão técnica / auditoria
+   │
+   ▼
+read model financeiro humano
+   │
+   ▼
+produto web / Excel humano
 ```
 
-A apresentação:
-
-- separa valor programado, pagamento informado e crédito SIGEF;
-- mantém parcela explícita (`1ª Parcela`, `2ª Parcela`, `P1`, `P2` ou sem divisão);
-- usa linguagem temporal neutra quando o PDDEInfo ainda não informou pagamento;
-- não converte movimento bancário em julgamento de regularidade;
-- deixa evidência técnica disponível em nível mais profundo.
-
-## Excel Fiscal v3
-
-`scripts/export-fiscal-workbook.ts` produz nove abas:
-
-1. `Visão Geral`;
-2. `Unidades`;
-3. `Repasses por Escola`;
-4. `Extratos por Escola`;
-5. `Registros para Conferência`;
-6. `BASE - Repasses`;
-7. `BASE - Movimentos`;
-8. `BASE - Contas`;
-9. `Legenda e Fontes`.
-
-O Excel é uma camada de produto complementar, não apenas serialização do frontend.
-
-## Modelo de evidência
-
-`backend/core/evidence.ts` define eventos canônicos:
-
-- `EXECUTION_REQUESTED`;
-- `EXECUTION_STARTED`;
-- `EXECUTION_FINISHED`;
-- `SOURCE_ATTEMPT_RECORDED`;
-- `ARTIFACT_PRESERVED`;
-- `OBSERVATION_RECORDED`;
-- `FINDING_RECORDED`.
-
-Cada evento persistido possui, conforme o contrato:
-
-- `eventId`;
-- `runId`;
-- origem;
-- exercício;
-- INEP opcional;
-- data/hora;
-- payload;
-- sequência;
-- `previousHash`;
-- `eventHash` SHA-256.
-
-Observações de fonte e achados do `CONCILIADOR` permanecem semanticamente separados.
-
-## Backend institucional em código
-
-A segunda camada da arquitetura já possui:
-
-- `backend/application/execution-command-service.ts`;
-- `backend/application/execution-worker.ts`;
-- fila `execution_jobs`;
-- API institucional em `backend/api/`;
-- adaptadores Supabase;
-- Storage privado de artefatos;
-- idempotência;
-- read models de execução/achados/artefatos/histórico escolar.
-
-A migration `20260813064845_institutional_backend.sql` materializa `execution_jobs`, views de leitura e funções de enqueue/claim/complete/recovery.
-
-A migration `20260813235000_single_pending_execution.sql` impõe uma única execução `QUEUED`/`RUNNING` por vez.
-
-### Limitação arquitetural atual
-
-Os jobs institucionais ainda contemplam principalmente:
-
-- `PDDEINFO`;
-- `RECONCILIATION`.
-
-Enquanto isso, o melhor fluxo financeiro completo existe em scripts/workflows.
-
-Essa é a lacuna que o próximo corte resolve.
-
-## Arquitetura alvo imediata
+## Fluxo financeiro materializado
 
 ```text
-Frontend fiscal futuro
+Lista-mestre · 163 escolas · 2026
+        │
+        ├── PDDEInfo por INEP
+        │     ├── escola / UEx / CNPJ
+        │     ├── contas exibidas
+        │     └── repasses / ações / parcelas
+        │
+        ├── Relatórios públicos PDDEInfo/FNDE
+        │     ├── atendimento / ordem de pagamento
+        │     ├── prestação de contas
+        │     └── saldos / aplicações por referência
+        │
+        └── SIGEF
+              ├── liberação/conta quando aplicável
+              └── extrato / movimentações
         │
         ▼
-API fiscal/read models
+runFinancialIntelligenceMonitoring
+        │
+        ├── visão operacional/fiscal
+        ├── snapshots financeiros
+        ├── evidências e artefatos
+        └── visão humana
         │
         ▼
-Supabase dedicado
+contrato humano compartilhado
         │
-        ├── estado financeiro corrente
-        ├── execution_jobs
-        ├── evidence_events
-        └── Storage de artefatos
+        ├── portfólio resumido
+        └── prontuário por escola
         │
         ▼
-Worker institucional
-        │
-        ▼
-MONITORING 2026
-        │
-        ├── PDDEInfo
-        ├── SIGEF Extrato
-        ├── visão operacional
-        ├── visão fiscal
-        └── Excel/JSON/evidências
+React/Vite no Vercel
 ```
 
-O frontend não deve reconstruir o domínio a partir de `evidence_events`. A trilha append-only atende auditoria/histórico; o produto necessita de um **read model financeiro corrente** adequado a carteira e prontuário.
+## Fronteiras de responsabilidade
 
-## Postgres / Supabase
+### `backend/core/`
 
-As migrations estão versionadas e testadas, mas ainda **não foram aplicadas a um projeto Supabase dedicado**.
+Contém contratos e invariantes independentes de UI/fonte: dinheiro em centavos, escopo temporal, identidade, evidência e regras determinísticas.
 
-Não existe banco institucional desta plataforma em produção em 14/08/2026.
+### `backend/adapters/`
 
-A implantação futura deve revisar as migrations contra o modelo financeiro corrente antes de aplicá-las, em vez de assumir que todo schema preparado durante a evolução deve ser publicado sem reavaliação.
+Acessa PDDEInfo, SIGEF, persistência e demais integrações. Cada fonte mantém sua própria semântica e nunca reescreve silenciosamente outra.
 
-## Frontend e runtime legado
+### `backend/application/`
 
-Arquivos como:
+Orquestra coleta, monitoramento, conciliação, snapshots e read models. O fluxo institucional completo está representado por `run-financial-intelligence-monitoring.ts` e pelo job `MONITORING`.
 
-- `index.html`;
-- `src/main.ts`;
-- `backend/index.ts`;
-- `SOURCE_MANIFEST.json`;
+### `shared/human-financial-contract.ts`
 
-representam a geração AppDeploy/extrator V2.
+É a fronteira comum entre backend e frontend. Antes de uma projeção humana ser publicada/consumida, valida estrutura financeira profunda e impede que metadados técnicos sejam tratados como conteúdo de produto.
 
-Eles continuam úteis como referência histórica e podem conter soluções reaproveitáveis, mas **não constituem o site atual**, pois não há site institucional publicado.
+### `src/product/`
 
-O frontend fiscal novo será construído depois que o backend possuir `MONITORING`, persistência corrente e API adequada.
+Implementa a experiência fiscal. Não reconcilia fontes e não tenta reinterpretar o bruto. Organiza a informação humana por escola, repasse, conta, saldo, movimentação e acompanhamento.
 
-## Invariantes
+### `supabase/migrations/`
 
-- exercício operacional atual: 2026;
-- dinheiro é comparado em centavos inteiros;
-- CNPJ, banco, agência, conta, INEP, código SME e documento permanecem texto;
-- fonte ausente ou cobertura insuficiente nunca vira confirmação nem ausência definitiva;
-- observação externa e conclusão derivada permanecem separadas;
-- conta divergente entre fontes nunca é escolhida automaticamente;
-- conta ausente no PDDEInfo não é inferida de histórico ou programa diferente;
-- cabeçalho, destinação ou estrutura desconhecida geram erro explícito;
-- histórico SIGEF bruto é preservado mesmo quando existe classificação auxiliar;
-- conteúdo externo capaz de virar fórmula no Excel é neutralizado;
-- aplicações/resgates não são convertidos em posição atual de investimento;
-- CAPTCHA/login/restrição não serão contornados.
+Define a persistência institucional planejada/testada para fila, evidência, snapshots e read models. As migrations foram exercitadas em PostgreSQL/PGlite, mas ainda não foram aplicadas em um projeto Supabase dedicado desta plataforma.
 
-## Próxima ordem técnica
+## Produto web atual
 
-1. consolidar documentação/baseline;
-2. promover o monitoramento a `MONITORING` institucional;
-3. criar/conectar Supabase dedicado + read model financeiro;
-4. expor API fiscal;
-5. construir/publicar frontend novo;
-6. integrar novas fontes somente depois que agregarem evidência real ao produto.
+Rotas principais:
 
-Conhecimentos e oportunidades ainda não materializados estão registrados em [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
+- `/` — Início / posição consolidada;
+- `/unidades` — carteira e filtros;
+- `/repasses` — visão consolidada de repasses;
+- `/saldos` — visão consolidada de saldos e contas;
+- `/unidades/:inep` — prontuário financeiro;
+- `/indicadores/:slug` — relação nominal de um indicador.
+
+O prontuário possui navegação local por âncoras e mantém os detalhes técnicos fora da leitura comum.
+
+## Consulta ao vivo
+
+A consulta web não tenta executar toda a carteira dentro de uma única função longa. O cliente consulta `/api/live` por escola com concorrência e retentativas limitadas.
+
+Propriedades obrigatórias:
+
+- o retrato publicado permanece na tela durante a atualização;
+- o progresso é exibido por unidade;
+- qualquer falha não resolvida impede promoção da carteira incompleta;
+- qualquer resultado `PARTIAL` impede promoção;
+- somente uma rodada integral válida passa a ser o retrato da sessão;
+- um prontuário já aberto acompanha a versão da consulta ao vivo da mesma sessão.
+
+A atualização ainda é **volátil no navegador**. Persistência durável depende da infraestrutura dedicada.
+
+## Publicação corrente versus persistência futura
+
+### Publicado agora
+
+- frontend Vercel;
+- snapshot financeiro estável distribuído com o produto;
+- endpoint `/api/live`;
+- consulta e atualização integral em sessão;
+- rotas profundas da SPA;
+- CI e smoke desktop/mobile.
+
+### Implementado em código, ainda não conectado definitivamente
+
+- Supabase dedicado;
+- fila/worker institucional persistente;
+- armazenamento institucional de artefatos das consultas web;
+- publicação durável do novo retrato completo;
+- histórico persistente consultável pelo frontend.
+
+Essa distinção evita o erro antigo de tratar “existe uma migration/adaptador” como sinônimo de “está implantado”.
+
+## Regras que a arquitetura não pode violar
+
+1. exercício operacional corrente = 2026;
+2. ausência não vira zero;
+3. dado antigo não completa dado corrente;
+4. pagamento informado não equivale a crédito bancário;
+5. ordem/liberação e crédito no extrato são fatos distintos;
+6. saldo é uma posição datada;
+7. aplicação não é rendimento;
+8. cobertura incompleta permanece inconclusiva;
+9. fontes preservam independência;
+10. conciliação usa a chave mais forte disponível e não escolhe arbitrariamente entre candidatos;
+11. resultado parcial não substitui retrato corrente válido;
+12. interfaces humanas não expõem hashes, parsers, retries, payloads ou IDs técnicos como conteúdo comum.
+
+## Próxima fronteira arquitetural
+
+A principal lacuna deixou de ser coleta ou frontend. É **durabilidade institucional**:
+
+1. criar Supabase dedicado;
+2. aplicar migrations canônicas;
+3. conectar stores/publisher/worker;
+4. persistir consultas web e evidências;
+5. fazer o frontend consumir o retrato corrente persistido sem perder o comportamento conservador já validado.
+
+Mudanças futuras de UX ou novas fontes devem ser feitas sobre essa arquitetura, não substituindo-a por outra pilha sem ganho comprovado.

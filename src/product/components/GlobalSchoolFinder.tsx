@@ -13,15 +13,20 @@ export function GlobalSchoolFinder({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
-  const results = useMemo(() => {
+  const matches = useMemo(() => {
     const wanted = query.trim();
     if (!wanted) return [];
     return schools
       .filter((school) => schoolMatchesSearch(school, wanted))
       .sort((left, right) => left.sme.localeCompare(right.sme)
-        || left.name.localeCompare(right.name, 'pt-BR'))
-      .slice(0, maxResults);
-  }, [maxResults, query, schools]);
+        || left.name.localeCompare(right.name, 'pt-BR'));
+  }, [query, schools]);
+  const results = matches.slice(0, maxResults);
+
+  function resultCountLabel(): string {
+    if (matches.length > results.length) return `${results.length} de ${matches.length} resultados`;
+    return `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}`;
+  }
 
   return (
     <div className="global-school-finder">
@@ -41,9 +46,7 @@ export function GlobalSchoolFinder({
         <div className="global-school-finder__results" aria-live="polite">
           {results.length > 0 ? (
             <>
-              <div className="global-school-finder__count">
-                {results.length} {results.length === 1 ? 'resultado' : 'resultados'}
-              </div>
+              <div className="global-school-finder__count">{resultCountLabel()}</div>
               <div role="list" className="global-school-finder__list">
                 {results.map((school) => (
                   <Link

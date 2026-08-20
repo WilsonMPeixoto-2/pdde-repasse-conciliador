@@ -187,7 +187,7 @@ export function SchoolPage() {
         setState({ status: 'error', data: null, error: error instanceof Error ? error.message : 'Não foi possível abrir a unidade.' });
       });
     return () => controller.abort();
-  }, [inep, portfolio.loadSchool]);
+  }, [inep, portfolio.liveGeneratedAt, portfolio.loadSchool]);
 
   if (state.status === 'loading') return <main className="page loading"><p>Carregando o prontuário financeiro…</p></main>;
   if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir esta unidade.</strong><span>{state.error}</span></div></main>;

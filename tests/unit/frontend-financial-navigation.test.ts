@@ -4,6 +4,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, test, vi } from 'vitest';
 
 const loadSchool = vi.fn(async () => { throw new Error('não deve carregar prontuário'); });
+const school = {
+  inep: '33000001',
+  sme: '0431001',
+  name: 'EM Escola Teste',
+  programmedCents: 100000,
+  paymentInformedCents: 80000,
+  creditLocatedCents: 70000,
+  knownBalanceCents: 30000,
+  referenceDate: '2026-07-31',
+  accountsTotal: 2,
+  accountsWithReferencePosition: 1,
+  paymentSuspended: false,
+  repasseAccountMissing: false,
+  followUpCount: 0,
+};
 
 vi.mock('../../src/product/PortfolioContext', () => ({
   usePortfolio: () => ({
@@ -32,26 +47,13 @@ vi.mock('../../src/product/PortfolioContext', () => ({
       },
       sources: [],
       indicators: [],
-      schools: [{
-        inep: '33000001',
-        sme: '04.31.001',
-        name: 'EM Escola Teste',
-        programmedCents: 100000,
-        paymentInformedCents: 80000,
-        creditLocatedCents: 70000,
-        knownBalanceCents: 30000,
-        referenceDate: '2026-07-31',
-        accountsTotal: 2,
-        accountsWithReferencePosition: 1,
-        paymentSuspended: false,
-        repasseAccountMissing: false,
-        followUpCount: 0,
-      }],
+      schools: [school],
     },
   }),
 }));
 
 import { AppHeader } from '../../src/product/components/AppHeader';
+import { PortfolioSchoolList } from '../../src/product/components/PortfolioSchoolList';
 import { RepasseOverviewPage } from '../../src/product/pages/RepasseOverviewPage';
 import { BalancesOverviewPage } from '../../src/product/pages/BalancesOverviewPage';
 
@@ -76,8 +78,19 @@ describe('navegação financeira direta', () => {
 
     expect(repasses).toContain('Repasses 2026');
     expect(repasses).toContain('EM Escola Teste');
+    expect(repasses).toContain('Acompanhamento geral');
     expect(saldos).toContain('Saldos e contas 2026');
     expect(saldos).toContain('EM Escola Teste');
+    expect(saldos).toContain('Acompanhamento geral');
     expect(loadSchool).not.toHaveBeenCalled();
+  });
+
+  test('carteira compacta preserva a linguagem probatória visível', () => {
+    const html = renderWithRouter(createElement(PortfolioSchoolList, { schools: [school] }));
+
+    expect(html).toContain('Pagamento informado');
+    expect(html).toContain('Crédito localizado');
+    expect(html).not.toContain('>Pagamento<');
+    expect(html).not.toContain('>Crédito<');
   });
 });

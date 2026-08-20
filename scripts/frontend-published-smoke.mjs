@@ -61,6 +61,41 @@ async function assertNoHorizontalOverflow(page) {
   }
 }
 
+async function assertPrimaryMetricsFit(page) {
+  const measurements = await page.locator('.metrics-band').first().locator('.metric').evaluateAll((metrics) => (
+    metrics.map((metric) => {
+      const value = metric.querySelector('.metric-value');
+      if (!value) return null;
+      const metricBox = metric.getBoundingClientRect();
+      const valueBox = value.getBoundingClientRect();
+      return {
+        label: metric.querySelector('.metric__label')?.textContent ?? 'métrica',
+        metricLeft: metricBox.left,
+        metricRight: metricBox.right,
+        valueLeft: valueBox.left,
+        valueRight: valueBox.right,
+        scrollWidth: value.scrollWidth,
+        clientWidth: value.clientWidth,
+      };
+    }).filter(Boolean)
+  ));
+
+  for (const item of measurements) {
+    const escapesOwnColumn = item.valueLeft < item.metricLeft - 1 || item.valueRight > item.metricRight + 1;
+    const clipsInternally = item.scrollWidth > item.clientWidth + 1;
+    if (escapesOwnColumn || clipsInternally) {
+      throw new Error(`Valor da métrica "${item.label}" não cabe na própria coluna.`);
+    }
+  }
+}
+
+async function assertFormattedSmeSearch(page) {
+  const input = page.getByLabel('Encontrar uma escola');
+  await input.fill('04.10.001');
+  await page.getByText('EM EMA NEGRAO DE LIMA', { exact: true }).waitFor();
+  await input.fill('');
+}
+
 async function assertCoreNavigation(page) {
   for (const name of ['Início', 'Escolas', 'Repasses', 'Saldos e contas']) {
     await page.getByRole('link', { name, exact: true }).first().waitFor();
@@ -90,6 +125,8 @@ async function smoke(viewport, suffix) {
   await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
   await assertNoHorizontalOverflow(page);
+  await assertPrimaryMetricsFit(page);
+  await assertFormattedSmeSearch(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
 
   await page.goto(`${base}/unidades`, { waitUntil: 'networkidle' });

@@ -17,6 +17,7 @@ import './design/portfolio-schools.css';
 import './design/session.css';
 import './design/live-refresh.css';
 import './design/findability.css';
+import './design/coherence-fixes.css';
 
 export function App() {
   return (

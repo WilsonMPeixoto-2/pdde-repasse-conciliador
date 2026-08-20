@@ -1,10 +1,13 @@
 # QA do Produto Visual — Inteligência Financeira PDDE | 4ª CRE
 
-Este checklist acompanha a implementação da experiência web da Plataforma de Inteligência Financeira das Verbas do PDDE/2026. Ele complementa a Constituição Visual e deve ser aplicado em desktop e mobile antes da integração à `main`.
+Este arquivo é um **checklist permanente de critérios**, não um registro de homologação concluída. Por isso os itens permanecem desmarcados no template. A evidência de cada rodada deve ficar no PR/CI correspondente, com run, screenshots e eventuais ressalvas.
+
+Ele complementa a Constituição Visual e deve ser aplicado em desktop e mobile antes da integração à `main`.
 
 ## 1. Semântica financeira
 
 - [ ] `Previsto`, `Pagamento informado`, `Crédito compatível localizado` e `Saldo informado` aparecem como conceitos distintos.
+- [ ] A carteira compacta não reduz `Pagamento informado` a `Pagamento` nem `Crédito localizado` a `Crédito` quando isso enfraquece a linguagem probatória.
 - [ ] `Ordem FNDE` não é apresentada como data de crédito.
 - [ ] `Saldo informado` exibe sua data de referência quando disponível.
 - [ ] `Saldo aplicado` não é rotulado como rendimento.
@@ -16,6 +19,7 @@ Este checklist acompanha a implementação da experiência web da Plataforma de 
 
 - [ ] A primeira leitura da Home responde à posição financeira de 2026 sem exigir explicação metodológica.
 - [ ] Os números principais respiram e não competem com texto técnico.
+- [ ] Valores monetários não invadem a coluna vizinha em desktop nem mobile.
 - [ ] Cards e bordas são usados apenas para unidades conceituais/interativas reais.
 - [ ] A página da unidade apresenta identidade, posição, repasses, contas/evolução e acompanhamento em ordem compreensível.
 - [ ] Textos explicativos não interrompem sequências financeiras.
@@ -24,18 +28,22 @@ Este checklist acompanha a implementação da experiência web da Plataforma de 
 ## 3. Interação e encontrabilidade
 
 - [ ] Todo indicador agregado abre exatamente sua lista nominal de unidades.
+- [ ] Contagens executivas de atenção/cobertura/situação possuem drill-down para o subconjunto correspondente.
 - [ ] Contagem do indicador é igual ao tamanho da lista.
 - [ ] Busca por nome, SME e INEP funciona na carteira e nos subconjuntos.
+- [ ] Código SME armazenado como 7 dígitos também é encontrado quando digitado com pontuação institucional.
+- [ ] A busca da Home diferencia total encontrado de quantidade máxima exibida (`6 de N`, quando aplicável).
 - [ ] Setas de navegação navegam; chevrons expandem; `i` mostra contexto.
 - [ ] Nada com aparência clicável é puramente decorativo.
-- [ ] URLs de unidade e indicador são compartilháveis e funcionam com voltar/avançar.
+- [ ] URLs de unidade, filtros e indicador são compartilháveis e funcionam com voltar/avançar.
+- [ ] Um prontuário já aberto acompanha um novo retrato ao vivo promovido na mesma sessão.
 
 ## 4. Timeline e visualizações
 
 - [ ] Zero observado e mês sem observação têm representações diferentes.
 - [ ] Clique, toque, `Enter` e `Espaço` abrem o mesmo detalhe de mês.
 - [ ] A timeline não conecta dois meses atravessando uma lacuna sem observação.
-- [ ] O detalhe textual adjacente contém posição, saldo, aplicações e conta quando conhecidos.
+- [ ] O detalhe textual adjacente contém posição, saldo e aplicações quando conhecidos.
 - [ ] Existe caminho textual equivalente para a informação principal do gráfico.
 
 ## 5. Cor e acessibilidade
@@ -54,6 +62,7 @@ Este checklist acompanha a implementação da experiência web da Plataforma de 
 ### Desktop 1440 × 1000
 
 - [ ] Sem overflow horizontal do conteúdo principal.
+- [ ] Nenhum valor financeiro ultrapassa os limites do próprio bloco/coluna.
 - [ ] Métricas executivas formam uma faixa editorial e não uma coleção de cartões genéricos.
 - [ ] Sidebar de acompanhamento não compete com a leitura principal.
 - [ ] Tipografia e espaçamento mantêm ritmo editorial.
@@ -83,13 +92,26 @@ Os seguintes termos/chaves não podem aparecer no DOM da experiência fiscal com
 
 A trilha técnica continua no backend e nas áreas de auditoria apropriadas.
 
-## 8. Critério de aprovação
+## 8. Hosting e publicação
 
-A primeira versão só pode ser considerada pronta para PR quando:
+- [ ] `/` responde corretamente no domínio publicado.
+- [ ] `/unidades`, `/repasses` e `/saldos` funcionam também por acesso direto, não apenas por navegação interna do React.
+- [ ] `/unidades/<INEP>` funciona como deep link.
+- [ ] `/indicadores/<slug>` funciona como deep link.
+- [ ] rewrites da SPA não capturam `/api/*`.
+- [ ] `/api/live` mantém contrato de método/JSON esperado.
+- [ ] não há erros de runtime introduzidos pelo deploy verificado.
 
-1. `npm run check` estiver verde;
-2. smoke Playwright desktop/mobile estiver verde;
-3. screenshots forem inspecionados visualmente;
-4. não houver workflow temporário ou fixture técnica acidental no diff;
-5. a navegação Home → indicador → unidade → programa/conta → timeline funcionar de ponta a ponta;
-6. qualquer discrepância observada na inspeção visual tiver sido corrigida ou explicitamente registrada como decisão futura de produto.
+## 9. Critério de aprovação de uma rodada
+
+Uma versão só deve ser tratada como aprovada quando a **evidência da rodada** registrar:
+
+1. `npm run check` verde;
+2. smoke Playwright desktop/mobile verde;
+3. screenshots inspecionados visualmente;
+4. ausência de workflow temporário ou fixture técnica acidental no diff;
+5. navegação Home → subconjunto/indicador → unidade → programa/conta → timeline funcionando;
+6. deep links relevantes verificados quando o hosting/navegação mudou;
+7. qualquer discrepância visual corrigida ou explicitamente registrada como decisão futura.
+
+Marcar itens neste template não substitui logs/testes. A prova concreta fica associada ao commit/PR que foi homologado.

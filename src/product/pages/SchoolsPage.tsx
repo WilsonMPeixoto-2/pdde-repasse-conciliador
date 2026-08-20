@@ -1,12 +1,48 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PortfolioSchoolList } from '../components/PortfolioSchoolList';
 import { SchoolSearch } from '../components/SchoolSearch';
 import { schoolMatchesSearch } from '../derive';
 import { usePortfolio } from '../PortfolioContext';
-import { derivePortfolioSchoolTriage } from '../visual/portfolio-school-triage';
+import {
+  derivePortfolioSchoolTriage,
+  type PortfolioSchoolStatus,
+} from '../visual/portfolio-school-triage';
 
 type FilterMode = 'all' | 'attention' | 'coverage' | 'suspended';
 type SortMode = 'attention' | 'sme';
+
+const FILTER_QUERY: Record<Exclude<FilterMode, 'all'>, string> = {
+  attention: 'atencao',
+  coverage: 'cobertura',
+  suspended: 'suspenso',
+};
+
+const STATUS_LABELS: Record<PortfolioSchoolStatus, string> = {
+  suspended: 'Pagamento suspenso',
+  attention: 'Acompanhamento',
+  partial: 'Cobertura parcial',
+  no_accounts: 'Sem conta apresentada',
+  ready: 'Leitura disponível',
+};
+
+function filterFromQuery(value: string | null): FilterMode {
+  if (value === 'atencao') return 'attention';
+  if (value === 'cobertura') return 'coverage';
+  if (value === 'suspenso') return 'suspended';
+  return 'all';
+}
+
+function statusFromQuery(value: string | null): PortfolioSchoolStatus | null {
+  if (
+    value === 'suspended'
+    || value === 'attention'
+    || value === 'partial'
+    || value === 'no_accounts'
+    || value === 'ready'
+  ) return value;
+  return null;
+}
 
 function matchesFilter(
   mode: FilterMode,
@@ -24,9 +60,11 @@ function matchesFilter(
 
 export function SchoolsPage() {
   const state = usePortfolio();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<FilterMode>('all');
   const [sort, setSort] = useState<SortMode>('sme');
+  const filter = filterFromQuery(searchParams.get('filtro'));
+  const statusFilter = statusFromQuery(searchParams.get('status'));
   const schools = state.status === 'ready' ? state.data.schools : [];
 
   const counts = useMemo(() => ({
@@ -39,7 +77,11 @@ export function SchoolsPage() {
   const filtered = useMemo(() => {
     const result = schools
       .filter((school) => schoolMatchesSearch(school, query))
-      .filter((school) => matchesFilter(filter, school));
+      .filter((school) => matchesFilter(filter, school))
+      .filter((school) => (
+        statusFilter === null
+        || derivePortfolioSchoolTriage(school).status === statusFilter
+      ));
 
     return [...result].sort((left, right) => {
       if (sort === 'attention') {
@@ -50,7 +92,7 @@ export function SchoolsPage() {
       return left.sme.localeCompare(right.sme)
         || left.name.localeCompare(right.name, 'pt-BR');
     });
-  }, [filter, query, schools, sort]);
+  }, [filter, query, schools, sort, statusFilter]);
 
   if (state.status === 'loading') return <main className="page loading"><p>Carregando unidades…</p></main>;
   if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir a carteira.</strong><span>{state.error}</span></div></main>;
@@ -61,6 +103,14 @@ export function SchoolsPage() {
     { mode: 'coverage', label: 'Cobertura incompleta' },
     { mode: 'suspended', label: 'Pagamento suspenso' },
   ];
+
+  function selectFilter(mode: FilterMode) {
+    if (mode === 'all') {
+      setSearchParams({});
+      return;
+    }
+    setSearchParams({ filtro: FILTER_QUERY[mode] });
+  }
 
   return (
     <main className="page portfolio-schools-page">
@@ -75,14 +125,25 @@ export function SchoolsPage() {
           <div className="portfolio-schools-filter-group">
             <span className="portfolio-schools-filter-group__label">Filtros de acompanhamento</span>
             <div className="portfolio-schools-filters" aria-label="Filtros da carteira">
+              {statusFilter ? (
+                <button
+                  className="portfolio-schools-filter"
+                  data-active="true"
+                  type="button"
+                  aria-pressed="true"
+                  onClick={() => setSearchParams({})}
+                >
+                  <span>Recorte: {STATUS_LABELS[statusFilter]} ×</span>
+                </button>
+              ) : null}
               {filters.map((item) => (
                 <button
                   className="portfolio-schools-filter"
-                  data-active={filter === item.mode ? 'true' : 'false'}
+                  data-active={!statusFilter && filter === item.mode ? 'true' : 'false'}
                   key={item.mode}
                   type="button"
-                  aria-pressed={filter === item.mode}
-                  onClick={() => setFilter(item.mode)}
+                  aria-pressed={!statusFilter && filter === item.mode}
+                  onClick={() => selectFilter(item.mode)}
                 >
                   <span>{item.label}</span>
                   <strong>{counts[item.mode]}</strong>

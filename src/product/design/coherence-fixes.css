@@ -1,0 +1,100 @@
+/* Ajustes de coerência auditados em 19/08/2026. Mantêm a gramática visual existente. */
+
+/* Valores financeiros longos precisam caber integralmente em sua própria coluna. */
+@media (min-width: 961px) {
+  .metrics-band > .metric .metric-value {
+    font-size: clamp(1.65rem, 1.95vw, 2.25rem);
+  }
+}
+
+/* A carteira preserva a linguagem probatória sem sacrificar a barra comparativa. */
+.portfolio-school__stage {
+  grid-template-columns: 78px minmax(36px, 1fr) 82px;
+}
+
+.portfolio-school__stage-label {
+  line-height: 1.15;
+}
+
+/* Os agregados executivos agora são entradas operacionais reais. */
+.portfolio-executive__coverage-summary > a {
+  min-width: 0;
+  display: grid;
+  gap: 0.14rem;
+  padding: 0.9rem 0.8rem 0.9rem 0;
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.portfolio-executive__coverage-summary > a + a {
+  padding-left: 0.8rem;
+  border-left: 1px solid var(--ink-100);
+}
+
+.portfolio-executive__coverage-action:hover,
+.portfolio-executive__coverage-action:focus-visible,
+.portfolio-executive__status:hover,
+.portfolio-executive__status:focus-visible {
+  background: var(--canvas);
+}
+
+.portfolio-executive__status {
+  padding-inline: 0.2rem;
+  text-decoration: none;
+}
+
+/* Nas páginas especializadas, a triagem transversal é explicitamente geral. */
+.financial-overview-row__status small {
+  display: none;
+}
+
+.financial-overview-row__status strong {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 720;
+}
+
+@media (max-width: 760px) {
+  .portfolio-school__stage {
+    grid-template-columns: 78px minmax(28px, 1fr) 86px;
+  }
+}
+
+@media (max-width: 700px) {
+  .metrics-band > .metric {
+    padding-inline: 0.45rem;
+  }
+
+  .metrics-band > .metric:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .metrics-band > .metric .metric-value {
+    font-size: clamp(1.05rem, 4.5vw, 1.28rem);
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+  }
+
+  .financial-overview-row__status small {
+    display: block;
+    color: var(--ink-500);
+    font-size: 0.68rem;
+    font-weight: 500;
+  }
+
+  .financial-overview-row__status strong {
+    color: var(--ink-700);
+    text-align: right;
+  }
+}
+
+@media (max-width: 420px) {
+  .portfolio-school__stage {
+    grid-template-columns: 72px minmax(24px, 1fr) 80px;
+  }
+
+  .portfolio-school__stage-label {
+    font-size: 0.59rem;
+  }
+}
