@@ -33,7 +33,7 @@ jobs:
       - name: Gerar visão fiscal agrupada
         run: npm run monitor:fiscal -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.json
       - name: Gerar Excel fiscal em camadas
-        run: npm run monitor:fiscal:xlsx -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.xlsx
+        run: npm run monitor:technical:xlsx -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.xlsx
       - name: Preservar saídas da validação
         if: always()
         uses: actions/upload-artifact@v4

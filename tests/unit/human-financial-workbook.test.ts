@@ -113,6 +113,47 @@ describe('Excel humano da inteligência financeira', () => {
     expect(visibleFollowUp.join(' ')).toContain('1ª parcela com pagamento informado');
   });
 
+  it('mostra previsto, pagamento, crédito e saldo na mesma leitura da visão geral', () => {
+    const workbook = buildHumanFinancialWorkbook(view, {
+      generatedAt: new Date('2026-08-20T18:30:00.000Z'),
+    });
+    const overview = workbook.getWorksheet('Visão Geral');
+    expect(overview).toBeDefined();
+
+    const headings = overview?.getRow(4).values as unknown[];
+    const creditColumn = headings.findIndex((value) => {
+      if (!value || typeof value !== 'object' || !('text' in value)) return false;
+      return value.text === 'Crédito compatível localizado';
+    });
+    expect(creditColumn).toBeGreaterThan(0);
+    expect(overview?.getRow(5).getCell(creditColumn).value).toBe(4185);
+    expect(String(overview?.getCell('A2').value)).toContain('Arquivo gerado em 20/08/2026 15:30');
+  });
+
+  it('reúne as situações da mesma unidade em uma única linha de acompanhamento', () => {
+    const duplicatedView: HumanFinancialPortfolioView = {
+      ...view,
+      indicators: [
+        ...view.indicators,
+        {
+          label: 'Informação parcial',
+          count: 1,
+          units: [{ sme: '0410001', name: 'EM EMA NEGRAO DE LIMA', inep: '33069247' }],
+        },
+      ],
+    };
+    const workbook = buildHumanFinancialWorkbook(duplicatedView);
+    const followUp = workbook.getWorksheet('Acompanhamento');
+    expect(followUp).toBeDefined();
+
+    const schoolRows = followUp?.getRows(4, followUp.rowCount - 3)?.filter((row) => (
+      row.getCell(2).value === '0410001'
+    ));
+    expect(schoolRows).toHaveLength(1);
+    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('1ª parcela com pagamento informado');
+    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('Informação parcial');
+  });
+
   it('diferencia visualmente pagamento informado do valor previsto', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     const sheet = workbook.getWorksheet('Repasses');
