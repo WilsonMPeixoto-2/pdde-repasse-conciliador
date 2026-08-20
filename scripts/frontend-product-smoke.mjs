@@ -2,6 +2,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { gzipSync, strToU8 } from 'fflate';
 import { chromium } from 'playwright';
 
 const dist = new URL('../dist/', import.meta.url);
@@ -165,6 +166,12 @@ const school = {
   ],
 };
 
+const snapshotPartPath = '/data/frontend-product-smoke-snapshot.txt';
+const encodedSnapshot = Buffer.from(gzipSync(strToU8(JSON.stringify({
+  portfolio,
+  schools: { [school.school.inep]: school },
+})))).toString('base64');
+
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 
 function sendJson(res, value) {
@@ -172,14 +179,20 @@ function sendJson(res, value) {
   res.end(JSON.stringify(value));
 }
 
+function sendText(res, value) {
+  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(value);
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-  if (url.pathname === '/api/current/human/portfolio') return sendJson(res, portfolio);
-  if (url.pathname === '/api/current/human/schools/33069093') return sendJson(res, school);
-  if (url.pathname.startsWith('/api/current/human/schools/')) {
-    res.writeHead(404, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'not found' }));
+  if (url.pathname === '/data/pdde-2026-snapshot.json') {
+    return sendJson(res, {
+      encoding: 'gzip-base64-parts',
+      parts: [snapshotPartPath],
+    });
   }
+  if (url.pathname === snapshotPartPath) return sendText(res, encodedSnapshot);
 
   const wanted = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
   const safe = normalize(wanted).replace(/^(\.\.(\/|\\|$))+/, '');

@@ -58,6 +58,7 @@ describe('integração da leitura operacional no prontuário', () => {
 
   it('mantém o smoke determinístico do prontuário ligado ao workflow visual', () => {
     const workflow = readFileSync('.github/workflows/frontend-product-smoke.yml', 'utf8');
+    const smoke = readFileSync('scripts/frontend-product-smoke.mjs', 'utf8');
     const productSmoke = 'scripts/frontend-product-smoke.mjs';
     const publishedSmoke = 'scripts/frontend-published-smoke.mjs';
 
@@ -66,5 +67,8 @@ describe('integração da leitura operacional no prontuário', () => {
     expect(workflow.indexOf(`run: node ${productSmoke}`)).toBeLessThan(
       workflow.indexOf(`run: node ${publishedSmoke}`),
     );
+    expect(smoke).toContain('/data/pdde-2026-snapshot.json');
+    expect(smoke).toContain("encoding: 'gzip-base64-parts'");
+    expect(smoke).not.toContain('/api/current/human/portfolio');
   });
 });
