@@ -140,4 +140,77 @@ describe('série histórica e métricas do read model humano', () => {
     expect(view.metrics.accountsWithPosition).toBe(2);
     expect(view.metrics.reportedBalanceCents).toBe(416593);
   });
+
+  it('preserva uma conta sem extrato que teve saldo em 2026 mesmo quando a última posição é zero', () => {
+    const historicalAccount = '0000000003';
+    const reportsWithSpentAccount = {
+      ...publicReports,
+      balances: [
+        ...publicReports.balances,
+        {
+          ...baseBalance,
+          account: historicalAccount,
+          programName: 'PDDE QUALIDADE',
+          coverageThrough: '2026-02-28',
+          checkingBalanceCents: 250000,
+          totalReportedBalanceCents: 250000,
+        },
+        {
+          ...baseBalance,
+          account: historicalAccount,
+          programName: 'PDDE QUALIDADE',
+          coverageThrough: '2026-06-30',
+          checkingBalanceCents: 0,
+          totalReportedBalanceCents: 0,
+        },
+      ],
+    };
+
+    const view = buildHumanFinancialView({
+      fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never,
+      publicReports: reportsWithSpentAccount as never,
+    });
+    const account = view.schools[0].accounts.find((item) => item.account === historicalAccount);
+
+    expect(account).toBeDefined();
+    expect(account?.positions.map((item) => [item.referenceDate, item.totalReportedBalanceCents])).toEqual([
+      ['2026-02-28', 250000],
+      ['2026-06-30', 0],
+    ]);
+    expect(account?.latestPosition?.totalReportedBalanceCents).toBe(0);
+  });
+
+  it('deduplica posições idênticas da mesma conta na mesma data', () => {
+    const duplicatedReports = {
+      ...publicReports,
+      balances: [publicReports.balances[0], publicReports.balances[0], ...publicReports.balances.slice(1)],
+    };
+    const view = buildHumanFinancialView({
+      fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never,
+      publicReports: duplicatedReports as never,
+    });
+
+    expect(view.schools[0].accounts[0].positions.map((item) => item.referenceDate)).toEqual([
+      '2026-01-31', '2026-03-31', '2026-06-30',
+    ]);
+  });
+
+  it('recusa posições divergentes da mesma conta na mesma data em vez de escolher silenciosamente', () => {
+    const conflictingReports = {
+      ...publicReports,
+      balances: [
+        ...publicReports.balances,
+        {
+          ...publicReports.balances[2],
+          checkingBalanceCents: 999,
+          totalReportedBalanceCents: 416031,
+        },
+      ],
+    };
+
+    expect(() => buildHumanFinancialView({
+      fiscalView: { fiscalYear: 2026, schools: [fiscalSchool] } as never,
+      publicReports: conflictingReports as never,
+    })).toThrow(/posição financeira divergente/i);
+  });
 });
