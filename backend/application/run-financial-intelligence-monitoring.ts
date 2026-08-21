@@ -30,6 +30,7 @@ export interface RunFinancialIntelligenceMonitoringOptions extends RunMonitoring
   ) => Promise<PddeInfoPublicPortfolioResult>;
   collectSigefReleases?: RecoverSigefReleaseAccountsOptions['collectSigefReleases'];
   financialSnapshotStore?: FinancialSnapshotStore;
+  balanceMode?: CollectPddeInfoPublicPortfolioOptions['balanceMode'];
 }
 
 export interface RunFinancialIntelligenceMonitoringResult extends Omit<RunMonitoringResult, 'status' | 'raw' | 'paths'> {
@@ -245,6 +246,7 @@ export async function runFinancialIntelligenceMonitoring(
     collectPddeInfoPublicPortfolio: publicCollector = collectPddeInfoPublicPortfolio,
     collectSigefReleases,
     financialSnapshotStore,
+    balanceMode = 'ALL_AVAILABLE_2026',
     ...baseOptions
   } = options;
   const manageLifecycle = options.manageExecutionLifecycle ?? true;
@@ -278,6 +280,7 @@ export async function runFinancialIntelligenceMonitoring(
     const reports = await publicCollector({
       schools: options.schools,
       fiscalYear: 2026,
+      balanceMode,
       ...(options.signal ? { signal: options.signal } : {}),
     });
 
