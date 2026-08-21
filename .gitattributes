@@ -1,0 +1,3 @@
+# Preserve whitespace in recovered archival documents so their source bytes remain verifiable.
+docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md whitespace=-trailing-space
+docs/history/** whitespace=-trailing-space

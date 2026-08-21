@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 integrados à `main` e confirmados em produção
+**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 em produção; memória documental integral recuperada; marco nº 4 em especificação, sem alteração funcional
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -10,13 +10,17 @@
 
 Ler, nesta ordem:
 
-1. `docs/CONTINUIDADE_WORK.md`;
-2. `docs/ESTADO_ATUAL_2026-08-19.md`;
-3. `docs/DECISOES.md`;
-4. a especificação e o plano do marco corrente indicados abaixo;
-5. `git status --short --branch` e o diff integral antes de editar.
+1. `docs/INDICE_DOCUMENTAL.md`;
+2. `docs/CONTINUIDADE_WORK.md`;
+3. `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
+4. `docs/ESTADO_ATUAL_2026-08-19.md`;
+5. `docs/DECISOES.md`;
+6. a auditoria, a especificação e o plano do marco corrente indicados abaixo;
+7. `git status --short --branch` e o diff integral antes de editar.
 
 Não reconstruir decisões a partir de documentos antigos isolados. O código e os testes do commit corrente continuam sendo a fonte técnica principal.
+
+Um arquivo local, um commit sem push, uma resposta de chat ou uma cópia isolada na Biblioteca não podem ser descritos como documentação salva para continuidade. A definição completa e o inventário estão em `docs/INDICE_DOCUMENTAL.md`.
 
 ## 2. Estado Git e produção após a integração
 
@@ -165,10 +169,10 @@ git status --short --branch
 Depois:
 
 1. atualizar a referência local de `origin/main` e confirmar que ela contém `f256442bf85b2879d7a9b3ffca7be30246ae4d43` ou um descendente documental explícito;
-2. ler as seções 8 e 9 deste documento e `docs/audits/2026-08-20-leitura-operacional-escola.md`;
+2. ler as seções 8, 9 e 11 deste documento, a auditoria de 21/08 e a especificação do quarto marco;
 3. não reabrir os PRs nº 37 e nº 38: ambos estão concluídos e mesclados;
-4. tratar a densidade do prontuário e a auditoria de acessibilidade como trabalhos posteriores, sem reabrir decisões financeiras já consolidadas;
-5. iniciar o próximo marco funcional em nova branch, com objetivo, limite e gate próprios.
+4. manter a densidade do prontuário como trabalho posterior e não reabrir decisões financeiras já consolidadas;
+5. retomar o quarto marco no gate de revisão da especificação, sem implementar antes da aprovação explícita.
 
 ## 8. Terceiro marco — continuidade visível da navegação mobile
 
@@ -266,7 +270,7 @@ Na inspeção original, o mobile apresentou `Resumo` como seção atual e o cont
 
 ### Próximo trabalho funcional recomendado
 
-O próximo marco não é corrigir novamente a planilha ou a leitura operacional já publicadas. Deve ser escolhido entre:
+O próximo marco não é corrigir novamente a planilha ou a leitura operacional já publicadas. A opção nº 1 abaixo foi selecionada e detalhada na seção 11; as demais continuam posteriores:
 
 1. auditoria própria de acessibilidade: contraste, leitor de tela e reflow em 200%/400%;
 2. validação orientada com usuários comuns antes de recolher ou redistribuir novos blocos do prontuário;
@@ -282,3 +286,77 @@ Após cada ciclo relevante:
 4. indicar qualquer bloqueio ou resultado ainda não verificado;
 5. manter o handoff persistente externo sincronizado;
 6. antes de publicação, obter autorizações separadas exigidas pelo fluxo GitHub.
+
+## 11. Quarto marco — acessibilidade estrutural e legibilidade
+
+**Nome de trabalho:** acessibilidade estrutural e legibilidade WCAG 2.2 AA.
+
+**Estado:** auditoria e especificação aprovadas; plano executável escrito; implementação ainda não iniciada e aguardando escolha do modo de execução. Nenhum código funcional foi alterado, nenhum PR foi aberto e produção continua no estado descrito na seção 9.
+
+**Branch de documentação e futuro trabalho:** `codex/accessibility-legibility-aa`.
+
+### Documentos canônicos
+
+- auditoria: `docs/audits/2026-08-21-acessibilidade-legibilidade-produto.md`;
+- especificação: `docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md`;
+- plano executável: `docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md`.
+
+### Barreiras confirmadas
+
+1. `--ink-500: #718797` fica entre 3,4376:1 e 3,7402:1 nos fundos principais, abaixo de 4,5:1 para texto normal;
+2. o foco global clareado por mistura com branco fica entre 2,7425:1 e 2,9839:1, abaixo de 3:1;
+3. resultados da busca e linhas de repasses/saldos aplicam `role="listitem"` diretamente ao `Link`, substituindo o papel de link;
+4. cabeçalhos financeiros estão ocultos da árvore acessível e os rótulos por valor usam `display: none` no desktop;
+5. todas as rotas mantêm o mesmo título de documento;
+6. bordas funcionais de campos usam um divisor com contraste entre 1,2354:1 e 1,3442:1, uma pista visual fraca.
+
+### Direção decidida
+
+- corrigir os tokens na origem, sem redesenho amplo;
+- usar `--ink-500: #5c7385`, foco direto `#1878a4` e borda funcional `#788e9c`;
+- preservar links nativos dentro de itens de lista;
+- manter rótulos financeiros no conteúdo acessível em todas as larguras;
+- definir título específico para cada rota e nomear o prontuário pela escola quando os dados estiverem prontos;
+- ampliar o smoke para semântica, teclado, foco e larguras de 640, 390 e 320 CSS px;
+- preservar conteúdo, regras financeiras, fontes, backend, planilha, persistência e produção.
+
+### Evidência e limites
+
+Seis capturas aceitas, seus hashes, os passos auditados e os cálculos estão no documento de auditoria. Não houve teste real com leitor de tela nem zoom válido a 200%/400%; essas lacunas devem continuar explícitas e impedem qualquer alegação de conformidade integral.
+
+### Próximo gate seguro
+
+1. escolher execução orientada por subagentes ou execução inline nesta sessão;
+2. executar as seis tarefas do plano por TDD em commits próprios;
+3. verificar suíte, typecheck, builds, smoke e evidência visual;
+4. registrar resultados reais e qualquer bloqueio no checkpoint;
+5. solicitar autorização separada antes de PR pronto, merge ou deploy.
+
+## 12. Checkpoint documental integral e acesso entre ferramentas
+
+**Objetivo:** eliminar a dependência de perguntas arquivo por arquivo e impedir que documentação relevante permaneça apenas no workspace ou na Biblioteca.
+
+### Auditoria integral recuperada
+
+- caminho canônico: `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
+- origem: Biblioteca `/EXTRAÇÃO PDDE INFO/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
+- extensão: 1.260 linhas e 59.761 bytes;
+- SHA-256 preservado: `4686dc461c658f0204834b97b37cdf105c202a202a5bd9eec594edd657f78b43`;
+- escopo: código, documentação, 414 commits, PRs nº 1–36, produção, snapshot, Excel, planilhas históricas, cronologia, loops, regressões e plano de reorganização;
+- limite explícito: a auditoria não afirma ter obtido a íntegra dos chats posteriores a 13/08; reconstrói esse trecho por evidências materiais.
+
+### Outros textos recuperados
+
+- `docs/history/HANDOFF_CONTINUIDADE_PDDE_WORK.md`;
+- `docs/history/HANDOFF_PDDE_INFO_Work_v0.4_2026-08-13.md`;
+- `docs/history/PROMPT_NOVO_CHAT_WORK_PDDE.txt`;
+- quatro fontes brutas em `docs/history/source-material/`, claramente marcadas como históricas e não canônicas.
+
+### Inventário e regra de publicação
+
+- `docs/INDICE_DOCUMENTAL.md` inventaria os 66 arquivos encontrados na pasta `/EXTRAÇÃO PDDE INFO` da Biblioteca e todos os documentos do repositório;
+- documentos textuais únicos e relevantes foram versionados; duplicatas exatas foram identificadas sem multiplicar cópias;
+- binários históricos permanecem na Biblioteca ou no CI e estão inventariados por nome, tipo, tamanho, finalidade, vigência e localização;
+- o GitHub remoto passa a ser a fonte textual canônica;
+- nenhum novo documento pode ser chamado de salvo antes de commit, push e verificação remota;
+- esta consolidação é exclusivamente documental: nenhum código funcional, PR, merge, deploy ou dado de produção foi alterado.
