@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import { buildHumanFinancialWorkbook } from '../backend/report/human-financial-w
 
 const WORKBOOK_FILENAME = 'inteligencia-financeira-pdde-4cre-2026.xlsx';
 const MANIFEST_FILENAME = 'pdde-2026-snapshot.json';
+const PART_PREFIX = 'pdde-2026-snapshot.part';
 const DEFAULT_PART_SIZE = 900_000;
 
 export interface HumanFinancialSnapshotSource {
@@ -30,7 +31,9 @@ export interface PackageHumanFinancialSnapshotOptions {
 export interface PackagedHumanFinancialSnapshot {
   payloadSha256: string;
   compressedSha256: string;
+  workbookSha256: string;
   partCount: number;
+  staleParts: string[];
   manifestPath: string;
   workbookPath: string;
 }
@@ -84,6 +87,10 @@ function splitBase64(value: string, partSize: number): string[] {
   return parts;
 }
 
+function isSnapshotPart(name: string): boolean {
+  return name.startsWith(PART_PREFIX) && name.endsWith('.txt');
+}
+
 export async function packageHumanFinancialSnapshot(
   options: PackageHumanFinancialSnapshotOptions,
 ): Promise<PackagedHumanFinancialSnapshot> {
@@ -105,10 +112,17 @@ export async function packageHumanFinancialSnapshot(
   const parts = splitBase64(encoded, partSize);
   const partDigits = Math.max(2, String(parts.length).length);
   const partNames = parts.map((_, index) => (
-    `pdde-2026-snapshot.part${String(index + 1).padStart(partDigits, '0')}.txt`
+    `${PART_PREFIX}${String(index + 1).padStart(partDigits, '0')}.txt`
   ));
 
   await mkdir(outputDir, { recursive: true });
+  const existingNames = await readdir(outputDir);
+  const wantedParts = new Set(partNames);
+  const staleParts = existingNames
+    .filter(isSnapshotPart)
+    .filter((name) => !wantedParts.has(name))
+    .sort()
+    .map((name) => `/data/${name}`);
 
   for (let index = 0; index < parts.length; index += 1) {
     const name = partNames[index];
@@ -119,6 +133,7 @@ export async function packageHumanFinancialSnapshot(
 
   const workbook = buildHumanFinancialWorkbook(options.human, { generatedAt: generatedDate });
   const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
+  const workbookSha256 = sha256(workbookBytes);
   const workbookPath = resolve(outputDir, WORKBOOK_FILENAME);
   await writeFile(workbookPath, workbookBytes);
 
@@ -139,6 +154,7 @@ export async function packageHumanFinancialSnapshot(
   const manifest = {
     encoding: 'gzip-base64-parts',
     parts: partNames.map((name) => `/data/${name}`),
+    staleParts,
     generatedAt,
     fiscalYear: 2026,
     counts: {
@@ -150,6 +166,7 @@ export async function packageHumanFinancialSnapshot(
     checksums: {
       payloadSha256,
       compressedSha256,
+      workbookSha256,
       parts: partChecksums,
     },
     workbook: {
@@ -165,7 +182,9 @@ export async function packageHumanFinancialSnapshot(
   return {
     payloadSha256,
     compressedSha256,
+    workbookSha256,
     partCount: parts.length,
+    staleParts,
     manifestPath,
     workbookPath,
   };
