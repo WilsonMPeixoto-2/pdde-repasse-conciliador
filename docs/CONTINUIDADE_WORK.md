@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 20/08/2026, terceiro marco local implementado e ainda não publicado; PR do segundo marco mantido em rascunho
+**Última atualização:** 20/08/2026, terceiro marco publicado, validado em CI e aceito visualmente; PR mantido em rascunho
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -152,7 +152,7 @@ Essa sequência não representa mudanças repetidas de objetivo. Foram camadas d
 
 ### Riscos restantes, sem bloquear este marco
 
-- a indicação da continuidade da navegação horizontal mobile recebeu uma correção local no terceiro marco, descrita na seção 8; ainda falta executar o smoke em navegador e inspecionar as novas capturas;
+- a indicação da continuidade da navegação horizontal mobile foi corrigida e validada no terceiro marco, descrito na seção 8;
 - a página móvel é longa porque todos os detalhes foram preservados; qualquer recolhimento adicional deve ser validado com usuários;
 - contraste numérico, leitor de tela e reflow em 200%/400% ainda exigem auditoria de acessibilidade própria.
 
@@ -164,17 +164,17 @@ git status --short --branch
 
 Depois:
 
-1. preservar e revisar o diff local do terceiro marco antes de qualquer nova edição;
+1. confirmar que o checkout permanece limpo e na branch `codex/school-operational-reading`;
 2. ler a seção 8 deste documento e `docs/audits/2026-08-20-leitura-operacional-escola.md`;
 3. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) e confirmar que continua rascunho;
-4. não criar commit, publicar, mesclar nem executar deploy sem a autorização correspondente;
+4. não marcar como pronto, mesclar nem executar deploy sem autorização específica;
 5. tratar a densidade do prontuário e a auditoria de acessibilidade como trabalhos posteriores, sem reabrir decisões financeiras já consolidadas.
 
-## 8. Terceiro marco local — continuidade visível da navegação mobile
+## 8. Terceiro marco — continuidade visível da navegação mobile
 
 **Nome de trabalho:** navegação local acessível do prontuário.
 
-**Estado:** implementação e verificações não visuais concluídas no checkout local; nenhuma publicação executada.
+**Estado:** implementação publicada, CI aprovado e capturas desktop/mobile inspecionadas em resolução original; PR preservado em rascunho.
 
 ### Decisão aprovada
 
@@ -185,7 +185,7 @@ Depois:
 - preservar todos os destinos, detalhes, contratos, fontes e regras financeiras existentes;
 - não alterar backend, persistência ou Supabase.
 
-### Implementação local
+### Implementação
 
 - `src/product/components/SchoolSectionNav.tsx`: calcula os limites da rolagem, observa scroll e redimensionamento, oferece os controles e anuncia a seção atual;
 - `src/product/design/findability.css`: separa o invólucro fixo da faixa rolável, apresenta estado atual com pista não baseada apenas em cor e ativa controles de 44 px somente até 700 px;
@@ -204,24 +204,38 @@ O ciclo RED foi observado com quatro falhas esperadas: ausência de `aria-curren
 - `./node_modules/.bin/vite build --config vite.live.config.ts`: aprovado;
 - `git diff --check`: aprovado.
 
-O Chromium não está instalado neste ambiente. Portanto, o smoke atualizado e a inspeção das capturas **não foram executados localmente** e permanecem como gate obrigatório antes de considerar este marco visualmente aceito.
+O Chromium não está instalado neste ambiente. O gate de navegador foi executado pelo GitHub Actions no head remoto de código `3cd7251558cc39fa7844d9da3f9f160d824e8801`:
+
+- `Verificação contínua`, execução nº 1241, run `32441075718`: aprovado;
+- `Frontend Product Smoke 2026`, execução nº 369, run `32441075727`: aprovado;
+- os passos determinísticos de navegação do prontuário e o smoke do retrato publicado foram aprovados;
+- artefato `frontend-product-smoke-2026`, ID `9432452445`;
+- digest oficial e local do ZIP: `sha256:943556111d0814d7e5d92ad7a39d488ec3a8e6dc70815c6b9db65a00d31339d2`;
+- captura mobile: 390×5915, SHA-256 `8759c9b4d6c8d5e2e7f39b3e232156d9aa317f913d0b46f7f32aa6ca9e25417c`;
+- captura desktop: 1440×4455, SHA-256 `ed51b129fb8366e91e0b18baa3838f9f002979d1bc7f91bd5a29e65d72b3abf7`;
+- dossiê local: `/workspace/scratch/487865c30622/PDDE_WORK_ARTIFACTS/2026-08-20-mobile-section-navigation-run-369/`.
+
+Na inspeção original, o mobile apresentou `Resumo` como seção atual e o controle `Mais` claramente visível sobre a extremidade da faixa, sem elevar o cabeçalho nem gerar overflow global. O desktop manteve todos os destinos visíveis, sem controles desnecessários. O smoke comprovou também a aparição de `Voltar` após o avanço e o retorno efetivo da rolagem.
 
 ### Estado Git deste checkpoint
 
-- branch: `codex/school-operational-reading`;
-- base local: `8957ac3c94ff974f71d7c7d72a8f20f72d43738c`;
-- arquivos de produto/teste modificados: os quatro listados acima;
-- este documento também foi atualizado para preservar a retomada;
-- nenhuma mudança foi staged, commitada ou publicada;
-- PR nº 38 continua sendo o PR em rascunho do segundo marco; o terceiro marco ainda existe somente no checkout local.
+- branch local e remota: `codex/school-operational-reading`;
+- base local antes do terceiro marco: `8957ac3c94ff974f71d7c7d72a8f20f72d43738c`;
+- commit local de código: `a15a2a74cb369c3c43093add9476ab31b3dee4c2`;
+- commit remoto equivalente de código: `3cd7251558cc39fa7844d9da3f9f160d824e8801`;
+- árvore de código local/remota idêntica: `d34bc233b955602a3d4de362cc5eb24f62535aae`;
+- a reconstrução remota foi descendente direta de `74934979f8343ea815d37c5cada46cb07ed0d2ed`, sem force push;
+- PR nº 38 permanece aberto, mesclável e em rascunho contra `codex/stabilize-human-workbook`;
+- o preview automático da Vercel ficou `Ready`; nenhum deploy de produção foi solicitado ou executado;
+- nenhum merge ou marcação como pronto foi executado.
 
 ### Próximo gate seguro
 
-1. executar `git diff --check` e revisar o diff integral;
-2. quando houver autorização de publicação, publicar sem marcar o PR como pronto e aguardar os workflows;
-3. executar/confirmar o smoke em 390×844 e inspecionar a ficha completa em resolução original;
-4. verificar que os controles não aumentaram a altura fixa, não ocultam o foco e aparecem somente quando necessários;
-5. registrar IDs, digests e resultado visual antes de encerrar o marco.
+1. preservar o PR nº 38 em rascunho e não mesclar nem fazer deploy sem nova autorização;
+2. não recolher mais conteúdo do prontuário sem validação com usuários;
+3. planejar separadamente a auditoria de contraste, leitor de tela e reflow a 200%/400%;
+4. retomar o board incompleto do Figma somente quando a cota da ferramenta voltar;
+5. iniciar novo marco apenas com objetivo e limite explícitos, usando esta seção como ponto de partida.
 
 ## 9. Disciplina de checkpoint
 

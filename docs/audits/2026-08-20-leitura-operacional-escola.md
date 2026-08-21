@@ -6,7 +6,7 @@
 
 **Superfície:** prontuário financeiro em `/unidades/33069093`
 
-**Estado aceito:** PR rascunho nº 38, head remoto `7e4a4492c691874b3580a5b358677e4e50de852d`
+**Estado aceito:** PR rascunho nº 38, head remoto inicial `7e4a4492c691874b3580a5b358677e4e50de852d`; a validação posterior da navegação mobile está registrada na seção 8
 
 ## 1. Objetivo do usuário
 
@@ -83,3 +83,36 @@ As capturas não comprovam, sozinhas, conformidade WCAG, leitura por tecnologia 
 ## 7. Decisão
 
 O prontuário atende ao objetivo deste marco e está apto a permanecer em PR rascunho para revisão humana. Não há autorização para marcar o PR como pronto, mesclar ou fazer deploy.
+
+## 8. Adendo — continuidade visível da navegação mobile
+
+### 8.1 Motivo e limite
+
+O risco nº 1 da seção 5 foi tratado em um marco estritamente de frontend. A navegação permaneceu horizontal e com a mesma altura. Foram adicionados controles sobrepostos `Voltar` e `Mais`, exibidos somente quando existe conteúdo oculto na direção correspondente, além de `aria-current="location"` para a seção representada pelo fragmento da URL.
+
+Nenhum endpoint, schema, fonte, persistência, regra financeira ou detalhe do prontuário foi alterado.
+
+### 8.2 Evidência automatizada
+
+- head remoto de código: `3cd7251558cc39fa7844d9da3f9f160d824e8801`;
+- árvore local/remota idêntica: `d34bc233b955602a3d4de362cc5eb24f62535aae`;
+- `Verificação contínua`, execução nº 1241, run `32441075718`: aprovado;
+- `Frontend Product Smoke 2026`, execução nº 369, run `32441075727`: aprovado;
+- o smoke mobile comprovou que `Mais` aparece no início, que o controle avança a faixa, que `Voltar` aparece depois do avanço e que o controle retorna a faixa;
+- o smoke completo confirmou ausência de overflow horizontal global e preservação do conteúdo esperado;
+- artefato `frontend-product-smoke-2026`, ID `9432452445`;
+- digest oficial conferido localmente: `sha256:943556111d0814d7e5d92ad7a39d488ec3a8e6dc70815c6b9db65a00d31339d2`.
+
+### 8.3 Evidência visual aceita
+
+- captura mobile: 390×5915, SHA-256 `8759c9b4d6c8d5e2e7f39b3e232156d9aa317f913d0b46f7f32aa6ca9e25417c`;
+- captura desktop: 1440×4455, SHA-256 `ed51b129fb8366e91e0b18baa3838f9f002979d1bc7f91bd5a29e65d72b3abf7`;
+- dossiê local: `/workspace/scratch/487865c30622/PDDE_WORK_ARTIFACTS/2026-08-20-mobile-section-navigation-run-369/`.
+
+No mobile, `Resumo` está marcado por fundo e sublinhado, enquanto `Mais` oferece uma indicação explícita de continuidade sem criar uma segunda linha nem aumentar o cabeçalho. A faixa não produz corte global e o restante da ficha permanece legível. No desktop, os cinco destinos continuam visíveis e não há controles de rolagem desnecessários.
+
+As capturas representam o estado inicial e não mostram simultaneamente o controle `Voltar`; sua aparição e seu funcionamento foram comprovados pelo passo automatizado aprovado. A evidência não substitui auditoria WCAG, teste em dispositivo físico ou validação com usuários.
+
+### 8.4 Decisão do adendo
+
+O risco de descobribilidade da continuidade horizontal foi mitigado dentro do desenho aprovado e não bloqueia o PR. Permanecem os riscos de extensão da página e a auditoria dedicada de acessibilidade. O PR nº 38 deve continuar em rascunho; nenhuma autorização de merge ou deploy de produção decorre desta aceitação.
