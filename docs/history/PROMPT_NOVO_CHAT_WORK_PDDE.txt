@@ -1,0 +1,175 @@
+Você está assumindo a continuidade do projeto **EXTRAÇÃO PDDE INFO / Plataforma PDDE da 4ª CRE** no modo Work.
+
+## FONTES OBRIGATÓRIAS
+
+1. Leia integralmente o arquivo de handoff que anexei: **HANDOFF_PDDE_INFO_Work_v0.4_2026-08-13**.
+2. Acesse o repositório canônico:
+   https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador
+3. Antes de alterar qualquer código, analise de verdade a `main`, os documentos e o código-fonte. Não confie apenas no resumo do handoff.
+4. A `main` de referência no encerramento do chat anterior era:
+   `df80e4a8d92e821dd9a5d4fc37c8ed1ae604a01e` (`v0.4.0`).
+   Se a `main` atual tiver avançado, investigue e use o estado mais recente como fonte de verdade.
+
+## GOVERNANÇA QUE NÃO DEVE SER REDISCUTIDA
+
+- `WilsonMPeixoto-2/pdde-repasse-conciliador` é o **único repositório de implementação** deste fluxo.
+- `WilsonMPeixoto-2/extrator-pdde-4cre` é **referência histórica/técnica**, somente leitura para desenvolvimento novo.
+- `WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS` é **exclusivo do Manus e absolutamente somente leitura**. Pode estudar e portar ideias para o canônico; nunca escreva nada nele.
+- Não crie outro repositório.
+- Todos os dados deste projeto são públicos. Não crie restrições artificiais de sigilo.
+
+## PRIMEIRA TAREFA: AUDITORIA CURTA, MAS REAL
+
+Leia, no mínimo:
+- `README.md`
+- `docs/PROJETO.md`
+- `docs/DECISOES.md`
+- `docs/FONTES_E_REGRAS.md`
+- `docs/ARCHITECTURE.md`
+- `docs/ASSISTENTE_LIBERACOES.md`
+- `package.json` + lockfile
+- `.github/workflows/`
+- `supabase/migrations/`
+- todo `backend/core/`
+- todo `backend/adapters/`
+- todo `backend/application/`
+- todo `backend/report/`
+- `scripts/`
+- `tests/`
+- `src/`
+- `backend/index.ts`
+- `backend/realtime.ts`
+- `backend/realtime-subscribers.ts`
+- `SOURCE_MANIFEST.json`
+
+Há código legado/AppDeploy coexistindo com o núcleo canônico. Classifique o que é ativo, reaproveitável e legado. Não apague nem reaproveite cegamente.
+
+Execute/verifique `npm ci` e `npm run check`. Use o comportamento dos testes e do código como fonte de verdade.
+
+## MISSÃO DE IMPLEMENTAÇÃO: v0.5 BACKEND INSTITUCIONAL
+
+Não fique apenas analisando ou produzindo plano. Depois da auditoria, abra uma branch própria, preferencialmente:
+
+`feat/v0.5-backend-institucional`
+
+E implemente o backend institucional sobre o núcleo v0.4 já comprovado.
+
+### 1. Supabase dedicado
+- Verifique os projetos conectados.
+- NÃO reutilize RADAR PDDE, CTRH, PDDE Online antigo ou qualquer banco de outro sistema.
+- Crie/vincule um Supabase exclusivo deste projeto, com nome inequívoco como `pdde-repasse-conciliador`.
+- Revise e aplique `supabase/migrations/20260813050000_evidence_events.sql` nesse banco.
+- Valide `verify_evidence_chain()` no Postgres real.
+- Se houver uma autorização humana que a ferramenta realmente não possa dar, peça apenas essa autorização específica e continue o restante que for possível.
+
+### 2. Persistência Postgres real
+Implemente um `PostgresEvidenceStore`/`SupabaseEvidenceStore` que satisfaça o mesmo contrato do JSONL:
+- append controlado;
+- listagem por execução;
+- listagem por escola;
+- integridade da cadeia;
+- erros claros;
+- nenhuma mutação UPDATE/DELETE de eventos.
+
+Mantenha SDK Supabase no adaptador, não no domínio. Crie testes de contrato compartilhados entre JSONL e Postgres quando fizer sentido.
+
+### 3. Artefatos institucionais
+Implemente uma porta de armazenamento e adaptador Supabase Storage (ou solução equivalente justificável) para HTML bruto, JSON/manifest, Excel e demais evidências relevantes.
+- preservar SHA-256 e metadados;
+- caminho estável por `runId`;
+- `ARTIFACT_PRESERVED` apontando para o artefato institucional;
+- nunca expor `service_role` ao cliente.
+
+### 4. Serviços/read models
+Exponha casos de uso eficientes para futura UI:
+- lista das 163 escolas;
+- escola por INEP;
+- histórico da escola;
+- lista/detalhe de execuções;
+- achados e exceções;
+- artefatos e relatório.
+
+O log append-only continua sendo a verdade. Read models materializados, se necessários, devem ser projeções reconstruíveis.
+
+### 5. API
+Implemente contratos de API no runtime mais adequado ao projeto depois de verificar os limites atuais de deploy. Conjunto mínimo desejado:
+
+- `GET /api/health`
+- `GET /api/meta`
+- `GET /api/schools`
+- `GET /api/schools/:inep`
+- `GET /api/schools/:inep/history`
+- `GET /api/schools/:inep/findings`
+- `GET /api/executions`
+- `GET /api/executions/:runId`
+- `GET /api/findings`
+- `GET /api/executions/:runId/artifacts`
+- endpoint seguro de relatório/download
+- `POST /api/executions/pddeinfo`
+- `POST /api/reconciliations`
+
+Não rode uma coleta das 163 escolas dentro de uma requisição curta se o runtime não suportar. A API deve poder retornar um `runId` e a execução longa ocorrer em worker/job/runner apropriado. Verifique as limitações atuais da plataforma antes de escolher o mecanismo.
+
+### 6. Orquestração
+Crie a camada que:
+- inicia execução;
+- registra `EXECUTION_STARTED`;
+- executa coleta/conciliação existente;
+- persiste progresso, tentativas e artefatos;
+- encerra `COMPLETE`, `PARTIAL` ou `FAILED`;
+- permite consulta/polling;
+- usa idempotência onde houver risco de duplicação acidental.
+
+### 7. Segurança proporcional
+- nada de `service_role` no frontend;
+- escrita somente pelo backend/runner confiável;
+- RLS coerente;
+- endpoints de comando protegidos;
+- sem overengineering de IAM neste momento;
+- dados são públicos, mas operações administrativas não precisam ser públicas.
+
+## INVARIANTES FINANCEIROS OBRIGATÓRIOS
+
+Nunca viole:
+- PDDEInfo `Valor Pago` NÃO é crédito bancário confirmado.
+- Pagamento, OB, crédito, extrato direto e achado do `CONCILIADOR` são fatos distintos.
+- Ausência não é zero.
+- Histórico não preenche automaticamente conta corrente ausente.
+- Conta de um programa não completa silenciosamente outro.
+- Similaridade de valor sozinha não confirma correspondência.
+- Cobertura insuficiente => inconclusivo.
+- CAPTCHA não será contornado.
+- Dinheiro crítico em centavos inteiros.
+- Eventos de evidência são append-only.
+
+## VALIDAÇÃO ESPERADA
+
+O núcleo já provou, em execução real:
+- 163/163 escolas;
+- 520 registros financeiros;
+- 169 com pagamento informado;
+- 47 sem conta correspondente de programa;
+- 0 warnings;
+- 493 eventos append-only com 493/493 hashes íntegros no v0.4.
+
+Use esses números como baseline de regressão, não como constantes eternas se a fonte pública realmente mudar. Qualquer diferença deve ser explicada com evidência.
+
+Antes de concluir:
+1. rode testes/typecheck/build frescos;
+2. valide Postgres/Supabase real;
+3. faça integração real pequena (1-3 escolas) e, se estável, teste de escala adequado;
+4. verifique cadeia de evidências;
+5. garanta que testes externos continuam opt-in no CI normal;
+6. revise o diff inteiro;
+7. abra PR;
+8. integre na `main` somente com CI verde e PR mergeável.
+
+## MODO DE TRABALHO
+
+Use sua capacidade máxima de raciocínio e as skills/plugins úteis, especialmente TDD, systematic debugging, verification-before-completion, code review e Supabase Postgres Best Practices.
+
+Não transforme isso em nova rodada de deliberação teórica. As decisões de produto essenciais já foram tomadas. Faça a análise técnica necessária e **avance para código real**.
+
+Não me peça para repetir informações que estão no handoff ou no repositório. Não me mande instalar ferramentas localmente no meu PC. Trabalhe no ambiente Work/GitHub/Supabase e só me interrompa por autorização externa inevitável, decisão de produto realmente nova ou risco concreto.
+
+Mantenha-me informado com atualizações curtas durante o trabalho e destaque achados reais assim que aparecerem.
