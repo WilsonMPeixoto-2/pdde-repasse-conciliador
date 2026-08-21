@@ -40,13 +40,19 @@ function sha256(value: string | Uint8Array): string {
 }
 
 function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(',')}]`;
-  if (value && typeof value === 'object') {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => item === undefined ? 'null' : stableJson(item)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined)
       .sort(([left], [right]) => left.localeCompare(right));
     return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${stableJson(child)}`).join(',')}}`;
   }
-  return JSON.stringify(value);
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw new Error('O snapshot contém valor não serializável.');
+  return encoded;
 }
 
 function publicPayload(input: {
@@ -83,6 +89,8 @@ export async function packageHumanFinancialSnapshot(
 ): Promise<PackagedHumanFinancialSnapshot> {
   const outputDir = resolve(options.outputDir);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
+  const generatedDate = new Date(generatedAt);
+  if (Number.isNaN(generatedDate.getTime())) throw new Error('generatedAt inválido.');
   const partSize = options.partSize ?? DEFAULT_PART_SIZE;
   const payload = publicPayload({
     runId: options.runId,
@@ -109,9 +117,7 @@ export async function packageHumanFinancialSnapshot(
     await writeFile(resolve(outputDir, name), content, 'utf8');
   }
 
-  const workbook = buildHumanFinancialWorkbook(options.human, {
-    generatedAt: new Date(generatedAt),
-  });
+  const workbook = buildHumanFinancialWorkbook(options.human, { generatedAt: generatedDate });
   const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
   const workbookPath = resolve(outputDir, WORKBOOK_FILENAME);
   await writeFile(workbookPath, workbookBytes);
@@ -205,6 +211,8 @@ function parseCli(argv: string[]): CliOptions {
     return value;
   };
 
+  const generatedAt = values.get('generated-at')?.trim();
+  const partSize = optionalInteger('part-size');
   return {
     input: required('input'),
     output: required('output'),
@@ -213,8 +221,8 @@ function parseCli(argv: string[]): CliOptions {
     workflowRunId: positiveInteger('workflow-run-id'),
     artifactId: positiveInteger('artifact-id'),
     artifactName: required('artifact-name'),
-    ...(values.get('generated-at') ? { generatedAt: values.get('generated-at') } : {}),
-    ...(optionalInteger('part-size') ? { partSize: optionalInteger('part-size') } : {}),
+    ...(generatedAt ? { generatedAt } : {}),
+    ...(partSize !== undefined ? { partSize } : {}),
   };
 }
 
@@ -232,7 +240,7 @@ async function main(): Promise<void> {
       artifactName: cli.artifactName,
     },
     ...(cli.generatedAt ? { generatedAt: cli.generatedAt } : {}),
-    ...(cli.partSize ? { partSize: cli.partSize } : {}),
+    ...(cli.partSize !== undefined ? { partSize: cli.partSize } : {}),
   });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
