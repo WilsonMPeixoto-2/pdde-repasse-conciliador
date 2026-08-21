@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 20/08/2026, segundo marco implementado, publicado e validado; PR mantido em rascunho
+**Última atualização:** 20/08/2026, terceiro marco local implementado e ainda não publicado; PR do segundo marco mantido em rascunho
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -152,7 +152,7 @@ Essa sequência não representa mudanças repetidas de objetivo. Foram camadas d
 
 ### Riscos restantes, sem bloquear este marco
 
-- no mobile, a navegação interna horizontal deixa o próximo item parcialmente visível; a indicação do gesto pode ser melhorada em marco posterior;
+- a indicação da continuidade da navegação horizontal mobile recebeu uma correção local no terceiro marco, descrita na seção 8; ainda falta executar o smoke em navegador e inspecionar as novas capturas;
 - a página móvel é longa porque todos os detalhes foram preservados; qualquer recolhimento adicional deve ser validado com usuários;
 - contraste numérico, leitor de tela e reflow em 200%/400% ainda exigem auditoria de acessibilidade própria.
 
@@ -164,12 +164,66 @@ git status --short --branch
 
 Depois:
 
-1. ler `docs/audits/2026-08-20-leitura-operacional-escola.md`;
-2. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) e confirmar que continua rascunho;
-3. não mesclar nem executar deploy sem autorização específica;
-4. tratar a navegação interna mobile e a densidade do prontuário como candidatos do próximo marco, sem reabrir decisões financeiras já consolidadas.
+1. preservar e revisar o diff local do terceiro marco antes de qualquer nova edição;
+2. ler a seção 8 deste documento e `docs/audits/2026-08-20-leitura-operacional-escola.md`;
+3. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) e confirmar que continua rascunho;
+4. não criar commit, publicar, mesclar nem executar deploy sem a autorização correspondente;
+5. tratar a densidade do prontuário e a auditoria de acessibilidade como trabalhos posteriores, sem reabrir decisões financeiras já consolidadas.
 
-## 8. Disciplina de checkpoint
+## 8. Terceiro marco local — continuidade visível da navegação mobile
+
+**Nome de trabalho:** navegação local acessível do prontuário.
+
+**Estado:** implementação e verificações não visuais concluídas no checkout local; nenhuma publicação executada.
+
+### Decisão aprovada
+
+- manter a navegação das seções horizontal, fixa e com a mesma altura;
+- exibir controles sobrepostos `Voltar` e `Mais` somente quando houver conteúdo oculto na direção correspondente;
+- associar os controles à faixa rolável com nomes acessíveis e `aria-controls`;
+- marcar a seção indicada pelo fragmento da URL com `aria-current="location"`; sem fragmento, `Resumo` é a seção atual;
+- preservar todos os destinos, detalhes, contratos, fontes e regras financeiras existentes;
+- não alterar backend, persistência ou Supabase.
+
+### Implementação local
+
+- `src/product/components/SchoolSectionNav.tsx`: calcula os limites da rolagem, observa scroll e redimensionamento, oferece os controles e anuncia a seção atual;
+- `src/product/design/findability.css`: separa o invólucro fixo da faixa rolável, apresenta estado atual com pista não baseada apenas em cor e ativa controles de 44 px somente até 700 px;
+- `tests/unit/frontend-school-section-navigation.test.ts`: cobre seção padrão, fragmento atual, contrato acessível e início/meio/fim da rolagem;
+- `scripts/frontend-product-smoke.mjs`: no viewport mobile, exige o controle seguinte, comprova avanço horizontal, exige o controle anterior e comprova retorno.
+
+### TDD e verificações realmente executadas
+
+O ciclo RED foi observado com quatro falhas esperadas: ausência de `aria-current`, ausência dos controles/associação e ausência do derivador dos limites. Depois da implementação mínima:
+
+- teste focado: 7 testes aprovados;
+- suíte completa: 134 arquivos aprovados e 4 ignorados; 448 testes aprovados e 6 ignorados;
+- `./node_modules/.bin/tsc -p tsconfig.test.json --noEmit`: aprovado;
+- `node --check scripts/frontend-product-smoke.mjs`: aprovado;
+- `./node_modules/.bin/vite build`: aprovado, com aviso de chunk principal acima de 500 kB;
+- `./node_modules/.bin/vite build --config vite.live.config.ts`: aprovado;
+- `git diff --check`: aprovado.
+
+O Chromium não está instalado neste ambiente. Portanto, o smoke atualizado e a inspeção das capturas **não foram executados localmente** e permanecem como gate obrigatório antes de considerar este marco visualmente aceito.
+
+### Estado Git deste checkpoint
+
+- branch: `codex/school-operational-reading`;
+- base local: `8957ac3c94ff974f71d7c7d72a8f20f72d43738c`;
+- arquivos de produto/teste modificados: os quatro listados acima;
+- este documento também foi atualizado para preservar a retomada;
+- nenhuma mudança foi staged, commitada ou publicada;
+- PR nº 38 continua sendo o PR em rascunho do segundo marco; o terceiro marco ainda existe somente no checkout local.
+
+### Próximo gate seguro
+
+1. executar `git diff --check` e revisar o diff integral;
+2. quando houver autorização de publicação, publicar sem marcar o PR como pronto e aguardar os workflows;
+3. executar/confirmar o smoke em 390×844 e inspecionar a ficha completa em resolução original;
+4. verificar que os controles não aumentaram a altura fixa, não ocultam o foco e aparecem somente quando necessários;
+5. registrar IDs, digests e resultado visual antes de encerrar o marco.
+
+## 9. Disciplina de checkpoint
 
 Após cada ciclo relevante:
 

@@ -250,6 +250,33 @@ async function assertNoMainOverflow(page) {
   }
 }
 
+async function validateMobileSchoolSectionNav(page, suffix) {
+  if (suffix !== 'mobile') return;
+
+  const nav = page.getByRole('navigation', { name: 'Seções do prontuário financeiro' });
+  const next = page.getByRole('button', { name: 'Ver próximas seções' });
+  const previous = page.getByRole('button', { name: 'Ver seções anteriores' });
+
+  await nav.waitFor();
+  await next.waitFor({ state: 'visible' });
+
+  const initialScrollLeft = await nav.evaluate((element) => element.scrollLeft);
+  await next.click();
+  const advancedScrollLeftHandle = await page.waitForFunction((initial) => {
+    const element = document.querySelector('.school-section-nav');
+    if (!(element instanceof HTMLElement)) return false;
+    return element.scrollLeft > initial + 2 ? element.scrollLeft : false;
+  }, initialScrollLeft);
+  const advancedScrollLeft = await advancedScrollLeftHandle.jsonValue();
+
+  await previous.waitFor({ state: 'visible' });
+  await previous.click();
+  await page.waitForFunction((advanced) => {
+    const element = document.querySelector('.school-section-nav');
+    return element instanceof HTMLElement && element.scrollLeft < advanced - 2;
+  }, advancedScrollLeft);
+}
+
 async function validatePortfolioSchools(context, suffix) {
   const page = await context.newPage();
   await page.goto(`${base}/unidades`, { waitUntil: 'networkidle' });
@@ -307,6 +334,7 @@ async function smoke(viewport, suffix) {
   await page.waitForFunction(() => window.scrollY <= 2 && document.activeElement?.tagName === 'MAIN');
   await assertNoTechnicalMetadata(page);
   await assertNoMainOverflow(page);
+  await validateMobileSchoolSectionNav(page, suffix);
 
   const operationalSummary = page.getByRole('region', { name: 'Leitura rápida desta escola' });
   await operationalSummary.waitFor();
