@@ -1,5 +1,7 @@
 # Auditoria de acessibilidade e legibilidade estrutural — produto publicado
 
+> **Prioridade atualizada em 21/08/2026:** os achados desta auditoria permanecem válidos, mas sua implementação foi deslocada para depois do marco de completude financeira. Ver `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`.
+
 **Data:** 21/08/2026
 
 **Modo:** auditoria de acessibilidade com observações de legibilidade

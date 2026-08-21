@@ -29,12 +29,13 @@ Toda retomada deve começar por esta sequência:
 1. `docs/INDICE_DOCUMENTAL.md`;
 2. `docs/CONTINUIDADE_WORK.md`;
 3. `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
-4. `docs/ESTADO_ATUAL_2026-08-19.md`;
-5. `docs/DECISOES.md`;
-6. auditoria, especificação e plano do marco corrente indicados em `CONTINUIDADE_WORK.md`;
-7. código, testes, histórico Git e estado remoto real.
+4. `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`;
+5. `docs/ESTADO_ATUAL_2026-08-19.md`;
+6. `docs/DECISOES.md`;
+7. especificação e plano do marco corrente indicados em `CONTINUIDADE_WORK.md`;
+8. código, testes, histórico Git e estado remoto real.
 
-A auditoria integral é o diagnóstico de origem. `CONTINUIDADE_WORK.md` é o checkpoint operacional mais recente. Em caso de divergência, código, testes e execução real prevalecem, seguidos pelos documentos vigentes.
+A auditoria integral é o diagnóstico de origem. A revisão crítica de 21/08 supera sua atribuição causal sobre o frontend, sem alterar a evidência original. `CONTINUIDADE_WORK.md` é o checkpoint operacional mais recente. Em caso de divergência, código, testes e execução real prevalecem, seguidos pelos documentos vigentes.
 
 ## 3. Auditoria integral recuperada
 
@@ -50,7 +51,7 @@ Propriedades da cópia da Biblioteca:
 - escopo declarado: código-fonte, documentação, 414 commits, PRs nº 1–36, produção, snapshot, Excel humano, planilhas históricas, handoff e artefatos;
 - limite declarado no próprio relatório: os chats posteriores a 13/08 não estavam integralmente disponíveis; a cronologia foi reconstruída por evidências materiais e não apresentada como transcrição palavra por palavra.
 
-A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existente na Biblioteca.
+A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existente na Biblioteca. Suas conclusões interpretativas devem ser lidas junto de `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`.
 
 ## 4. Documentos do repositório
 
@@ -62,7 +63,7 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/BASELINE_TECNICO_2026-08-14.md` | Baseline técnico | Histórico | `origin/main` |
 | `docs/CONHECIMENTO_ACUMULADO.md` | Memória técnica e de domínio | Vigente | `origin/main` |
 | `docs/CONTINUIDADE_WORK.md` | Checkpoint operacional e próximo ponto de retomada | Vigente | branch remota `codex/accessibility-legibility-aa`; versão anterior em `origin/main` |
-| `docs/DECISOES.md` | Registro enxuto de decisões estabilizadas | Vigente | `origin/main` |
+| `docs/DECISOES.md` | Registro enxuto de decisões estabilizadas | Vigente | branch remota `codex/accessibility-legibility-aa`; versão anterior em `origin/main` |
 | `docs/ESCOPO_V05.md` | Escopo da v0.5 | Histórico | `origin/main` |
 | `docs/ESTADO_ATUAL_2026-08-19.md` | Estado consolidado anterior aos marcos publicados | Vigente com complementos posteriores | `origin/main` |
 | `docs/FONTES_E_REGRAS.md` | Fontes, semântica e regras financeiras | Vigente | `origin/main` |
@@ -70,7 +71,7 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/FRONTEND_PRODUCT_QA_2026.md` | QA do frontend do marco inicial | Histórico de verificação | `origin/main` |
 | `docs/INDICE_DOCUMENTAL.md` | Mapa único de documentos e artefatos | Vigente | branch remota `codex/accessibility-legibility-aa` |
 | `docs/MONITORING_INSTITUCIONAL.md` | Contrato do monitoramento institucional | Referência técnica | `origin/main` |
-| `docs/PRODUCT_DECISION_GATE_2026.md` | Registro do gate de produto original | Histórico; decisões posteriores prevalecem | `origin/main` |
+| `docs/PRODUCT_DECISION_GATE_2026.md` | Registro do gate de produto original | Histórico; não é bloqueio retroativo | branch remota `codex/accessibility-legibility-aa`; versão anterior em `origin/main` |
 | `docs/PROJETO.md` | Visão e limites do projeto | Vigente | `origin/main` |
 | `docs/REFERENCIAS_NORMATIVAS.md` | Referências normativas aplicáveis | Vigente | `origin/main` |
 | `docs/TECHNICAL_AUDIT_2026-08-16.md` | Auditoria técnica do marco de 16/08 | Histórico de diagnóstico | `origin/main` |
@@ -79,6 +80,7 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/VISUAL_PRODUCT_CONSTITUTION_2026.md` | Princípios visuais do produto | Vigente, sujeito aos marcos posteriores | `origin/main` |
 | `docs/audits/2026-08-20-leitura-operacional-escola.md` | Evidência de auditoria do marco indicado | Evidência datada | `origin/main` |
 | `docs/audits/2026-08-21-acessibilidade-legibilidade-produto.md` | Evidência de auditoria do marco indicado | Evidência datada | branch remota `codex/accessibility-legibility-aa` |
+| `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md` | Errata interpretativa e correção do roadmap | Vigente | branch remota `codex/accessibility-legibility-aa` |
 | `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md` | Evidência de auditoria do marco indicado | Evidência datada | branch remota `codex/accessibility-legibility-aa` |
 | `docs/history/HANDOFF_CONTINUIDADE_PDDE_WORK.md` | Checkpoint ou prompt histórico recuperado da Biblioteca | Histórico; não substitui CONTINUIDADE_WORK | branch remota `codex/accessibility-legibility-aa` |
 | `docs/history/HANDOFF_PDDE_INFO_Work_v0.4_2026-08-13.md` | Checkpoint ou prompt histórico recuperado da Biblioteca | Histórico; não substitui CONTINUIDADE_WORK | branch remota `codex/accessibility-legibility-aa` |
@@ -95,13 +97,14 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/superpowers/plans/2026-08-19-coerencia-produto-layout-documentacao.md` | Plano executável do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/plans/2026-08-19-ux-encontrabilidade-navegacao.md` | Plano executável do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/plans/2026-08-20-leitura-operacional-escola.md` | Plano executável do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
-| `docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md` | Plano executável do marco indicado | Vigente apenas para o marco correspondente | branch remota `codex/accessibility-legibility-aa` |
+| `docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md` | Plano executável do marco indicado | Preparado para marco posterior; exige revalidação | branch remota `codex/accessibility-legibility-aa` |
 | `docs/superpowers/specs/2026-08-15-acquisition-analytics-tooling-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/specs/2026-08-15-inteligencia-financeira-2026-foundation-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/specs/2026-08-17-visao-geral-executiva-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/specs/2026-08-19-ux-encontrabilidade-navegacao-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
 | `docs/superpowers/specs/2026-08-20-leitura-operacional-escola-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | `origin/main` |
-| `docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md` | Especificação de produto/engenharia do marco indicado | Vigente apenas para o marco correspondente | branch remota `codex/accessibility-legibility-aa` |
+| `docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md` | Especificação de produto/engenharia do marco indicado | Preparada para marco posterior; exige revalidação | branch remota `codex/accessibility-legibility-aa` |
+| `docs/superpowers/specs/2026-08-21-completude-financeira-publicada-design.md` | Especificação do marco de completude financeira | Vigente; aguardando revisão humana | branch remota `codex/accessibility-legibility-aa` |
 | `docs/vercel-preview.md` | Operação de preview Vercel | Referência operacional | `origin/main` |
 
 ## 5. Materiais textuais recuperados da Biblioteca

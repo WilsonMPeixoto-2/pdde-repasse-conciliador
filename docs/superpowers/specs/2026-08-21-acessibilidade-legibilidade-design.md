@@ -1,8 +1,10 @@
 # Acessibilidade estrutural e legibilidade — desenho do produto
 
+> **Prioridade atualizada em 21/08/2026:** esta especificação está preservada para o marco posterior e deverá ser revalidada depois da completude financeira. Não é a especificação do marco corrente.
+
 **Data:** 21/08/2026
 
-**Marco:** quarta etapa de produto após a publicação da leitura operacional e da navegação local móvel
+**Marco:** etapa posterior preparada após a publicação da leitura operacional e da navegação local móvel
 
 **Escopo:** frontend publicado nas rotas `/`, `/unidades`, `/repasses`, `/saldos`, `/unidades/:inep`, `/indicadores/:slug` e rota não encontrada
 

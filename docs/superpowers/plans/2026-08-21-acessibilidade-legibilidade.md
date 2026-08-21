@@ -1,5 +1,7 @@
 # Acessibilidade estrutural e legibilidade — Implementation Plan
 
+> **Prioridade atualizada em 21/08/2026:** não executar este plano antes da conclusão do marco de completude financeira e de uma revalidação do mapa de arquivos e dos testes afetados.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Eliminar as barreiras confirmadas de contraste, foco, semântica de links, rótulos financeiros, títulos de rota e reflow sem alterar dados, regras financeiras ou o desenho geral do produto.
