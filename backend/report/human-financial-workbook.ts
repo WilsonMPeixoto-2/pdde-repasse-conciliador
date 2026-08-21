@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type {
+  HumanFinancialAccount,
   HumanFinancialIndicator,
   HumanFinancialPortfolioView,
   HumanFinancialSchoolView,
@@ -25,6 +26,10 @@ const MONEY = 'R$ #,##0.00';
 
 function reais(cents: number | null): number | null {
   return cents === null ? null : cents / 100;
+}
+
+function moneyText(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function brDate(value: string | null): string {
@@ -112,6 +117,40 @@ function latestSchoolPosition(
     cents: sumKnown(latest.map((position) => position.totalReportedBalanceCents)),
     date: latestDate,
   };
+}
+
+function coverageLabel(account: HumanFinancialAccount): string {
+  switch (account.coverage.movementCollectionStatus) {
+    case 'COMPLETE': return 'Completa';
+    case 'PARTIAL': return 'Parcial';
+    case 'FAILED': return 'Falhou';
+    case 'NOT_AVAILABLE': return 'Não disponível';
+  }
+}
+
+function contextSummary(account: HumanFinancialAccount): string {
+  const messages: string[] = [];
+  if (account.contextFlags.includes('MOVEMENT_COLLECTION_PARTIAL')) {
+    messages.push('A coleta de movimentações foi parcial; ausência de evento não deve ser interpretada como fato.');
+  }
+  if (account.contextFlags.includes('MOVEMENT_COLLECTION_FAILED')) {
+    messages.push('A coleta de movimentações falhou; a leitura do extrato está incompleta.');
+  }
+  if (account.contextFlags.includes('NONZERO_POSITION_WITHOUT_2026_INFLOW')) {
+    messages.push('Há saldo positivo sem entrada correspondente observada no extrato de 2026.');
+  }
+  if (account.contextFlags.includes('NONZERO_APPLICATION_WITHOUT_2026_APPLICATION_EVENT')) {
+    messages.push('Há valor aplicado sem evento de aplicação observado no extrato de 2026; a origem pode estar fora do recorte.');
+  }
+  return messages.join(' ');
+}
+
+function activitySummary(account: HumanFinancialAccount): string {
+  return [
+    `Aplicações ${moneyText(account.activity.applicationsCents)}`,
+    `Resgates ${moneyText(account.activity.redemptionsCents)}`,
+    `Pagamentos / transferências ${moneyText(account.activity.paymentsAndTransfersCents)}`,
+  ].join(' · ');
 }
 
 function buildFollowUp(
@@ -295,33 +334,70 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
 
 function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Contas e Saldos', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Contas, saldos e aplicações · PDDE 2026', 10);
-  subtitle(sheet, 'Os valores de aplicação representam posição financeira na data indicada, não rendimento acumulado.', 10);
+  title(sheet, 'Contas, saldos, cobertura e atividade · PDDE 2026', 14);
+  subtitle(sheet, 'Uma linha por conta. Valores de aplicação representam posição financeira; atividade resume apenas movimentos observados no extrato de 2026.', 14);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'Programa', 'Banco', 'Agência', 'Conta',
-    'Saldo em conta', 'Aplicações', 'Saldo total informado', 'Posição',
+    'SME', 'Unidade escolar', 'Programa', 'Conta', 'Primeira posição', 'Última posição',
+    'Posições', 'Saldo em conta', 'Aplicações', 'Saldo total informado', 'Créditos observados',
+    'Débitos observados', 'Atividade observada em 2026', 'Cobertura e contexto',
   ]));
   for (const school of view.schools) {
     for (const account of school.accounts) {
       const position = account.latestPosition;
+      const bankAccount = `Banco ${account.bank} · Ag. ${account.agency} · Conta ${account.account}`;
+      const context = contextSummary(account);
       sheet.addRow([
         safeText(school.school.sme), safeText(school.school.name), safeText(account.program),
-        safeText(account.bank), safeText(account.agency), safeText(account.account),
+        safeText(bankAccount), brDate(account.coverage.firstPositionDate), brDate(account.coverage.latestPositionDate),
+        account.coverage.positionCount,
         reais(position?.checkingBalanceCents ?? null),
         reais(position?.applications.totalCents ?? null),
         reais(position?.totalReportedBalanceCents ?? null),
-        brDate(position?.referenceDate ?? null),
+        reais(account.activity.creditsObservedCents),
+        reais(account.activity.debitsObservedCents),
+        safeText(activitySummary(account)),
+        safeText(`${coverageLabel(account)}${context ? ` · ${context}` : ''}`),
       ]);
     }
   }
-  moneyColumns(sheet, [7, 8, 9]);
+  moneyColumns(sheet, [8, 9, 10, 11, 12]);
   formatData(sheet);
-  for (const index of [1, 4, 5, 6]) sheet.getColumn(index).numFmt = '@';
+  sheet.getColumn(1).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 38 }, { width: 30 }, { width: 10 }, { width: 12 },
-    { width: 18 }, { width: 18 }, { width: 18 }, { width: 22 }, { width: 16 },
+    { width: 12 }, { width: 38 }, { width: 28 }, { width: 34 }, { width: 17 }, { width: 17 },
+    { width: 11 }, { width: 18 }, { width: 18 }, { width: 20 }, { width: 19 }, { width: 19 },
+    { width: 52 }, { width: 58 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'J3' };
+  sheet.autoFilter = { from: 'A3', to: 'N3' };
+}
+
+function buildMonthlyEvolution(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+  const sheet = workbook.addWorksheet('Evolução Mensal', { views: [{ state: 'frozen', ySplit: 3 }] });
+  title(sheet, 'Evolução mensal das posições financeiras · PDDE 2026', 8);
+  subtitle(sheet, 'Uma linha por posição efetivamente publicada. Mês ausente significa ausência de observação, nunca saldo zero.', 8);
+  header(sheet.addRow([
+    'SME', 'Unidade escolar', 'Programa', 'Conta', 'Data', 'Saldo em conta', 'Aplicações', 'Saldo total informado',
+  ]));
+  for (const school of view.schools) {
+    for (const account of school.accounts) {
+      for (const position of account.positions) {
+        sheet.addRow([
+          safeText(school.school.sme), safeText(school.school.name), safeText(account.program), safeText(account.account),
+          brDate(position.referenceDate), reais(position.checkingBalanceCents), reais(position.applications.totalCents),
+          reais(position.totalReportedBalanceCents),
+        ]);
+      }
+    }
+  }
+  moneyColumns(sheet, [6, 7, 8]);
+  formatData(sheet);
+  sheet.getColumn(1).numFmt = '@';
+  sheet.getColumn(4).numFmt = '@';
+  sheet.columns = [
+    { width: 12 }, { width: 38 }, { width: 28 }, { width: 18 }, { width: 16 },
+    { width: 18 }, { width: 18 }, { width: 22 },
+  ];
+  sheet.autoFilter = { from: 'A3', to: 'H3' };
 }
 
 function buildMovements(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
@@ -402,6 +478,7 @@ export function buildHumanFinancialWorkbook(
   buildUnits(workbook, view);
   buildTransfers(workbook, view);
   buildBalances(workbook, view);
+  buildMonthlyEvolution(workbook, view);
   buildMovements(workbook, view);
   buildAccounting(workbook, view);
   return workbook;
