@@ -197,6 +197,7 @@ const HUMAN_SOURCES: HumanSourceDescription[] = [
 ];
 
 const SOURCE_UNAVAILABLE_FOLLOW_UP = 'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.';
+const CURRENT_FISCAL_YEAR_PREFIX = '2026-';
 
 function brDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -227,9 +228,11 @@ function accountKey(bank: string, agency: string, account: string): string {
 function latestReference(publicReports: PddeInfoPublicPortfolioResult): string | null {
   return publicReports.balances
     .map((balance) => balance.coverageThrough)
-    .filter((value): value is string => Boolean(value))
+    .filter((value): value is string => Boolean(value) && value.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .sort()
-    .at(-1) ?? publicReports.coverageThrough;
+    .at(-1) ?? (publicReports.coverageThrough?.startsWith(CURRENT_FISCAL_YEAR_PREFIX)
+      ? publicReports.coverageThrough
+      : null);
 }
 
 type PublicFinancialBalance = PddeInfoPublicPortfolioResult['balances'][number];
@@ -255,6 +258,7 @@ function positionsFor(
   const wanted = accountKey(bank, agency, account);
   const positionsByDate = new Map<string, PublicFinancialBalance>();
   const matching = publicReports.balances
+    .filter((balance) => balance.coverageThrough.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .filter((balance) => balance.schoolIneps.includes(schoolInep))
     .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)
     .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough));
@@ -350,16 +354,18 @@ function humanCounterparty(value: {
 }
 
 function humanMovements(entries: readonly FiscalStatementEntry[]): HumanFinancialMovement[] {
-  return entries.map((entry) => ({
-    date: entry.date,
-    description: entry.history,
-    document: entry.document || null,
-    category: entry.neutralCategory,
-    kind: humanMovementKind(entry.technicalClassification),
-    creditCents: entry.creditCents,
-    debitCents: entry.debitCents,
-    counterparty: humanCounterparty(entry.counterparty),
-  }));
+  return entries
+    .filter((entry) => entry.date.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
+    .map((entry) => ({
+      date: entry.date,
+      description: entry.history,
+      document: entry.document || null,
+      category: entry.neutralCategory,
+      kind: humanMovementKind(entry.technicalClassification),
+      creditCents: entry.creditCents,
+      debitCents: entry.debitCents,
+      counterparty: humanCounterparty(entry.counterparty),
+    }));
 }
 
 function humanMovementCollectionStatus(
@@ -618,6 +624,7 @@ function schoolAccounts(
   }
 
   const publicBalances = publicReports.balances
+    .filter((balance) => balance.coverageThrough.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .filter((balance) => balance.schoolIneps.includes(school.school.inep))
     .sort((left, right) => right.coverageThrough.localeCompare(left.coverageThrough));
 
