@@ -283,18 +283,23 @@
   overflow-x: visible;
 }
 
-.school-section-nav {
+.school-section-nav-shell {
   position: sticky;
   top: 72px;
   z-index: 12;
   margin: 0 calc(-1 * var(--space-2));
+  border-bottom: 1px solid var(--ink-200);
+  background: rgb(242 246 247 / 0.94);
+  backdrop-filter: blur(14px);
+}
+
+.school-section-nav {
   padding: var(--space-3) var(--space-2);
   display: flex;
   gap: var(--space-2);
   overflow-x: auto;
-  border-bottom: 1px solid var(--ink-200);
-  background: rgb(242 246 247 / 0.94);
-  backdrop-filter: blur(14px);
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
   scrollbar-width: thin;
 }
 
@@ -309,9 +314,22 @@
 }
 
 .school-section-nav a:hover,
-.school-section-nav a:focus-visible {
+.school-section-nav a:focus-visible,
+.school-section-nav a[aria-current='location'] {
   color: var(--ink-950);
   background: var(--paper);
+}
+
+.school-section-nav a[aria-current='location'] {
+  box-shadow: inset 0 -2px 0 var(--paid-600);
+}
+
+.school-section-nav__scroll-control {
+  display: none;
+}
+
+.school-section-nav__scroll-control[hidden] {
+  display: none !important;
 }
 
 .school-section-target,
@@ -403,7 +421,7 @@
     gap: var(--space-8);
   }
 
-  .school-section-nav {
+  .school-section-nav-shell {
     top: 105px;
   }
 
@@ -480,10 +498,56 @@
     scrollbar-width: thin;
   }
 
-  .school-section-nav {
+  .school-section-nav-shell {
     top: 104px;
     margin-inline: calc(-1 * 0.75rem);
+  }
+
+  .school-section-nav {
     padding-inline: 0.75rem;
+    scroll-padding-inline: 4.75rem;
+    scrollbar-width: none;
+  }
+
+  .school-section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .school-section-nav__scroll-control {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    transform: translateY(-50%);
+    border: 1px solid var(--ink-200);
+    border-radius: 999px;
+    color: var(--ink-950);
+    background: var(--paper);
+    box-shadow: var(--shadow-sm);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 760;
+    cursor: pointer;
+  }
+
+  .school-section-nav__scroll-control:hover,
+  .school-section-nav__scroll-control:focus-visible {
+    border-color: var(--paid-600);
+    color: var(--paid-700);
+  }
+
+  .school-section-nav__scroll-control--previous {
+    left: 0.4rem;
+  }
+
+  .school-section-nav__scroll-control--next {
+    right: 0.4rem;
   }
 }
 

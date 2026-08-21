@@ -18,6 +18,8 @@ import './design/session.css';
 import './design/live-refresh.css';
 import './design/findability.css';
 import './design/coherence-fixes.css';
+import './design/school-operational.css';
+import './design/movement-ledger.css';
 
 export function App() {
   return (

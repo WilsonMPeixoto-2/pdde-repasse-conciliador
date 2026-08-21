@@ -2,6 +2,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { gzipSync, strToU8 } from 'fflate';
 import { chromium } from 'playwright';
 
 const dist = new URL('../dist/', import.meta.url);
@@ -116,10 +117,10 @@ const school = {
           note: null,
         },
         {
-          installment: '2ª Parcela', programmedCents: 506500, paymentInformedCents: 0,
-          paymentInformedDate: null, paymentOrderDate: null,
+          installment: '2ª Parcela', programmedCents: 506500, paymentInformedCents: 100000,
+          paymentInformedDate: '2026-08-07', paymentOrderDate: null,
           account: { bank: '001', agency: '0249', number: '0000549797' },
-          creditEvidence: { status: 'Pagamento não informado', date: null, amountCents: null, document: null },
+          creditEvidence: { status: 'Crédito não localizado', date: null, amountCents: null, document: null },
           note: null,
         },
       ],
@@ -159,8 +160,17 @@ const school = {
     },
   ],
   accounting: [{ program: 'PDDE', status: 'ADIMPLENTE', paymentSuspended: false, expectedTotalCents: 1013000 }],
-  followUp: ['Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.'],
+  followUp: [
+    'Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.',
+    'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.',
+  ],
 };
+
+const snapshotPartPath = '/data/frontend-product-smoke-snapshot.txt';
+const encodedSnapshot = Buffer.from(gzipSync(strToU8(JSON.stringify({
+  portfolio,
+  schools: { [school.school.inep]: school },
+})))).toString('base64');
 
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 
@@ -169,14 +179,20 @@ function sendJson(res, value) {
   res.end(JSON.stringify(value));
 }
 
+function sendText(res, value) {
+  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(value);
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-  if (url.pathname === '/api/current/human/portfolio') return sendJson(res, portfolio);
-  if (url.pathname === '/api/current/human/schools/33069093') return sendJson(res, school);
-  if (url.pathname.startsWith('/api/current/human/schools/')) {
-    res.writeHead(404, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'not found' }));
+  if (url.pathname === '/data/pdde-2026-snapshot.json') {
+    return sendJson(res, {
+      encoding: 'gzip-base64-parts',
+      parts: [snapshotPartPath],
+    });
   }
+  if (url.pathname === snapshotPartPath) return sendText(res, encodedSnapshot);
 
   const wanted = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
   const safe = normalize(wanted).replace(/^(\.\.(\/|\\|$))+/, '');
@@ -234,6 +250,33 @@ async function assertNoMainOverflow(page) {
   }
 }
 
+async function validateMobileSchoolSectionNav(page, suffix) {
+  if (suffix !== 'mobile') return;
+
+  const nav = page.getByRole('navigation', { name: 'Seções do prontuário financeiro' });
+  const next = page.getByRole('button', { name: 'Ver próximas seções' });
+  const previous = page.getByRole('button', { name: 'Ver seções anteriores' });
+
+  await nav.waitFor();
+  await next.waitFor({ state: 'visible' });
+
+  const initialScrollLeft = await nav.evaluate((element) => element.scrollLeft);
+  await next.click();
+  const advancedScrollLeftHandle = await page.waitForFunction((initial) => {
+    const element = document.querySelector('.school-section-nav');
+    if (!(element instanceof HTMLElement)) return false;
+    return element.scrollLeft > initial + 2 ? element.scrollLeft : false;
+  }, initialScrollLeft);
+  const advancedScrollLeft = await advancedScrollLeftHandle.jsonValue();
+
+  await previous.waitFor({ state: 'visible' });
+  await previous.click();
+  await page.waitForFunction((advanced) => {
+    const element = document.querySelector('.school-section-nav');
+    return element instanceof HTMLElement && element.scrollLeft < advanced - 2;
+  }, advancedScrollLeft);
+}
+
 async function validatePortfolioSchools(context, suffix) {
   const page = await context.newPage();
   await page.goto(`${base}/unidades`, { waitUntil: 'networkidle' });
@@ -245,9 +288,11 @@ async function validatePortfolioSchools(context, suffix) {
 
   const rows = page.locator('.portfolio-school');
   if (await rows.count() !== 4) throw new Error('A carteira não apresentou as quatro unidades do fixture.');
-  if (!(await rows.first().innerText()).includes('EM CIDADE NOVA')) {
-    throw new Error('A ordenação padrão não priorizou a unidade com pagamento suspenso.');
+  if (!(await rows.first().innerText()).includes('EM ALBINO SOUZA CRUZ')) {
+    throw new Error('A ordenação padrão não respeitou o código SME.');
   }
+  await page.locator('.portfolio-schools-sort select').selectOption('attention');
+  await rows.first().getByText('EM CIDADE NOVA', { exact: true }).waitFor();
 
   await page.getByRole('button', { name: /Cobertura incompleta/i }).click();
   await page.getByRole('heading', { name: '1 unidade no recorte' }).waitFor();
@@ -289,6 +334,22 @@ async function smoke(viewport, suffix) {
   await page.waitForFunction(() => window.scrollY <= 2 && document.activeElement?.tagName === 'MAIN');
   await assertNoTechnicalMetadata(page);
   await assertNoMainOverflow(page);
+  await validateMobileSchoolSectionNav(page, suffix);
+
+  const operationalSummary = page.getByRole('region', { name: 'Leitura rápida desta escola' });
+  await operationalSummary.waitFor();
+  await operationalSummary.getByText('Previsto', { exact: true }).waitFor();
+  await operationalSummary.getByText('Pagamento informado', { exact: true }).waitFor();
+  await operationalSummary.getByText('Crédito compatível localizado', { exact: true }).waitFor();
+  await operationalSummary.getByText('Saldo informado', { exact: true }).waitFor();
+  await operationalSummary.getByRole('link', { name: 'Ver repasses' }).waitFor();
+  const sourceUnavailable = page.getByText(
+    'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.',
+    { exact: true },
+  );
+  if (await sourceUnavailable.count() !== 1) {
+    throw new Error('O apontamento de fonte indisponível deve aparecer uma única vez no prontuário.');
+  }
 
   const programDisclosure = page.getByRole('button', { name: /PDDE \/ PDDE Básico/ });
   await programDisclosure.click();

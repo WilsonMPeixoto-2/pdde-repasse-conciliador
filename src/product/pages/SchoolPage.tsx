@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
-import { MetricValue } from '../components/MetricValue';
 import { MovementLedger } from '../components/MovementLedger';
+import { SchoolOperationalSummary } from '../components/SchoolOperationalSummary';
 import { SchoolSectionNav } from '../components/SchoolSectionNav';
 import { Timeline2026 } from '../components/Timeline2026';
-import { buildAccountTimeline2026, deriveSchoolSummary } from '../derive';
+import { buildAccountTimeline2026 } from '../derive';
 import { formatAccount, formatCnpj, formatDate, formatMoney } from '../format';
 import { usePortfolio } from '../PortfolioContext';
 import type { HumanSchool } from '../types';
@@ -23,10 +23,9 @@ function programTotals(program: HumanSchool['programs'][number]) {
   }), { programmed: 0, paid: 0 });
 }
 
-function SchoolContent({ school }: { school: HumanSchool }) {
+export function SchoolContent({ school }: { school: HumanSchool }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const { hash } = useLocation();
-  const summary = deriveSchoolSummary(school);
   const firstMovementAccountIndex = school.accounts.findIndex((account) => account.movements.length > 0);
   const hasMovements = firstMovementAccountIndex >= 0;
   const hasAccounting = school.accounting.length > 0;
@@ -51,21 +50,10 @@ function SchoolContent({ school }: { school: HumanSchool }) {
 
       <SchoolSectionNav hasMovements={hasMovements} hasAccounting={hasAccounting} />
 
-      <section id="resumo" tabIndex={-1} className="section school-section-target" aria-labelledby="school-position-title">
-        <div className="section-heading">
-          <div><div className="eyebrow">Resumo</div><h2 id="school-position-title">Posição financeira da escola</h2></div>
-          <p>{summary.balanceReferenceDate ? `Saldo informado com referência mais recente em ${formatDate(summary.balanceReferenceDate)}.` : 'Ainda não há posição de saldo disponível para esta unidade.'}</p>
-        </div>
-        <div className="metrics-band">
-          <MetricValue label="Previsto em 2026" valueCents={summary.programmedCents} />
-          <MetricValue label="Pagamento informado" valueCents={summary.paymentInformedCents} tone="paid" meta="Registro no PDDEInfo" />
-          <MetricValue label="Crédito compatível localizado" valueCents={summary.creditLocatedCents} tone="credit" />
-          <MetricValue label="Saldo informado" valueCents={summary.reportedBalanceCents} tone="balance" meta={summary.balanceReferenceDate ? `Posição ${formatDate(summary.balanceReferenceDate)}` : undefined} />
-        </div>
-      </section>
+      <SchoolOperationalSummary school={school} />
 
-      <div className="two-column section school-financial-detail">
-        <div>
+      <div className="section school-financial-detail">
+        <div className="school-financial-detail__content">
           <section id="repasses" tabIndex={-1} className="school-section-target" aria-labelledby="programs-title">
             <div className="section-heading">
               <div><div className="eyebrow">Programas e parcelas</div><h2 id="programs-title">Repasses</h2></div>
@@ -154,20 +142,6 @@ function SchoolContent({ school }: { school: HumanSchool }) {
             </section>
           ) : null}
         </div>
-
-        <aside className="sidebar-sticky" aria-labelledby="followup-title">
-          <div className="eyebrow">Acompanhamento</div>
-          <h2 id="followup-title">O que merece atenção</h2>
-          {school.followUp.length > 0 ? (
-            <div className="followup-list">
-              {school.followUp.map((item) => <div className="followup" key={item}>{item}</div>)}
-            </div>
-          ) : <p className="school-followup-empty">Nenhum apontamento de acompanhamento no retrato atual.</p>}
-          <div className="school-reading-note">
-            <strong>Como interpretar</strong>
-            <p>Pagamento informado, ordem FNDE, crédito localizado e saldo publicado representam evidências diferentes. A tela mantém essas etapas separadas.</p>
-          </div>
-        </aside>
       </div>
     </main>
   );
