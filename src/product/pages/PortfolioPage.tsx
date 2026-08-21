@@ -1,3 +1,4 @@
+import { ExcelExportButton } from '../components/ExcelExportButton';
 import { FinancialTaskLinks } from '../components/FinancialTaskLinks';
 import { GlobalSchoolFinder } from '../components/GlobalSchoolFinder';
 import { IndicatorLink } from '../components/IndicatorLink';
@@ -65,15 +66,18 @@ export function PortfolioPage() {
             <p className="lead">Consulte rapidamente repasses, contas, saldos e movimentações das escolas da 4ª CRE. A plataforma mantém separadas as diferentes evidências financeiras para não transformar indicação em comprovação.</p>
           </div>
           <div className="live-refresh-control">
-            <button
-              className="button button--primary"
-              type="button"
-              disabled={state.refreshing}
-              aria-busy={state.refreshing}
-              onClick={() => void state.refreshLive()}
-            >
-              Fazer nova consulta
-            </button>
+            <div className="portfolio-hero__actions">
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={state.refreshing}
+                aria-busy={state.refreshing}
+                onClick={() => void state.refreshLive()}
+              >
+                Fazer nova consulta
+              </button>
+              <ExcelExportButton />
+            </div>
             {state.refreshing ? (
               <div className="live-refresh-status">
                 <div className="live-refresh-status__header">
