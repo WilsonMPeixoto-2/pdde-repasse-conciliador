@@ -184,6 +184,19 @@ function latestReference(publicReports: PddeInfoPublicPortfolioResult): string |
     .at(-1) ?? publicReports.coverageThrough;
 }
 
+type PublicFinancialBalance = PddeInfoPublicPortfolioResult['balances'][number];
+
+function financialPositionSignature(position: PublicFinancialBalance): string {
+  return JSON.stringify([
+    position.checkingBalanceCents,
+    position.fundBalanceCents,
+    position.savingsBalanceCents,
+    position.rdbCdbBalanceCents,
+    position.investmentBalanceCents,
+    position.totalReportedBalanceCents,
+  ]);
+}
+
 function positionsFor(
   schoolInep: string,
   bank: string,
@@ -192,21 +205,51 @@ function positionsFor(
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanFinancialPosition[] {
   const wanted = accountKey(bank, agency, account);
-  return publicReports.balances
+  const positionsByDate = new Map<string, PublicFinancialBalance>();
+  const matching = publicReports.balances
     .filter((balance) => balance.schoolIneps.includes(schoolInep))
     .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)
-    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough))
-    .map((position) => ({
-      referenceDate: position.coverageThrough,
-      checkingBalanceCents: position.checkingBalanceCents,
-      applications: {
-        fundsCents: position.fundBalanceCents,
-        savingsCents: position.savingsBalanceCents,
-        rdbCdbCents: position.rdbCdbBalanceCents,
-        totalCents: position.investmentBalanceCents,
-      },
-      totalReportedBalanceCents: position.totalReportedBalanceCents,
-    }));
+    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough));
+
+  for (const position of matching) {
+    const existing = positionsByDate.get(position.coverageThrough);
+    if (!existing) {
+      positionsByDate.set(position.coverageThrough, position);
+      continue;
+    }
+    if (financialPositionSignature(existing) !== financialPositionSignature(position)) {
+      throw new Error(
+        `Posição financeira divergente para a escola ${schoolInep}, conta ${wanted}, em ${position.coverageThrough}.`,
+      );
+    }
+  }
+
+  return [...positionsByDate.values()].map((position) => ({
+    referenceDate: position.coverageThrough,
+    checkingBalanceCents: position.checkingBalanceCents,
+    applications: {
+      fundsCents: position.fundBalanceCents,
+      savingsCents: position.savingsBalanceCents,
+      rdbCdbCents: position.rdbCdbBalanceCents,
+      totalCents: position.investmentBalanceCents,
+    },
+    totalReportedBalanceCents: position.totalReportedBalanceCents,
+  }));
+}
+
+function centsObservedNonZero(value: number | null): boolean {
+  return value !== null && value !== 0;
+}
+
+function hasObservedNonZeroPosition(positions: readonly HumanFinancialPosition[]): boolean {
+  return positions.some((position) => (
+    centsObservedNonZero(position.checkingBalanceCents)
+    || centsObservedNonZero(position.applications.fundsCents)
+    || centsObservedNonZero(position.applications.savingsCents)
+    || centsObservedNonZero(position.applications.rdbCdbCents)
+    || centsObservedNonZero(position.applications.totalCents)
+    || centsObservedNonZero(position.totalReportedBalanceCents)
+  ));
 }
 
 function accountNote(position: HumanFinancialPosition | null): string | null {
@@ -384,8 +427,7 @@ function schoolAccounts(
       publicReports,
     );
     const latestPosition = positions.at(-1) ?? null;
-    if (latestPosition?.totalReportedBalanceCents === null
-      || latestPosition?.totalReportedBalanceCents === 0) continue;
+    if (!hasObservedNonZeroPosition(positions)) continue;
     accounts.set(key, {
       program: balance.programName,
       bank: balance.bank,
