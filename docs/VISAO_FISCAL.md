@@ -139,9 +139,9 @@ A interface/Excel pode destacar fatos que merecem revisão humana, como:
 
 O rótulo é deliberadamente **Registros para Conferência**, não “irregularidades”.
 
-## Excel Fiscal v3
+## Excel técnico de auditoria
 
-O gerador `monitor:fiscal:xlsx` produz nove abas:
+O gerador canônico `monitor:technical:xlsx` produz nove abas:
 
 1. **Visão Geral** — métricas da carteira e resumo por ação/parcela;
 2. **Unidades** — carteira das 163 UEs;
@@ -152,6 +152,8 @@ O gerador `monitor:fiscal:xlsx` produz nove abas:
 7. **BASE - Movimentos** — base plana das movimentações;
 8. **BASE - Contas** — contas e saldos informados;
 9. **Legenda e Fontes** — linguagem, fontes e limites de interpretação.
+
+Os nomes legados `monitor:fiscal:xlsx` e `monitor:audit:xlsx` permanecem como aliases do mesmo gerador técnico. A planilha humana de sete abas é gerada exclusivamente por `monitor:human:xlsx`.
 
 A base operacional plana continua existindo para processamento, filtros e integrações. Ela não é a visualização principal destinada ao trabalho do fiscal.
 

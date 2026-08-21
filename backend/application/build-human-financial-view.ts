@@ -148,6 +148,8 @@ const HUMAN_SOURCES: HumanSourceDescription[] = [
   },
 ];
 
+const SOURCE_UNAVAILABLE_FOLLOW_UP = 'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.';
+
 function brDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
@@ -429,7 +431,7 @@ function followUpFor(
     || (failure.cnpj && failure.cnpj === school.school.cnpj)
   ));
   if (schoolFailures.length > 0) {
-    messages.push('Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.');
+    messages.push(SOURCE_UNAVAILABLE_FOLLOW_UP);
   }
   if (accounts.some((account) => account.latestPosition === null)) {
     messages.push('Há conta sem posição pública de saldo disponível na data desta consulta.');
@@ -539,7 +541,9 @@ function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFin
     indicator('Prestação com pagamento suspenso', schools, (school) => (
       school.accounting.some((item) => item.paymentSuspended)
     )),
-    indicator('Informação parcial', schools, (school) => school.followUp.length > 0),
+    indicator('Outra informação parcial', schools, (school) => (
+      school.followUp.includes(SOURCE_UNAVAILABLE_FOLLOW_UP)
+    )),
   ];
 }
 

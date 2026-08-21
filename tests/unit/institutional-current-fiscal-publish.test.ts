@@ -48,7 +48,7 @@ const human = {
     { name: 'PDDEInfo', information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.' },
     { name: 'SIGEF', information: 'Movimentações das contas e créditos compatíveis localizados no extrato.' },
   ],
-  indicators: [{ label: 'Informação parcial', count: 0, units: [] }],
+  indicators: [{ label: 'Outra informação parcial', count: 0, units: [] }],
   schools: schools.map((item) => ({
     school: { inep: item.inep, sme: item.sme, name: item.nome, uex: `CEC ${item.nome}`, cnpj: '01872287000102' },
     programs: [], accounts: [], accounting: [], followUp: [],

@@ -120,7 +120,7 @@ function humanSnapshot(runId: string) {
         applicationsCents: 70_000,
       },
       sources: [{ name: 'PDDEInfo', information: 'Dados financeiros públicos.' }],
-      indicators: [{ label: 'Informação parcial', count: 0, units: [] }],
+      indicators: [{ label: 'Outra informação parcial', count: 0, units: [] }],
       schools: summaries,
     },
     schools: schools.map((school) => ({

@@ -177,7 +177,7 @@ npm run monitor:human:xlsx -- \
   --output /caminho/inteligencia-financeira-pdde-4cre-2026.xlsx
 ```
 
-`monitor:fiscal:xlsx` aponta para o mesmo gerador humano por compatibilidade.
+Este é o único comando canônico da planilha destinada ao usuário humano.
 
 O workbook possui sete recortes curtos:
 
@@ -191,11 +191,15 @@ O workbook possui sete recortes curtos:
 
 Nenhuma dessas abas padrão replica uma “mega tabela” do backend.
 
-A antiga exportação detalhada foi preservada para auditoria técnica:
+A exportação detalhada de nove abas foi preservada para auditoria técnica, com nome explícito:
 
 ```bash
-npm run monitor:audit:xlsx
+npm run monitor:technical:xlsx -- \
+  --input /caminho/fiscal-human-view.json \
+  --output /caminho/auditoria-tecnica-pdde-4cre-2026.xlsx
 ```
+
+Os aliases legados `monitor:fiscal:xlsx` e `monitor:audit:xlsx` continuam apontando para esse mesmo gerador técnico para não interromper automações existentes. Eles **não** geram a planilha humana.
 
 ## Coleta e backfill 2026
 

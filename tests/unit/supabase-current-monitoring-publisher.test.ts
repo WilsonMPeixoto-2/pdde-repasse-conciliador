@@ -31,7 +31,7 @@ const human = {
     applicationsCents: 0,
   },
   sources: [{ name: 'PDDEInfo', information: 'Repasses informados e saldos.' }],
-  indicators: [{ label: 'Informação parcial', count: 0, units: [] }],
+  indicators: [{ label: 'Outra informação parcial', count: 0, units: [] }],
   schools: [{
     school: { inep: '33069247', sme: '0410001', name: 'ESCOLA A', uex: 'CEC A', cnpj: '01872287000102' },
     programs: [], accounts: [], accounting: [], followUp: [],

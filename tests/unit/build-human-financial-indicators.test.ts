@@ -53,12 +53,12 @@ describe('indicadores acionáveis da visão humana', () => {
     const missingAccount = view.indicators.find((item) => item.label === 'Pagamento informado sem conta do repasse exibida');
     expect(missingAccount).toEqual(expect.objectContaining({ count: 0, units: [] }));
 
-    const partial = view.indicators.find((item) => item.label === 'Informação parcial');
-    expect(partial).toEqual(expect.objectContaining({ count: 2 }));
+    const partial = view.indicators.find((item) => item.label === 'Outra informação parcial');
+    expect(partial).toEqual(expect.objectContaining({ count: 1 }));
     expect(partial?.units).toEqual([
-      { sme: '0410001', name: 'ESCOLA A', inep: '33069247' },
       { sme: '0410003', name: 'ESCOLA B', inep: '33069433' },
     ]);
+    expect(view.indicators.find((item) => item.label === 'Informação parcial')).toBeUndefined();
 
     for (const indicator of view.indicators) {
       expect(indicator.count).toBe(indicator.units.length);

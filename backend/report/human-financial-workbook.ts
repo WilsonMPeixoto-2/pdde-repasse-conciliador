@@ -5,6 +5,11 @@ import type {
   HumanFinancialSchoolView,
 } from '../application/build-human-financial-view';
 import { assertCurrentFiscalYear } from '../core/fiscal-scope';
+import {
+  buildOverviewMetrics,
+  consolidateIndicatorRows,
+  formatGeneratedAt,
+} from './human-financial-workbook-model';
 
 const NAVY = '183B56';
 const BLUE = '2F6F91';
@@ -114,18 +119,18 @@ function buildFollowUp(
   indicators: readonly HumanFinancialIndicator[],
 ): Map<string, number> {
   title(sheet, 'Acompanhamento · listas nominais', 4);
-  subtitle(sheet, 'Todo número destacado na Visão Geral pode ser conferido aqui pelas unidades que compõem o total.', 4);
-  header(sheet.addRow(['Situação', 'SME', 'Unidade escolar', 'INEP']));
+  subtitle(sheet, 'Cada unidade aparece uma única vez. Quando houver mais de uma situação, elas são apresentadas juntas.', 4);
+  header(sheet.addRow(['Situações', 'SME', 'Unidade escolar', 'INEP']));
   const firstRows = new Map<string, number>();
-  for (const indicator of indicators) {
-    for (const unit of indicator.units) {
-      const row = sheet.addRow([
-        safeText(indicator.label),
-        safeText(unit.sme),
-        safeText(unit.name),
-        safeText(unit.inep),
-      ]);
-      if (!firstRows.has(indicator.label)) firstRows.set(indicator.label, row.number);
+  for (const item of consolidateIndicatorRows(indicators)) {
+    const row = sheet.addRow([
+      safeText(item.situations.join(' · ')),
+      safeText(item.sme),
+      safeText(item.name),
+      safeText(item.inep),
+    ]);
+    for (const situation of item.situations) {
+      if (!firstRows.has(situation)) firstRows.set(situation, row.number);
     }
   }
   formatData(sheet);
@@ -140,52 +145,45 @@ function buildOverview(
   sheet: ExcelJS.Worksheet,
   view: HumanFinancialPortfolioView,
   indicatorRows: ReadonlyMap<string, number>,
+  generatedAt: Date,
 ): void {
-  title(sheet, 'Plataforma de Inteligência Financeira das Verbas do PDDE/2026', 6);
-  subtitle(sheet, `4ª Coordenadoria Regional de Educação · ${view.referenceLabel}`, 6);
-
-  const installments = view.schools.flatMap((school) => (
-    school.programs.flatMap((program) => program.installments)
-  ));
-  const accounts = view.schools.flatMap((school) => school.accounts);
-  const movements = accounts.flatMap((account) => account.movements);
-  const latestBalances = view.schools.map(latestSchoolPosition);
+  const overviewMetrics = buildOverviewMetrics(view);
+  const lastColumn = overviewMetrics.length;
+  title(sheet, 'Plataforma de Inteligência Financeira das Verbas do PDDE/2026', lastColumn);
+  subtitle(
+    sheet,
+    `4ª Coordenadoria Regional de Educação · ${view.referenceLabel} · Arquivo gerado em ${formatGeneratedAt(generatedAt)}`,
+    lastColumn,
+  );
 
   sheet.addRow([]);
-  const metricHeader = sheet.addRow([
-    internalLink('Unidades', 'Unidades'),
-    internalLink('Contas acompanhadas', 'Contas e Saldos'),
-    internalLink('Movimentações em 2026', 'Movimentações'),
-    internalLink('Previsto', 'Repasses'),
-    internalLink('Pagamento informado', 'Repasses'),
-    internalLink('Saldo informado mais recente', 'Contas e Saldos'),
-  ]);
+  const metricHeader = sheet.addRow(overviewMetrics.map((metric) => (
+    internalLink(metric.label, metric.targetSheet)
+  )));
   header(metricHeader);
-  const metrics = sheet.addRow([
-    view.schools.length,
-    accounts.length,
-    movements.length,
-    reais(installments.reduce((sum, item) => sum + item.programmedCents, 0)),
-    reais(installments.reduce((sum, item) => sum + item.paymentInformedCents, 0)),
-    reais(sumKnown(latestBalances.map((item) => item.cents))),
-  ]);
+  const metrics = sheet.addRow(overviewMetrics.map((metric) => metric.value));
   metrics.font = { bold: true, color: { argb: DARK }, size: 14 };
   metrics.alignment = { horizontal: 'center', vertical: 'middle' };
   metrics.height = 28;
-  moneyColumns(sheet, [4, 5, 6]);
-  metrics.getCell(5).font = { bold: true, color: { argb: PAID_GREEN }, size: 14 };
+  moneyColumns(sheet, overviewMetrics.flatMap((metric, index) => (
+    metric.monetary ? [index + 1] : []
+  )));
+  const accentColumn = overviewMetrics.findIndex((metric) => metric.accent) + 1;
+  if (accentColumn > 0) {
+    metrics.getCell(accentColumn).font = { bold: true, color: { argb: PAID_GREEN }, size: 14 };
+  }
 
   sheet.addRow([]);
   const followUpTitle = sheet.addRow(['Acompanhamento']);
-  sheet.mergeCells(followUpTitle.number, 1, followUpTitle.number, 6);
+  sheet.mergeCells(followUpTitle.number, 1, followUpTitle.number, lastColumn);
   followUpTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
   followUpTitle.getCell(1).font = { bold: true, color: { argb: NAVY }, size: 11 };
   const followUpHeader = sheet.addRow(['Situação', 'Unidades', 'Abrir lista']);
-  sheet.mergeCells(followUpHeader.number, 3, followUpHeader.number, 6);
+  sheet.mergeCells(followUpHeader.number, 3, followUpHeader.number, lastColumn);
   header(followUpHeader);
   for (const indicator of view.indicators) {
     const row = sheet.addRow([indicator.label, indicator.count]);
-    sheet.mergeCells(row.number, 3, row.number, 6);
+    sheet.mergeCells(row.number, 3, row.number, lastColumn);
     const targetRow = indicatorRows.get(indicator.label);
     row.getCell(2).value = targetRow
       ? internalLink(String(indicator.count), 'Acompanhamento', targetRow)
@@ -201,7 +199,7 @@ function buildOverview(
 
   sheet.addRow([]);
   const sourceTitle = sheet.addRow(['Como ler as informações']);
-  sheet.mergeCells(sourceTitle.number, 1, sourceTitle.number, 6);
+  sheet.mergeCells(sourceTitle.number, 1, sourceTitle.number, lastColumn);
   sourceTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE } };
   sourceTitle.getCell(1).font = { bold: true, color: { argb: NAVY } };
   const notes: Array<[string, string]> = [
@@ -212,13 +210,13 @@ function buildOverview(
   ];
   for (const [label, text] of notes) {
     const row = sheet.addRow([label, text]);
-    sheet.mergeCells(row.number, 2, row.number, 6);
+    sheet.mergeCells(row.number, 2, row.number, lastColumn);
     row.getCell(1).font = { bold: true, color: { argb: NAVY } };
     row.getCell(2).font = { color: { argb: DARK } };
     row.alignment = { vertical: 'top', wrapText: true };
   }
   sheet.columns = [
-    { width: 30 }, { width: 18 }, { width: 18 }, { width: 21 }, { width: 22 }, { width: 25 },
+    { width: 27 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 21 }, { width: 24 }, { width: 24 },
   ];
 }
 
@@ -380,18 +378,27 @@ function buildAccounting(workbook: ExcelJS.Workbook, view: HumanFinancialPortfol
   sheet.autoFilter = { from: 'A3', to: 'G3' };
 }
 
-export function buildHumanFinancialWorkbook(view: HumanFinancialPortfolioView): ExcelJS.Workbook {
+export interface BuildHumanFinancialWorkbookOptions {
+  generatedAt?: Date;
+}
+
+export function buildHumanFinancialWorkbook(
+  view: HumanFinancialPortfolioView,
+  options: BuildHumanFinancialWorkbookOptions = {},
+): ExcelJS.Workbook {
   assertCurrentFiscalYear(view.fiscalYear);
+  const generatedAt = options.generatedAt ?? new Date();
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Inteligência Financeira PDDE | 4ª CRE';
   workbook.subject = 'Acompanhamento financeiro das verbas do PDDE/2026';
-  workbook.created = new Date();
+  workbook.created = generatedAt;
+  workbook.modified = generatedAt;
   workbook.calcProperties.fullCalcOnLoad = true;
 
   const overviewSheet = workbook.addWorksheet('Visão Geral', { views: [{ state: 'frozen', ySplit: 2 }] });
   const followUpSheet = workbook.addWorksheet('Acompanhamento', { views: [{ state: 'frozen', ySplit: 3 }] });
   const indicatorRows = buildFollowUp(followUpSheet, view.indicators);
-  buildOverview(overviewSheet, view, indicatorRows);
+  buildOverview(overviewSheet, view, indicatorRows, generatedAt);
   buildUnits(workbook, view);
   buildTransfers(workbook, view);
   buildBalances(workbook, view);
