@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { buildHumanFinancialWorkbook } from '../../backend/report/human-financial-workbook';
 import type { HumanFinancialPortfolioView } from '../../backend/application/build-human-financial-view';
 
+const mayPosition = {
+  referenceDate: '2026-05-31', checkingBalanceCents: 100000,
+  applications: { fundsCents: 200000, savingsCents: 0, rdbCdbCents: 0, totalCents: 200000 },
+  totalReportedBalanceCents: 300000,
+};
+
 const latestPosition = {
   referenceDate: '2026-06-30', checkingBalanceCents: 0,
   applications: { fundsCents: 318699, savingsCents: 0, rdbCdbCents: 0, totalCents: 318699 },
@@ -57,13 +63,35 @@ const view: HumanFinancialPortfolioView = {
     }],
     accounts: [{
       program: 'PDDE QUALIDADE', bank: '001', agency: '0249', account: '0000546402',
-      positions: [latestPosition],
+      positions: [mayPosition, latestPosition],
       latestPosition,
       movements: [{
         date: '2026-06-10', description: 'PAGAMENTO FORNECEDOR', document: '12345',
-        category: 'Pagamento / transferência', creditCents: null, debitCents: 50000,
+        category: 'Pagamento / transferência', kind: 'PAYMENT_OR_TRANSFER', creditCents: null, debitCents: 50000,
         counterparty: null,
       }],
+      coverage: {
+        positionCount: 2,
+        firstPositionDate: '2026-05-31',
+        latestPositionDate: '2026-06-30',
+        movementCollectionStatus: 'COMPLETE',
+        latestMovementDate: '2026-06-10',
+      },
+      activity: {
+        movementCount: 1,
+        creditsObservedCents: 0,
+        debitsObservedCents: 50000,
+        fndeCreditsCents: 0,
+        applicationsCents: 0,
+        redemptionsCents: 0,
+        paymentsAndTransfersCents: 50000,
+        financialIncomeCents: 0,
+        thirdPartyEntriesCents: 0,
+        bankFeesCents: 0,
+        otherCreditsCents: 0,
+        otherDebitsCents: 0,
+      },
+      contextFlags: [],
       note: 'Saldo informado pelo FNDE com posição até 30/06/2026.',
     }],
     accounting: [{
@@ -83,11 +111,12 @@ describe('Excel humano da inteligência financeira', () => {
       'Unidades',
       'Repasses',
       'Contas e Saldos',
+      'Evolução Mensal',
       'Movimentações',
       'Prestação de Contas',
     ]);
     for (const sheet of workbook.worksheets) {
-      expect(sheet.columnCount).toBeLessThanOrEqual(10);
+      expect(sheet.columnCount).toBeLessThanOrEqual(14);
     }
   });
 
@@ -162,6 +191,35 @@ describe('Excel humano da inteligência financeira', () => {
     const plannedCell = sheet?.getCell(4, 5);
     expect(paidCell?.font?.color?.argb).toBeDefined();
     expect(paidCell?.font?.color?.argb).not.toBe(plannedCell?.font?.color?.argb);
+  });
+
+  it('publica uma linha por posição na aba Evolução Mensal', () => {
+    const workbook = buildHumanFinancialWorkbook(view);
+    const sheet = workbook.getWorksheet('Evolução Mensal');
+    expect(sheet).toBeDefined();
+    expect(sheet?.rowCount).toBe(5);
+    expect(sheet?.getRow(4).values).toEqual([
+      undefined, '0410001', 'EM EMA NEGRAO DE LIMA', 'PDDE QUALIDADE', '0000546402',
+      '31/05/2026', 1000, 2000, 3000,
+    ]);
+    expect(sheet?.getRow(5).values).toEqual([
+      undefined, '0410001', 'EM EMA NEGRAO DE LIMA', 'PDDE QUALIDADE', '0000546402',
+      '30/06/2026', 0, 3186.99, 3186.99,
+    ]);
+  });
+
+  it('faz Contas e Saldos refletir cobertura e atividade observadas no contrato humano', () => {
+    const workbook = buildHumanFinancialWorkbook(view);
+    const sheet = workbook.getWorksheet('Contas e Saldos');
+    expect(sheet).toBeDefined();
+    const visible: string[] = [];
+    sheet?.eachRow((row) => row.eachCell((cell) => visible.push(String(cell.value ?? ''))));
+    const text = visible.join(' ');
+    expect(text).toContain('31/05/2026');
+    expect(text).toContain('30/06/2026');
+    expect(text).toContain('2');
+    expect(text).toContain('500');
+    expect(text).toContain('Completa');
   });
 
   it('não expõe metadados ou vocabulário técnico do backend', () => {

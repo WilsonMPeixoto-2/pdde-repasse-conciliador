@@ -4,6 +4,7 @@ import type { PddeInfoPublicPortfolioResult } from './collect-pddeinfo-public-po
 import type {
   FiscalCreditPresentationStatus,
   FiscalSchoolView,
+  FiscalStatementEntry,
 } from './build-fiscal-human-view';
 
 export interface HumanSourceDescription {
@@ -19,11 +20,24 @@ export interface HumanFinancialCounterparty {
   account: string | null;
 }
 
+export type HumanMovementKind =
+  | 'FNDE_CREDIT'
+  | 'APPLICATION'
+  | 'REDEMPTION'
+  | 'PAYMENT_OR_TRANSFER'
+  | 'CARD_PAYMENT'
+  | 'FINANCIAL_INCOME'
+  | 'THIRD_PARTY_ENTRY'
+  | 'BANK_FEE'
+  | 'REVERSAL'
+  | 'OTHER';
+
 export interface HumanFinancialMovement {
   date: string;
   description: string;
   document: string | null;
   category: string | null;
+  kind: HumanMovementKind;
   creditCents: number | null;
   debitCents: number | null;
   counterparty: HumanFinancialCounterparty | null;
@@ -41,6 +55,37 @@ export interface HumanFinancialPosition {
   totalReportedBalanceCents: number | null;
 }
 
+export type HumanMovementCollectionStatus = 'COMPLETE' | 'PARTIAL' | 'FAILED' | 'NOT_AVAILABLE';
+
+export interface HumanAccountCoverage2026 {
+  positionCount: number;
+  firstPositionDate: string | null;
+  latestPositionDate: string | null;
+  movementCollectionStatus: HumanMovementCollectionStatus;
+  latestMovementDate: string | null;
+}
+
+export interface HumanAccountActivity2026 {
+  movementCount: number;
+  creditsObservedCents: number;
+  debitsObservedCents: number;
+  fndeCreditsCents: number;
+  applicationsCents: number;
+  redemptionsCents: number;
+  paymentsAndTransfersCents: number;
+  financialIncomeCents: number;
+  thirdPartyEntriesCents: number;
+  bankFeesCents: number;
+  otherCreditsCents: number;
+  otherDebitsCents: number;
+}
+
+export type HumanAccountContextFlag =
+  | 'NONZERO_POSITION_WITHOUT_2026_INFLOW'
+  | 'NONZERO_APPLICATION_WITHOUT_2026_APPLICATION_EVENT'
+  | 'MOVEMENT_COLLECTION_PARTIAL'
+  | 'MOVEMENT_COLLECTION_FAILED';
+
 export interface HumanFinancialAccount {
   program: string;
   bank: string;
@@ -49,6 +94,9 @@ export interface HumanFinancialAccount {
   positions: HumanFinancialPosition[];
   latestPosition: HumanFinancialPosition | null;
   movements: HumanFinancialMovement[];
+  coverage: HumanAccountCoverage2026;
+  activity: HumanAccountActivity2026;
+  contextFlags: HumanAccountContextFlag[];
   note: string | null;
 }
 
@@ -149,6 +197,7 @@ const HUMAN_SOURCES: HumanSourceDescription[] = [
 ];
 
 const SOURCE_UNAVAILABLE_FOLLOW_UP = 'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.';
+const CURRENT_FISCAL_YEAR_PREFIX = '2026-';
 
 function brDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -179,9 +228,24 @@ function accountKey(bank: string, agency: string, account: string): string {
 function latestReference(publicReports: PddeInfoPublicPortfolioResult): string | null {
   return publicReports.balances
     .map((balance) => balance.coverageThrough)
-    .filter((value): value is string => Boolean(value))
+    .filter((value): value is string => Boolean(value) && value.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .sort()
-    .at(-1) ?? publicReports.coverageThrough;
+    .at(-1) ?? (publicReports.coverageThrough?.startsWith(CURRENT_FISCAL_YEAR_PREFIX)
+      ? publicReports.coverageThrough
+      : null);
+}
+
+type PublicFinancialBalance = PddeInfoPublicPortfolioResult['balances'][number];
+
+function financialPositionSignature(position: PublicFinancialBalance): string {
+  return JSON.stringify([
+    position.checkingBalanceCents,
+    position.fundBalanceCents,
+    position.savingsBalanceCents,
+    position.rdbCdbBalanceCents,
+    position.investmentBalanceCents,
+    position.totalReportedBalanceCents,
+  ]);
 }
 
 function positionsFor(
@@ -192,26 +256,237 @@ function positionsFor(
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanFinancialPosition[] {
   const wanted = accountKey(bank, agency, account);
-  return publicReports.balances
+  const positionsByDate = new Map<string, PublicFinancialBalance>();
+  const matching = publicReports.balances
+    .filter((balance) => balance.coverageThrough.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .filter((balance) => balance.schoolIneps.includes(schoolInep))
     .filter((balance) => accountKey(balance.bank, balance.agency, balance.account) === wanted)
-    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough))
-    .map((position) => ({
-      referenceDate: position.coverageThrough,
-      checkingBalanceCents: position.checkingBalanceCents,
-      applications: {
-        fundsCents: position.fundBalanceCents,
-        savingsCents: position.savingsBalanceCents,
-        rdbCdbCents: position.rdbCdbBalanceCents,
-        totalCents: position.investmentBalanceCents,
-      },
-      totalReportedBalanceCents: position.totalReportedBalanceCents,
-    }));
+    .sort((left, right) => left.coverageThrough.localeCompare(right.coverageThrough));
+
+  for (const position of matching) {
+    const existing = positionsByDate.get(position.coverageThrough);
+    if (!existing) {
+      positionsByDate.set(position.coverageThrough, position);
+      continue;
+    }
+    if (financialPositionSignature(existing) !== financialPositionSignature(position)) {
+      throw new Error(
+        `Posição financeira divergente para a escola ${schoolInep}, conta ${wanted}, em ${position.coverageThrough}.`,
+      );
+    }
+  }
+
+  return [...positionsByDate.values()].map((position) => ({
+    referenceDate: position.coverageThrough,
+    checkingBalanceCents: position.checkingBalanceCents,
+    applications: {
+      fundsCents: position.fundBalanceCents,
+      savingsCents: position.savingsBalanceCents,
+      rdbCdbCents: position.rdbCdbBalanceCents,
+      totalCents: position.investmentBalanceCents,
+    },
+    totalReportedBalanceCents: position.totalReportedBalanceCents,
+  }));
+}
+
+function centsObservedNonZero(value: number | null): boolean {
+  return value !== null && value !== 0;
+}
+
+function hasObservedNonZeroPosition(positions: readonly HumanFinancialPosition[]): boolean {
+  return positions.some((position) => (
+    centsObservedNonZero(position.checkingBalanceCents)
+    || centsObservedNonZero(position.applications.fundsCents)
+    || centsObservedNonZero(position.applications.savingsCents)
+    || centsObservedNonZero(position.applications.rdbCdbCents)
+    || centsObservedNonZero(position.applications.totalCents)
+    || centsObservedNonZero(position.totalReportedBalanceCents)
+  ));
 }
 
 function accountNote(position: HumanFinancialPosition | null): string | null {
   if (!position) return 'Posição de saldo do FNDE ainda não disponível para esta conta.';
   return `Saldo informado pelo FNDE com posição até ${brDate(position.referenceDate)}.`;
+}
+
+function humanMovementKind(classification: FiscalStatementEntry['technicalClassification']): HumanMovementKind {
+  switch (classification) {
+    case 'REPASSE_FNDE':
+      return 'FNDE_CREDIT';
+    case 'APLICACAO_FINANCEIRA':
+      return 'APPLICATION';
+    case 'RESGATE_APLICACAO':
+      return 'REDEMPTION';
+    case 'PAGAMENTO_TRANSFERENCIA':
+      return 'PAYMENT_OR_TRANSFER';
+    case 'PAGAMENTO_CARTAO':
+      return 'CARD_PAYMENT';
+    case 'RENDIMENTO_FINANCEIRO':
+      return 'FINANCIAL_INCOME';
+    case 'ENTRADA_TERCEIRO':
+      return 'THIRD_PARTY_ENTRY';
+    case 'TARIFA_BANCARIA':
+      return 'BANK_FEE';
+    case 'ESTORNO_REVERSAO':
+      return 'REVERSAL';
+    case 'MOVIMENTO_NAO_CLASSIFICADO':
+      return 'OTHER';
+  }
+}
+
+function humanCounterparty(value: {
+  document: string | null;
+  name: string | null;
+  bank: string | null;
+  agency: string | null;
+  account: string | null;
+}): HumanFinancialCounterparty | null {
+  const counterparty: HumanFinancialCounterparty = {
+    document: value.document,
+    name: value.name,
+    bank: value.bank,
+    agency: value.agency,
+    account: value.account,
+  };
+  return Object.values(counterparty).some((item) => item !== null && item !== '')
+    ? counterparty
+    : null;
+}
+
+function humanMovements(entries: readonly FiscalStatementEntry[]): HumanFinancialMovement[] {
+  return entries
+    .filter((entry) => entry.date.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
+    .map((entry) => ({
+      date: entry.date,
+      description: entry.history,
+      document: entry.document || null,
+      category: entry.neutralCategory,
+      kind: humanMovementKind(entry.technicalClassification),
+      creditCents: entry.creditCents,
+      debitCents: entry.debitCents,
+      counterparty: humanCounterparty(entry.counterparty),
+    }));
+}
+
+function humanMovementCollectionStatus(
+  status: 'COMPLETE' | 'PARTIAL' | 'ERROR' | undefined,
+): HumanMovementCollectionStatus {
+  switch (status) {
+    case 'COMPLETE':
+      return 'COMPLETE';
+    case 'PARTIAL':
+      return 'PARTIAL';
+    case 'ERROR':
+      return 'FAILED';
+    case undefined:
+      return 'NOT_AVAILABLE';
+  }
+}
+
+function accountCoverage(
+  positions: readonly HumanFinancialPosition[],
+  movements: readonly HumanFinancialMovement[],
+  collectionStatus: 'COMPLETE' | 'PARTIAL' | 'ERROR' | undefined,
+): HumanAccountCoverage2026 {
+  const movementDates = movements.map((movement) => movement.date).sort();
+  return {
+    positionCount: positions.length,
+    firstPositionDate: positions[0]?.referenceDate ?? null,
+    latestPositionDate: positions.at(-1)?.referenceDate ?? null,
+    movementCollectionStatus: humanMovementCollectionStatus(collectionStatus),
+    latestMovementDate: movementDates.at(-1) ?? null,
+  };
+}
+
+function movementAmount(movement: HumanFinancialMovement): number {
+  return (movement.creditCents ?? 0) + (movement.debitCents ?? 0);
+}
+
+function accountActivity(movements: readonly HumanFinancialMovement[]): HumanAccountActivity2026 {
+  const activity: HumanAccountActivity2026 = {
+    movementCount: movements.length,
+    creditsObservedCents: 0,
+    debitsObservedCents: 0,
+    fndeCreditsCents: 0,
+    applicationsCents: 0,
+    redemptionsCents: 0,
+    paymentsAndTransfersCents: 0,
+    financialIncomeCents: 0,
+    thirdPartyEntriesCents: 0,
+    bankFeesCents: 0,
+    otherCreditsCents: 0,
+    otherDebitsCents: 0,
+  };
+
+  for (const movement of movements) {
+    const credit = movement.creditCents ?? 0;
+    const debit = movement.debitCents ?? 0;
+    activity.creditsObservedCents += credit;
+    activity.debitsObservedCents += debit;
+
+    switch (movement.kind) {
+      case 'FNDE_CREDIT':
+        activity.fndeCreditsCents += credit;
+        break;
+      case 'APPLICATION':
+        activity.applicationsCents += movementAmount(movement);
+        break;
+      case 'REDEMPTION':
+        activity.redemptionsCents += movementAmount(movement);
+        break;
+      case 'PAYMENT_OR_TRANSFER':
+      case 'CARD_PAYMENT':
+        activity.paymentsAndTransfersCents += debit;
+        break;
+      case 'FINANCIAL_INCOME':
+        activity.financialIncomeCents += credit;
+        break;
+      case 'THIRD_PARTY_ENTRY':
+        activity.thirdPartyEntriesCents += credit;
+        break;
+      case 'BANK_FEE':
+        activity.bankFeesCents += debit;
+        break;
+      case 'REVERSAL':
+      case 'OTHER':
+        activity.otherCreditsCents += credit;
+        activity.otherDebitsCents += debit;
+        break;
+    }
+  }
+
+  return activity;
+}
+
+function accountContextFlags(input: {
+  latestPosition: HumanFinancialPosition | null;
+  coverage: HumanAccountCoverage2026;
+  activity: HumanAccountActivity2026;
+  movements: readonly HumanFinancialMovement[];
+}): HumanAccountContextFlag[] {
+  if (input.coverage.movementCollectionStatus === 'PARTIAL') {
+    return ['MOVEMENT_COLLECTION_PARTIAL'];
+  }
+  if (input.coverage.movementCollectionStatus === 'FAILED') {
+    return ['MOVEMENT_COLLECTION_FAILED'];
+  }
+  if (input.coverage.movementCollectionStatus !== 'COMPLETE') return [];
+
+  const flags: HumanAccountContextFlag[] = [];
+  const total = input.latestPosition?.totalReportedBalanceCents;
+  const applications = input.latestPosition?.applications.totalCents;
+  const observedExternalInflows = input.activity.fndeCreditsCents
+    + input.activity.financialIncomeCents
+    + input.activity.thirdPartyEntriesCents;
+
+  if (total !== null && total !== undefined && total > 0 && observedExternalInflows === 0) {
+    flags.push('NONZERO_POSITION_WITHOUT_2026_INFLOW');
+  }
+  if (applications !== null && applications !== undefined && applications > 0
+    && !input.movements.some((movement) => movement.kind === 'APPLICATION')) {
+    flags.push('NONZERO_APPLICATION_WITHOUT_2026_APPLICATION_EVENT');
+  }
+  return flags;
 }
 
 function normalizedMatchText(value: string): string {
@@ -311,25 +586,6 @@ function schoolPrograms(
   }));
 }
 
-function humanCounterparty(value: {
-  document: string | null;
-  name: string | null;
-  bank: string | null;
-  agency: string | null;
-  account: string | null;
-}): HumanFinancialCounterparty | null {
-  const counterparty: HumanFinancialCounterparty = {
-    document: value.document,
-    name: value.name,
-    bank: value.bank,
-    agency: value.agency,
-    account: value.account,
-  };
-  return Object.values(counterparty).some((item) => item !== null && item !== '')
-    ? counterparty
-    : null;
-}
-
 function schoolAccounts(
   school: FiscalSchoolView,
   publicReports: PddeInfoPublicPortfolioResult,
@@ -345,6 +601,9 @@ function schoolAccounts(
       publicReports,
     );
     const latestPosition = positions.at(-1) ?? null;
+    const movements = humanMovements(statement.entries);
+    const coverage = accountCoverage(positions, movements, statement.collectionStatus);
+    const activity = accountActivity(movements);
     accounts.set(accountKey(
       statement.account.bank,
       statement.account.agency,
@@ -356,20 +615,16 @@ function schoolAccounts(
       account: statement.account.number,
       positions,
       latestPosition,
-      movements: statement.entries.map((entry) => ({
-        date: entry.date,
-        description: entry.history,
-        document: entry.document || null,
-        category: entry.neutralCategory,
-        creditCents: entry.creditCents,
-        debitCents: entry.debitCents,
-        counterparty: humanCounterparty(entry.counterparty),
-      })),
+      movements,
+      coverage,
+      activity,
+      contextFlags: accountContextFlags({ latestPosition, coverage, activity, movements }),
       note: accountNote(latestPosition),
     });
   }
 
   const publicBalances = publicReports.balances
+    .filter((balance) => balance.coverageThrough.startsWith(CURRENT_FISCAL_YEAR_PREFIX))
     .filter((balance) => balance.schoolIneps.includes(school.school.inep))
     .sort((left, right) => right.coverageThrough.localeCompare(left.coverageThrough));
 
@@ -384,8 +639,10 @@ function schoolAccounts(
       publicReports,
     );
     const latestPosition = positions.at(-1) ?? null;
-    if (latestPosition?.totalReportedBalanceCents === null
-      || latestPosition?.totalReportedBalanceCents === 0) continue;
+    if (!hasObservedNonZeroPosition(positions)) continue;
+    const movements: HumanFinancialMovement[] = [];
+    const coverage = accountCoverage(positions, movements, undefined);
+    const activity = accountActivity(movements);
     accounts.set(key, {
       program: balance.programName,
       bank: balance.bank,
@@ -393,7 +650,10 @@ function schoolAccounts(
       account: balance.account,
       positions,
       latestPosition,
-      movements: [],
+      movements,
+      coverage,
+      activity,
+      contextFlags: accountContextFlags({ latestPosition, coverage, activity, movements }),
       note: accountNote(latestPosition),
     });
   }

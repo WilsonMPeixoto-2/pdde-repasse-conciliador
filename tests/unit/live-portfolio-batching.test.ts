@@ -6,6 +6,21 @@ import {
   runLivePortfolioQuery,
 } from '../../src/product/live-portfolio';
 
+const emptyActivity = {
+  movementCount: 0,
+  creditsObservedCents: 0,
+  debitsObservedCents: 0,
+  fndeCreditsCents: 0,
+  applicationsCents: 0,
+  redemptionsCents: 0,
+  paymentsAndTransfersCents: 0,
+  financialIncomeCents: 0,
+  thirdPartyEntriesCents: 0,
+  bankFeesCents: 0,
+  otherCreditsCents: 0,
+  otherDebitsCents: 0,
+};
+
 function position(referenceDate: string, balance: number, applications: number) {
   return {
     referenceDate,
@@ -66,6 +81,15 @@ function school(input: {
       positions: [latestPosition],
       latestPosition,
       movements: [],
+      coverage: {
+        positionCount: 1,
+        firstPositionDate: input.referenceDate,
+        latestPositionDate: input.referenceDate,
+        movementCollectionStatus: 'NOT_AVAILABLE',
+        latestMovementDate: null,
+      },
+      activity: emptyActivity,
+      contextFlags: [],
       note: null,
     }],
     accounting: [],

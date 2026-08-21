@@ -1,5 +1,7 @@
 # Gate de decisões de produto — Inteligência Financeira PDDE | 4ª CRE
 
+> **Nota de vigência de 21/08/2026:** este é um registro histórico de uma etapa de produto. Suas regras semânticas estabilizadas continuam úteis, mas A–H não constituem bloqueio retroativo do desenvolvimento. A ausência de evidência de aprovação humana para essa interpretação e a correção do roadmap estão registradas em `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`. Decisões e checkpoints posteriores prevalecem.
+
 ## Por que este gate existe
 
 A fundação de dados pode evoluir sem decidir prematuramente a interface final. Este documento marca o ponto em que decisões de arquitetura deixam de ser suficientes e passam a exigir escolhas de produto orientadas ao trabalho real de gestores e fiscais.

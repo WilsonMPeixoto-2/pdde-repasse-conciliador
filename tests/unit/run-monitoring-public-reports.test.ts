@@ -72,31 +72,41 @@ const publicResult = {
   coverageThrough: '2026-06-30',
 };
 
+function monitoringDependencies(publicCollector: ReturnType<typeof vi.fn>) {
+  return {
+    schools: [school],
+    fiscalYear: 2026,
+    collectPddeInfoSchool: vi.fn(async () => ({
+      school: rawSchool,
+      queriedAt: '2026-08-15T22:00:00Z',
+      rawBytes: Buffer.from('<html>pddeinfo</html>'),
+    })),
+    collectSigefAccount: vi.fn(async () => ({
+      status: 'COMPLETE' as const,
+      pagesFetched: 0,
+      declaredTotal: 0,
+      movements: [],
+      coverageThrough: '2026-08-15',
+    })),
+    collectPddeInfoPublicPortfolio: publicCollector,
+    now: () => '2026-08-15T22:30:00Z',
+  };
+}
+
 describe('MONITORING + relatórios públicos FNDE', () => {
-  test('incorpora dados públicos e produz uma saída humana separada', async () => {
+  test('incorpora dados públicos, pede todas as posições de 2026 e produz uma saída humana separada', async () => {
     const publicCollector = vi.fn(async () => publicResult);
     const result = await runFinancialIntelligenceMonitoring({
-      schools: [school],
+      ...monitoringDependencies(publicCollector),
       workspacePath: await workspace(),
-      fiscalYear: 2026,
       runId: 'monitoring-public-reports',
-      collectPddeInfoSchool: vi.fn(async () => ({
-        school: rawSchool,
-        queriedAt: '2026-08-15T22:00:00Z',
-        rawBytes: Buffer.from('<html>pddeinfo</html>'),
-      })),
-      collectSigefAccount: vi.fn(async () => ({
-        status: 'COMPLETE' as const,
-        pagesFetched: 0,
-        declaredTotal: 0,
-        movements: [],
-        coverageThrough: '2026-08-15',
-      })),
-      collectPddeInfoPublicPortfolio: publicCollector,
-      now: () => '2026-08-15T22:30:00Z',
     } as never) as any;
 
     expect(publicCollector).toHaveBeenCalledOnce();
+    expect(publicCollector).toHaveBeenCalledWith(expect.objectContaining({
+      fiscalYear: 2026,
+      balanceMode: 'ALL_AVAILABLE_2026',
+    }));
     expect(result.raw.publicReports.balanceReferenceMonth).toBe('06-2026');
     expect(result.raw.publicReports.balances[0].fundBalanceCents).toBe(318699);
     expect(result.human.title).toBe('Inteligência Financeira PDDE | 4ª CRE');
@@ -109,5 +119,19 @@ describe('MONITORING + relatórios públicos FNDE', () => {
     expect(serialized).not.toContain('sourceurl');
     expect(serialized).not.toContain('pagesfetched');
     expect(serialized).not.toContain('technicalclassification');
+  });
+
+  test('preserva LATEST somente quando o chamador o solicita explicitamente', async () => {
+    const publicCollector = vi.fn(async () => publicResult);
+    await runFinancialIntelligenceMonitoring({
+      ...monitoringDependencies(publicCollector),
+      workspacePath: await workspace(),
+      runId: 'monitoring-public-reports-latest',
+      balanceMode: 'LATEST',
+    } as never);
+
+    expect(publicCollector).toHaveBeenCalledWith(expect.objectContaining({
+      balanceMode: 'LATEST',
+    }));
   });
 });

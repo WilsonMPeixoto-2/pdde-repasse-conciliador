@@ -49,7 +49,7 @@ A versão de código **v0.5.0** já contém:
 - preservação de HTML/JSON/evidências brutas com rastreabilidade técnica interna;
 - normalização monetária em centavos inteiros;
 - snapshots financeiros mensais por escola/CNPJ/programa/conta;
-- série histórica de saldos e aplicações;
+- série histórica de saldos e aplicações no fluxo de backfill, ainda não integrada ao retrato publicado;
 - Portal da Transparência preparado como fonte opcional mediante credencial oficial;
 - fallback de navegador assistido para fontes públicas quando o HTTP direto não basta;
 - fila, worker, API institucional, idempotência, Storage privado e trilha append-only;
@@ -221,7 +221,7 @@ npm run monitor:backfill:2026 -- \
   --output artifacts/backfill-public-balances-2026.json
 ```
 
-O monitoramento rotineiro consulta apenas o mês de saldo mais recente publicado. O backfill existe para reconstrução inicial ou reparo da série histórica.
+O monitoramento rotineiro ainda consulta apenas o mês de saldo mais recente publicado. O backfill existe para reconstrução inicial ou reparo da série histórica. Integrar `ALL_AVAILABLE_2026` ao fluxo que gera site e Excel é o marco corrente; a mudança está especificada, mas ainda não foi implementada.
 
 ## Transparência das fontes em linguagem humana
 
@@ -264,7 +264,7 @@ Nenhuma chave deve ser incluída em código, frontend, planilha ou documentaçã
 ### Já publicado / operacional para validação
 
 - frontend fiscal React/Vite integrado à `main` e publicado automaticamente no Vercel;
-- navegação da visão da carteira para indicadores, unidades, programas, contas e séries financeiras;
+- navegação da visão da carteira para indicadores, unidades, programas, contas e o componente de séries financeiras; o retrato publicado ainda possui um único ponto por conta;
 - retrato financeiro 2026 previamente publicado como base estável da experiência;
 - ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela;
 - endpoint server-side `/api/live` para executar a coleta de uma unidade com o pipeline financeiro real;
@@ -328,8 +328,9 @@ Para retomar o projeto sem depender de chats ou de arquivos locais, ler primeiro
 1. [`docs/INDICE_DOCUMENTAL.md`](docs/INDICE_DOCUMENTAL.md)
 2. [`docs/CONTINUIDADE_WORK.md`](docs/CONTINUIDADE_WORK.md)
 3. [`docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`](docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md)
-4. [`docs/ESTADO_ATUAL_2026-08-19.md`](docs/ESTADO_ATUAL_2026-08-19.md)
-5. [`docs/DECISOES.md`](docs/DECISOES.md)
+4. [`docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`](docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md)
+5. [`docs/ESTADO_ATUAL_2026-08-19.md`](docs/ESTADO_ATUAL_2026-08-19.md)
+6. [`docs/DECISOES.md`](docs/DECISOES.md)
 
 Documentos estruturais complementares:
 
@@ -345,13 +346,12 @@ A documentação é memória institucional, não substituto da fonte de verdade.
 
 ## Próximos gates reais
 
-A fundação de dados e os três primeiros marcos de produto estão publicados. O marco corrente é a correção estrutural de acessibilidade e legibilidade registrada em:
+A fundação de dados e os três primeiros marcos de produto estão publicados. O marco corrente é a completude financeira publicada de 2026, registrada em:
 
-- [auditoria de 21/08](docs/audits/2026-08-21-acessibilidade-legibilidade-produto.md);
-- [especificação aprovada](docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md);
-- [plano executável](docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md).
+- [revisão crítica da auditoria e do roadmap](docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md);
+- [especificação em revisão](docs/superpowers/specs/2026-08-21-completude-financeira-publicada-design.md).
 
-Backend persistente, Supabase, histórico institucional e novas fontes continuam posteriores e dependem dos gates de produto registrados em `docs/CONTINUIDADE_WORK.md`.
+A acessibilidade estrutural permanece como marco posterior já auditado e planejado. Backend persistente, Supabase, contexto de outros exercícios e novas fontes continuam posteriores e dependem dos gates registrados em `docs/CONTINUIDADE_WORK.md`.
 
 ## Governança dos repositórios
 

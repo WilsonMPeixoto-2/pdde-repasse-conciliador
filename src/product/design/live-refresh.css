@@ -5,6 +5,40 @@
   justify-items: start;
 }
 
+.portfolio-hero__actions {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.excel-export-button {
+  min-height: 44px;
+  border-color: #217346;
+  background: #217346;
+  color: #ffffff;
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgb(33 115 70 / 0.16);
+}
+
+.excel-export-button:hover {
+  border-color: #185c37;
+  background: #185c37;
+  color: #ffffff;
+}
+
+.excel-export-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.excel-export-button__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+}
+
 .live-refresh-status {
   width: 100%;
   display: grid;
@@ -80,6 +114,18 @@
 .live-refresh-message--error {
   color: var(--danger-700);
   font-size: 0.86rem;
+}
+
+@media (max-width: 700px) {
+  .portfolio-hero__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-hero__actions .button,
+  .excel-export-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 420px) {

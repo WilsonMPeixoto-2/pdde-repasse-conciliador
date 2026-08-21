@@ -2,6 +2,18 @@
 
 Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é um changelog nem uma descrição automática do estado atual.** O estado operacional corrente está em [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md).
 
+## 2026-08-21 — O roadmap distingue fato auditado de interpretação causal
+
+**Decisão:** o `PRODUCT_DECISION_GATE_2026.md` permanece histórico e não é tratado como bloqueio retroativo aprovado pelo usuário. O desenvolvimento continua iterativo, com especificação curta, TDD e validação real. Uma interpretação estratégica de auditoria pode ser superada sem alterar a evidência histórica original.
+
+**Motivo:** instruções recuperadas determinavam que as decisões essenciais estavam tomadas e que a análise deveria terminar em implementação. Não foi localizada evidência material que promovesse A–H a condição humana retroativa para todo frontend.
+
+## 2026-08-21 — O histórico mensal pertence ao produto oficial de 2026
+
+**Decisão:** os fluxos que materializam site e Excel devem coletar todas as posições mensais de 2026 disponíveis e derivar ambos do mesmo contrato humano. `LATEST` pode existir para diagnóstico explícito, mas não como padrão implícito de um produto apresentado como visão financeira de 2026.
+
+**Motivo:** o backfill comprovou 2.690 posições, enquanto o retrato publicado contém uma única posição por conta. A diferença impede a linha temporal e a leitura operacional de explicar a evolução observada do recurso.
+
 ## 2026-08-19 — Encontrabilidade é parte do produto financeiro
 
 **Decisão:** a navegação principal é orientada às perguntas de trabalho e não apenas à estrutura de auditoria. A experiência oferece entradas diretas para **Início, Escolas, Repasses e Saldos e contas**, busca global de escola e navegação local no prontuário.

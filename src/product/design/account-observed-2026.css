@@ -1,0 +1,109 @@
+.account-observed-2026 {
+  margin-bottom: var(--space-5);
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--canvas-deep) 58%, var(--paper));
+}
+
+.account-observed-2026__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.account-observed-2026__heading .eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.account-observed-2026__heading h3 {
+  margin: 0;
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+}
+
+.account-observed-2026__coverage {
+  flex: 0 0 auto;
+  max-width: 18rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--ink-300);
+  border-radius: 999px;
+  color: var(--ink-700);
+  background: var(--paper);
+  font-size: 0.74rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.account-observed-2026__grid {
+  margin: var(--space-5) 0 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--ink-200);
+}
+
+.account-observed-2026__grid > div {
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  background: var(--paper);
+}
+
+.account-observed-2026__grid dt {
+  color: var(--ink-600);
+  font-size: 0.7rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.account-observed-2026__grid dd {
+  margin: 0.35rem 0 0;
+  color: var(--ink-950);
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.account-observed-2026__notes {
+  margin-top: var(--space-4);
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--ink-500);
+  background: rgb(255 255 255 / 0.72);
+}
+
+.account-observed-2026__notes p {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.account-observed-2026__notes p + p {
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 960px) {
+  .account-observed-2026__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .account-observed-2026__heading {
+    display: block;
+  }
+
+  .account-observed-2026__coverage {
+    display: inline-flex;
+    margin-top: var(--space-3);
+  }
+
+  .account-observed-2026__grid {
+    grid-template-columns: 1fr;
+  }
+}

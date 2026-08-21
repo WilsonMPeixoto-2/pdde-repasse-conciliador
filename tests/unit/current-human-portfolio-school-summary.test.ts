@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { buildCurrentPortfolioSchoolSummary } from '../../backend/application/current-human-financial-read-model';
 
+const emptyCoverage = {
+  positionCount: 0,
+  firstPositionDate: null,
+  latestPositionDate: null,
+  movementCollectionStatus: 'NOT_AVAILABLE' as const,
+  latestMovementDate: null,
+};
+
+const emptyActivity = {
+  movementCount: 0,
+  creditsObservedCents: 0,
+  debitsObservedCents: 0,
+  fndeCreditsCents: 0,
+  applicationsCents: 0,
+  redemptionsCents: 0,
+  paymentsAndTransfersCents: 0,
+  financialIncomeCents: 0,
+  thirdPartyEntriesCents: 0,
+  bankFeesCents: 0,
+  otherCreditsCents: 0,
+  otherDebitsCents: 0,
+};
+
 const school = {
   school: {
     inep: '33069093',
@@ -65,6 +88,9 @@ const school = {
         totalReportedBalanceCents: 31_000,
       },
       movements: [],
+      coverage: emptyCoverage,
+      activity: emptyActivity,
+      contextFlags: [],
       note: null,
     },
     {
@@ -85,6 +111,9 @@ const school = {
         totalReportedBalanceCents: 12_000,
       },
       movements: [],
+      coverage: emptyCoverage,
+      activity: emptyActivity,
+      contextFlags: [],
       note: null,
     },
   ],

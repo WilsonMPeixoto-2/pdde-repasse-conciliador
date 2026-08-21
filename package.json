@@ -24,6 +24,7 @@
     "monitor:operational": "node --import tsx scripts/build-monitoring-operational-view.ts",
     "monitor:fiscal": "node --import tsx scripts/build-fiscal-human-view.ts",
     "monitor:human:xlsx": "node --import tsx scripts/export-human-financial-workbook.ts",
+    "monitor:package:snapshot": "node --import tsx scripts/package-human-financial-snapshot.ts",
     "monitor:technical:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",
     "monitor:fiscal:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",
     "monitor:audit:xlsx": "node --import tsx scripts/export-fiscal-workbook.ts",

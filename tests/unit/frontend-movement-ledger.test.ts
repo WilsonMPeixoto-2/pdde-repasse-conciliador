@@ -5,6 +5,17 @@ type Movement = {
   description: string;
   document: string | null;
   category: string | null;
+  kind:
+    | 'FNDE_CREDIT'
+    | 'APPLICATION'
+    | 'REDEMPTION'
+    | 'PAYMENT_OR_TRANSFER'
+    | 'CARD_PAYMENT'
+    | 'FINANCIAL_INCOME'
+    | 'THIRD_PARTY_ENTRY'
+    | 'BANK_FEE'
+    | 'REVERSAL'
+    | 'OTHER';
   creditCents: number | null;
   debitCents: number | null;
   counterparty: {
@@ -49,6 +60,7 @@ function movement(overrides: Partial<Movement> = {}): Movement {
     description: 'PAGAMENTO PIX',
     document: 'PX1',
     category: 'PAGAMENTO_TRANSFERENCIA',
+    kind: 'PAYMENT_OR_TRANSFER',
     creditCents: null,
     debitCents: 124_000,
     counterparty: null,
@@ -68,11 +80,11 @@ describe('ledger de movimentações financeiras', () => {
     if (!module.buildMovementLedger) return;
 
     const result = module.buildMovementLedger([
-      movement({ category: 'REPASSE_FNDE', creditCents: 506_500, debitCents: null }),
-      movement({ category: 'APLICACAO_FINANCEIRA', creditCents: null, debitCents: 380_000 }),
-      movement({ category: 'RESGATE_APLICACAO', creditCents: 90_000, debitCents: null }),
-      movement({ category: 'PAGAMENTO_TRANSFERENCIA', creditCents: null, debitCents: 124_000 }),
-      movement({ category: 'RENDIMENTO_FINANCEIRO', creditCents: 1_250, debitCents: null }),
+      movement({ category: 'REPASSE_FNDE', kind: 'FNDE_CREDIT', creditCents: 506_500, debitCents: null }),
+      movement({ category: 'APLICACAO_FINANCEIRA', kind: 'APPLICATION', creditCents: null, debitCents: 380_000 }),
+      movement({ category: 'RESGATE_APLICACAO', kind: 'REDEMPTION', creditCents: 90_000, debitCents: null }),
+      movement({ category: 'PAGAMENTO_TRANSFERENCIA', kind: 'PAYMENT_OR_TRANSFER', creditCents: null, debitCents: 124_000 }),
+      movement({ category: 'RENDIMENTO_FINANCEIRO', kind: 'FINANCIAL_INCOME', creditCents: 1_250, debitCents: null }),
     ]);
 
     expect(result.entries.map((entry) => [entry.kind, entry.label])).toEqual([
@@ -90,9 +102,9 @@ describe('ledger de movimentações financeiras', () => {
     if (!module.buildMovementLedger) return;
 
     const result = module.buildMovementLedger([
-      movement({ category: 'REPASSE_FNDE', creditCents: 506_500, debitCents: null }),
-      movement({ category: 'APLICACAO_FINANCEIRA', creditCents: null, debitCents: 380_000 }),
-      movement({ category: 'PAGAMENTO_TRANSFERENCIA', creditCents: null, debitCents: 124_000 }),
+      movement({ category: 'REPASSE_FNDE', kind: 'FNDE_CREDIT', creditCents: 506_500, debitCents: null }),
+      movement({ category: 'APLICACAO_FINANCEIRA', kind: 'APPLICATION', creditCents: null, debitCents: 380_000 }),
+      movement({ category: 'PAGAMENTO_TRANSFERENCIA', kind: 'PAYMENT_OR_TRANSFER', creditCents: null, debitCents: 124_000 }),
     ]);
 
     expect(result.totals).toEqual({
@@ -109,7 +121,7 @@ describe('ledger de movimentações financeiras', () => {
     if (!module.buildMovementLedger) return;
 
     const result = module.buildMovementLedger([
-      movement({ creditCents: 10_000, debitCents: 2_000, category: 'ESTORNO_REVERSAO' }),
+      movement({ creditCents: 10_000, debitCents: 2_000, category: 'ESTORNO_REVERSAO', kind: 'REVERSAL' }),
     ]);
 
     expect(result.entries[0]).toMatchObject({
@@ -134,7 +146,7 @@ describe('ledger de movimentações financeiras', () => {
     if (!module.buildMovementLedger) return;
 
     const result = module.buildMovementLedger([
-      movement({ category: 'MOVIMENTO_NAO_CLASSIFICADO', description: 'LANCAMENTO DIVERSO' }),
+      movement({ category: 'MOVIMENTO_NAO_CLASSIFICADO', kind: 'OTHER', description: 'LANCAMENTO DIVERSO' }),
     ]);
 
     expect(result.entries[0]).toMatchObject({

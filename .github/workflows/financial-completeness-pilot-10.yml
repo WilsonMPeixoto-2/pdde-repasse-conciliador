@@ -1,0 +1,111 @@
+name: Financial Completeness Pilot 10
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/financial-completeness-pilot-10.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pilot-10:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Executar amostra histórica de 10 unidades
+        env:
+          PDDE_SESSION_ID: pilot-10-${{ github.run_id }}
+        run: >-
+          node --import tsx scripts/run-temporary-session.ts
+          --ineps "33069247,33069093,33069433,33069379,33069271,33069409,33069360,33069468,33069220,33069328"
+          --workspace ".tmp/monitor-pilot-10"
+          --output-dir "artifacts/pilot-10-session"
+      - name: Validar cobertura, exercício, Carneiro Ribeiro e workbook
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import ExcelJS from 'exceljs';
+
+          const session = JSON.parse(fs.readFileSync('artifacts/pilot-10-session/session.json', 'utf8'));
+          if (session.status !== 'COMPLETE' || session.schoolCount !== 10) {
+            console.error('Piloto 10 incompleto', session);
+            process.exit(2);
+          }
+
+          const schoolDir = 'artifacts/pilot-10-session/schools';
+          const files = fs.readdirSync(schoolDir).filter((name) => name.endsWith('.json')).sort();
+          if (files.length !== 10 || !files.includes('33069409.json')) {
+            console.error('Conjunto nominal inesperado', files);
+            process.exit(3);
+          }
+
+          let accountCount = 0;
+          let positionCount = 0;
+          let movementCount = 0;
+          for (const file of files) {
+            const school = JSON.parse(fs.readFileSync(`${schoolDir}/${file}`, 'utf8'));
+            for (const account of school.accounts ?? []) {
+              accountCount += 1;
+              const positions = account.positions ?? [];
+              const movements = account.movements ?? [];
+              positionCount += positions.length;
+              movementCount += movements.length;
+              const positionDates = positions.map((item) => item.referenceDate);
+              if (positionDates.some((date) => !String(date).startsWith('2026-'))) {
+                throw new Error(`Posição fora de 2026 em ${file}`);
+              }
+              if (new Set(positionDates).size !== positionDates.length) {
+                throw new Error(`Posição duplicada em ${file}`);
+              }
+              if (movements.some((item) => !String(item.date).startsWith('2026-'))) {
+                throw new Error(`Movimento fora de 2026 em ${file}`);
+              }
+              const last = positions.at(-1) ?? null;
+              if (JSON.stringify(account.latestPosition ?? null) !== JSON.stringify(last)) {
+                throw new Error(`latestPosition divergente em ${file}`);
+              }
+            }
+          }
+
+          const workbookPath = 'artifacts/pilot-10-session/inteligencia-financeira-pdde-4cre-2026.xlsx';
+          if (!fs.existsSync(workbookPath) || fs.statSync(workbookPath).size < 1000) {
+            throw new Error('Workbook do piloto ausente ou vazio.');
+          }
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.readFile(workbookPath);
+          const expectedSheets = [
+            'Visão Geral', 'Acompanhamento', 'Unidades', 'Repasses',
+            'Contas e Saldos', 'Evolução Mensal', 'Movimentações', 'Prestação de Contas',
+          ];
+          const sheets = workbook.worksheets.map((sheet) => sheet.name);
+          if (JSON.stringify(sheets) !== JSON.stringify(expectedSheets)) {
+            throw new Error(`Abas inesperadas: ${JSON.stringify(sheets)}`);
+          }
+
+          console.log(JSON.stringify({
+            status: session.status,
+            schools: session.schoolCount,
+            accounts: accountCount,
+            positions: positionCount,
+            movements: movementCount,
+            workbookBytes: fs.statSync(workbookPath).size,
+          }));
+          NODE
+      - name: Preservar produto e evidências do piloto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-completeness-pilot-10-2026
+          path: |
+            artifacts/pilot-10-session/
+            .tmp/monitor-pilot-10/financial-intelligence.json
+            .tmp/monitor-pilot-10/human-financial.json
+            .tmp/monitor-pilot-10/pddeinfo/**/*.html
+            .tmp/monitor-pilot-10/sigef/**/*.html
+          if-no-files-found: warn
+          retention-days: 7

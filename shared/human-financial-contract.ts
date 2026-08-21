@@ -122,15 +122,89 @@ export const humanCounterpartySchema = z.object({
   account: z.string().nullable(),
 }).strict();
 
+export const humanMovementKindSchema = z.enum([
+  'FNDE_CREDIT',
+  'APPLICATION',
+  'REDEMPTION',
+  'PAYMENT_OR_TRANSFER',
+  'CARD_PAYMENT',
+  'FINANCIAL_INCOME',
+  'THIRD_PARTY_ENTRY',
+  'BANK_FEE',
+  'REVERSAL',
+  'OTHER',
+]);
+
 export const humanMovementSchema = z.object({
   date: humanIsoDateSchema,
   description: z.string().min(1),
   document: z.string().nullable(),
   category: z.string().nullable(),
+  kind: humanMovementKindSchema.default('OTHER'),
   creditCents: humanMoneySchema.nullable(),
   debitCents: humanMoneySchema.nullable(),
   counterparty: humanCounterpartySchema.nullable(),
 }).strict();
+
+export const humanMovementCollectionStatusSchema = z.enum([
+  'COMPLETE',
+  'PARTIAL',
+  'FAILED',
+  'NOT_AVAILABLE',
+]);
+
+const defaultCoverage = {
+  positionCount: 0,
+  firstPositionDate: null,
+  latestPositionDate: null,
+  movementCollectionStatus: 'NOT_AVAILABLE' as const,
+  latestMovementDate: null,
+};
+
+export const humanAccountCoverage2026Schema = z.object({
+  positionCount: z.number().int().nonnegative(),
+  firstPositionDate: humanIsoDateSchema.nullable(),
+  latestPositionDate: humanIsoDateSchema.nullable(),
+  movementCollectionStatus: humanMovementCollectionStatusSchema,
+  latestMovementDate: humanIsoDateSchema.nullable(),
+}).strict().default(defaultCoverage);
+
+const defaultActivity = {
+  movementCount: 0,
+  creditsObservedCents: 0,
+  debitsObservedCents: 0,
+  fndeCreditsCents: 0,
+  applicationsCents: 0,
+  redemptionsCents: 0,
+  paymentsAndTransfersCents: 0,
+  financialIncomeCents: 0,
+  thirdPartyEntriesCents: 0,
+  bankFeesCents: 0,
+  otherCreditsCents: 0,
+  otherDebitsCents: 0,
+};
+
+export const humanAccountActivity2026Schema = z.object({
+  movementCount: z.number().int().nonnegative(),
+  creditsObservedCents: humanNonNegativeMoneySchema,
+  debitsObservedCents: humanNonNegativeMoneySchema,
+  fndeCreditsCents: humanNonNegativeMoneySchema,
+  applicationsCents: humanNonNegativeMoneySchema,
+  redemptionsCents: humanNonNegativeMoneySchema,
+  paymentsAndTransfersCents: humanNonNegativeMoneySchema,
+  financialIncomeCents: humanNonNegativeMoneySchema,
+  thirdPartyEntriesCents: humanNonNegativeMoneySchema,
+  bankFeesCents: humanNonNegativeMoneySchema,
+  otherCreditsCents: humanNonNegativeMoneySchema,
+  otherDebitsCents: humanNonNegativeMoneySchema,
+}).strict().default(defaultActivity);
+
+export const humanAccountContextFlagSchema = z.enum([
+  'NONZERO_POSITION_WITHOUT_2026_INFLOW',
+  'NONZERO_APPLICATION_WITHOUT_2026_APPLICATION_EVENT',
+  'MOVEMENT_COLLECTION_PARTIAL',
+  'MOVEMENT_COLLECTION_FAILED',
+]);
 
 export const humanAccountSchema = z.object({
   program: z.string().min(1),
@@ -140,6 +214,9 @@ export const humanAccountSchema = z.object({
   positions: z.array(humanPositionSchema),
   latestPosition: humanPositionSchema.nullable(),
   movements: z.array(humanMovementSchema),
+  coverage: humanAccountCoverage2026Schema,
+  activity: humanAccountActivity2026Schema,
+  contextFlags: z.array(humanAccountContextFlagSchema).default([]),
   note: z.string().nullable(),
 }).strict();
 

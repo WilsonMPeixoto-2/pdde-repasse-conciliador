@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { AccountObserved2026 } from '../components/AccountObserved2026';
 import { BalanceComposition } from '../components/BalanceComposition';
 import { Disclosure } from '../components/Disclosure';
 import { MovementLedger } from '../components/MovementLedger';
@@ -112,6 +113,7 @@ export function SchoolContent({ school }: { school: HumanSchool }) {
                     || (hash === '#movimentacoes' && accountIndex === firstMovementAccountIndex)
                   }
                 >
+                  <AccountObserved2026 account={account} />
                   {account.latestPosition
                     ? <BalanceComposition position={account.latestPosition} />
                     : <p>Não há posição de saldo publicada para esta conta.</p>}

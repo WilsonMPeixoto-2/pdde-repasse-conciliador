@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 em produção; memória documental integral recuperada; marco nº 4 em especificação, sem alteração funcional
+**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 em produção; auditoria estratégica revista; marco nº 4 reorientado para completude financeira e aguardando revisão da especificação; sem alteração funcional
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -13,10 +13,11 @@ Ler, nesta ordem:
 1. `docs/INDICE_DOCUMENTAL.md`;
 2. `docs/CONTINUIDADE_WORK.md`;
 3. `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
-4. `docs/ESTADO_ATUAL_2026-08-19.md`;
-5. `docs/DECISOES.md`;
-6. a auditoria, a especificação e o plano do marco corrente indicados abaixo;
-7. `git status --short --branch` e o diff integral antes de editar.
+4. `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`;
+5. `docs/ESTADO_ATUAL_2026-08-19.md`;
+6. `docs/DECISOES.md`;
+7. a especificação e, quando existir, o plano do marco corrente indicados abaixo;
+8. `git status --short --branch` e o diff integral antes de editar.
 
 Não reconstruir decisões a partir de documentos antigos isolados. O código e os testes do commit corrente continuam sendo a fonte técnica principal.
 
@@ -85,9 +86,9 @@ Limites:
 - nenhum cálculo de regularidade;
 - detalhes existentes permanecem.
 
-## 5. Diagnóstico que orienta o desenho
+## 5. Diagnóstico que orientou o segundo marco
 
-O prontuário atual já contém toda a informação necessária. O defeito de produto é a ordem:
+Para o escopo estrito da leitura rápida do segundo marco, o prontuário continha os fatos necessários à cadeia resumida. Isso não significava que todo o histórico financeiro de 2026 já estivesse publicado. O defeito tratado naquele marco era a ordem:
 
 - as quatro métricas aparecem sem uma conclusão operacional explícita;
 - o acompanhamento está numa barra lateral;
@@ -169,10 +170,10 @@ git status --short --branch
 Depois:
 
 1. atualizar a referência local de `origin/main` e confirmar que ela contém `f256442bf85b2879d7a9b3ffca7be30246ae4d43` ou um descendente documental explícito;
-2. ler as seções 8, 9 e 11 deste documento, a auditoria de 21/08 e a especificação do quarto marco;
+2. ler as seções 9, 11, 12 e 13 deste documento, a revisão crítica de 21/08 e a especificação do quarto marco;
 3. não reabrir os PRs nº 37 e nº 38: ambos estão concluídos e mesclados;
-4. manter a densidade do prontuário como trabalho posterior e não reabrir decisões financeiras já consolidadas;
-5. retomar o quarto marco no gate de revisão da especificação, sem implementar antes da aprovação explícita.
+4. não confundir os 408 movimentos de 2026, que atravessaram o modelo humano, com as posições mensais que ficaram fora do retrato publicado;
+5. retomar o quarto marco no gate de revisão da especificação de completude financeira, sem escrever o plano nem implementar antes da aprovação explícita do texto.
 
 ## 8. Terceiro marco — continuidade visível da navegação mobile
 
@@ -270,11 +271,12 @@ Na inspeção original, o mobile apresentou `Resumo` como seção atual e o cont
 
 ### Próximo trabalho funcional recomendado
 
-O próximo marco não é corrigir novamente a planilha ou a leitura operacional já publicadas. A opção nº 1 abaixo foi selecionada e detalhada na seção 11; as demais continuam posteriores:
+A revisão crítica de 21/08 alterou a prioridade, não os fatos técnicos já comprovados. A sequência vigente é:
 
-1. auditoria própria de acessibilidade: contraste, leitor de tela e reflow em 200%/400%;
-2. validação orientada com usuários comuns antes de recolher ou redistribuir novos blocos do prontuário;
-3. evolução do backend/persistência somente após definição explícita do contrato e da fonte de verdade.
+1. completude financeira publicada de 2026, detalhada na seção 11;
+2. acessibilidade estrutural e legibilidade, preservada como marco preparado na seção 12;
+3. validação orientada com usuários comuns;
+4. evolução da persistência institucional em gate próprio.
 
 ## 10. Disciplina de checkpoint
 
@@ -287,52 +289,51 @@ Após cada ciclo relevante:
 5. manter o handoff persistente externo sincronizado;
 6. antes de publicação, obter autorizações separadas exigidas pelo fluxo GitHub.
 
-## 11. Quarto marco — acessibilidade estrutural e legibilidade
+## 11. Quarto marco — completude financeira publicada de 2026
 
-**Nome de trabalho:** acessibilidade estrutural e legibilidade WCAG 2.2 AA.
+**Estado:** direção aprovada; especificação escrita e aguardando revisão humana; plano executável e implementação ainda não iniciados. Produção permanece no estado da seção 9.
 
-**Estado:** auditoria e especificação aprovadas; plano executável escrito; implementação ainda não iniciada e aguardando escolha do modo de execução. Nenhum código funcional foi alterado, nenhum PR foi aberto e produção continua no estado descrito na seção 9.
+**Documento de correção estratégica:** `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md`.
 
-**Branch de documentação e futuro trabalho:** `codex/accessibility-legibility-aa`.
+**Especificação em revisão:** `docs/superpowers/specs/2026-08-21-completude-financeira-publicada-design.md`.
 
-### Documentos canônicos
+### Evidência que define o marco
 
-- auditoria: `docs/audits/2026-08-21-acessibilidade-legibilidade-produto.md`;
-- especificação: `docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md`;
-- plano executável: `docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md`.
+- o artefato público possui 163 escolas, 335 contas, 335 posições e 408 movimentos de 2026;
+- todas as 335 posições são de 31/07/2026 e nenhuma conta possui mais de um ponto;
+- o modelo financeiro e o humano possuem os mesmos 408 movimentos de 2026;
+- o backfill anterior comprovou 2.690 posições e 461 séries de janeiro a junho;
+- o coletor já implementa `ALL_AVAILABLE_2026`, mas o monitoramento oficial não propaga esse modo;
+- o contrato e a linha temporal já aceitam várias posições.
 
-### Barreiras confirmadas
+### Direção aprovada
 
-1. `--ink-500: #718797` fica entre 3,4376:1 e 3,7402:1 nos fundos principais, abaixo de 4,5:1 para texto normal;
-2. o foco global clareado por mistura com branco fica entre 2,7425:1 e 2,9839:1, abaixo de 3:1;
-3. resultados da busca e linhas de repasses/saldos aplicam `role="listitem"` diretamente ao `Link`, substituindo o papel de link;
-4. cabeçalhos financeiros estão ocultos da árvore acessível e os rótulos por valor usam `display: none` no desktop;
-5. todas as rotas mantêm o mesmo título de documento;
-6. bordas funcionais de campos usam um divisor com contraste entre 1,2354:1 e 1,3442:1, uma pista visual fraca.
-
-### Direção decidida
-
-- corrigir os tokens na origem, sem redesenho amplo;
-- usar `--ink-500: #5c7385`, foco direto `#1878a4` e borda funcional `#788e9c`;
-- preservar links nativos dentro de itens de lista;
-- manter rótulos financeiros no conteúdo acessível em todas as larguras;
-- definir título específico para cada rota e nomear o prontuário pela escola quando os dados estiverem prontos;
-- ampliar o smoke para semântica, teclado, foco e larguras de 640, 390 e 320 CSS px;
-- preservar conteúdo, regras financeiras, fontes, backend, planilha, persistência e produção.
-
-### Evidência e limites
-
-Seis capturas aceitas, seus hashes, os passos auditados e os cálculos estão no documento de auditoria. Não houve teste real com leitor de tela nem zoom válido a 200%/400%; essas lacunas devem continuar explícitas e impedem qualquer alegação de conformidade integral.
+1. integrar todas as posições mensais disponíveis de 2026 à execução que gera o produto;
+2. preservar séries com posição não zero anterior mesmo quando terminam zeradas;
+3. acrescentar cobertura, atividade observada e flags probatórias ao contrato por conta;
+4. manter outros exercícios separados;
+5. gerar snapshot web e workbook da mesma entrada humana;
+6. validar primeiro dez escolas, incluindo a EM Professor Carneiro Ribeiro, e depois as 163.
 
 ### Próximo gate seguro
 
-1. escolher execução orientada por subagentes ou execução inline nesta sessão;
-2. executar as seis tarefas do plano por TDD em commits próprios;
-3. verificar suíte, typecheck, builds, smoke e evidência visual;
-4. registrar resultados reais e qualquer bloqueio no checkpoint;
-5. solicitar autorização separada antes de PR pronto, merge ou deploy.
+1. revisar e aprovar a especificação escrita;
+2. somente depois escrever o plano executável por TDD;
+3. revisar e aprovar o plano;
+4. implementar em passos pequenos e validar o piloto real;
+5. solicitar autorizações separadas antes de PR pronto, merge, promoção de dados ou deploy.
 
-## 12. Checkpoint documental integral e acesso entre ferramentas
+## 12. Marco posterior preparado — acessibilidade estrutural e legibilidade
+
+A auditoria, a especificação e o plano de acessibilidade continuam preservados:
+
+- `docs/audits/2026-08-21-acessibilidade-legibilidade-produto.md`;
+- `docs/superpowers/specs/2026-08-21-acessibilidade-legibilidade-design.md`;
+- `docs/superpowers/plans/2026-08-21-acessibilidade-legibilidade.md`.
+
+As barreiras confirmadas permanecem reais. A implementação foi adiada para depois da completude financeira e o plano deverá ser revalidado sobre o diff então corrente. Não houve teste real com leitor de tela nem zoom válido a 200%/400%, portanto não há alegação de conformidade integral.
+
+## 13. Checkpoint documental integral e acesso entre ferramentas
 
 **Objetivo:** eliminar a dependência de perguntas arquivo por arquivo e impedir que documentação relevante permaneça apenas no workspace ou na Biblioteca.
 
@@ -351,6 +352,12 @@ Seis capturas aceitas, seus hashes, os passos auditados e os cálculos estão no
 - `docs/history/HANDOFF_PDDE_INFO_Work_v0.4_2026-08-13.md`;
 - `docs/history/PROMPT_NOVO_CHAT_WORK_PDDE.txt`;
 - quatro fontes brutas em `docs/history/source-material/`, claramente marcadas como históricas e não canônicas.
+
+### Correção estratégica posterior
+
+- `docs/audits/2026-08-21-revisao-critica-auditoria-e-roadmap.md` preserva a auditoria original e supera apenas sua atribuição causal não comprovada;
+- `docs/superpowers/specs/2026-08-21-completude-financeira-publicada-design.md` registra o marco corrente;
+- o `PRODUCT_DECISION_GATE_2026.md` permanece histórico e não deve ser usado como bloqueio retroativo.
 
 ### Inventário e regra de publicação
 

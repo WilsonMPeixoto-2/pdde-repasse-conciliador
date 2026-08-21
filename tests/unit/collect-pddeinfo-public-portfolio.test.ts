@@ -133,4 +133,33 @@ describe('collectPddeInfoPublicPortfolio', () => {
     expect(result.coverageThrough).toBeNull();
     expect(result.balances).toEqual([]);
   });
+
+  it('repete consulta de saldo quando o FNDE excede temporariamente sessões Oracle', async () => {
+    let balanceAttempts = 0;
+    const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
+      if (filter.kind === 'ATTENDANCE') return report('ATTENDANCE', [attendanceRow(filter.inep)]);
+      if (filter.kind === 'ACCOUNTING') return report('ACCOUNTING', []);
+      if (filter.kind === 'BALANCE') {
+        balanceAttempts += 1;
+        if (balanceAttempts === 1) {
+          throw new Error('Relatório público do FNDE retornou erro da fonte: ORA-02391: limite de SESSIONS_PER_USER simultâneo excedido.');
+        }
+        return report('BALANCE', [balanceRow], '2026-06-30');
+      }
+      throw new Error(`relatório não esperado: ${filter.kind}`);
+    };
+
+    const result = await collectPddeInfoPublicPortfolio({
+      schools: [schools[0]],
+      fiscalYear: 2026,
+      fetchReport,
+      discoverBalanceMonths: async () => ['06-2026'],
+      balanceRetryAttempts: 2,
+      balanceRetryDelayMs: 0,
+    });
+
+    expect(balanceAttempts).toBe(2);
+    expect(result.balances).toHaveLength(1);
+    expect(result.failures).toEqual([]);
+  });
 });
