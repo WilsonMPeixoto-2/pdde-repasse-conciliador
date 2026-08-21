@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 20/08/2026, terceiro marco publicado, validado em CI e aceito visualmente; PR mantido em rascunho
+**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 integrados à `main` e confirmados em produção
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -18,22 +18,16 @@ Ler, nesta ordem:
 
 Não reconstruir decisões a partir de documentos antigos isolados. O código e os testes do commit corrente continuam sendo a fonte técnica principal.
 
-## 2. Estado Git na abertura deste marco
+## 2. Estado Git e produção após a integração
 
-- primeiro marco: PR em rascunho [#37](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/37);
-- branch do primeiro marco: `codex/stabilize-human-workbook`;
-- head remoto do PR nº 37: `995fb8300a76a7c6485c812d8587bdd6c4c265ba`;
-- head local equivalente do primeiro marco: `00b66fef0151721ff742c1ee1cdb3c4f6fa50a88`;
-- árvore idêntica local/remota: `72f0bf8b0d1260f4ae6006fe52de2e7adf70ebc5`;
-- branch local do segundo marco: `codex/school-operational-reading`;
-- PR em rascunho do segundo marco: [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38);
-- head local do segundo marco antes do checkpoint documental final: `0a8c1166ae0be5f039c396ae8d38161916da9f8d`;
-- head remoto equivalente antes do checkpoint documental final: `7e4a4492c691874b3580a5b358677e4e50de852d`;
-- árvore idêntica local/remota: `5714e75c5f8fc96b03979f330c595d58e7e1c66f`;
-- o segundo marco está empilhado sobre a árvore do PR nº 37;
-- nenhum merge ou deploy está autorizado.
+- o PR [#37](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/37) foi marcado como pronto e mesclado por merge commit em `9db6bcea2269302974303dcc8defc1d6bd57a2af`;
+- o PR [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) foi redirecionado de `codex/stabilize-human-workbook` para `main`, marcado como pronto e mesclado por merge commit em `f256442bf85b2879d7a9b3ffca7be30246ae4d43`;
+- a `main` publicada possui árvore `c3497ea07ce754497254991e29a50368ce92c4f2`, idêntica à árvore consolidada que foi verificada antes dos merges;
+- o deployment Vercel de produção é `dpl_D3YrRVGXVbX1adpYoj2fatRn8GVi`, estado `READY`, associado ao commit `f256442bf85b2879d7a9b3ffca7be30246ae4d43`;
+- o domínio público canônico é <https://pdde-repasse-conciliador.vercel.app>;
+- não há PR funcional pendente desses três marcos.
 
-## 3. Primeiro marco concluído e ainda não mesclado
+## 3. Primeiro marco concluído e mesclado
 
 O PR nº 37 estabiliza:
 
@@ -55,7 +49,16 @@ Evidência do head remoto:
 - 0 em `Outra informação parcial`;
 - 0 erros de fórmula.
 
+Integração:
+
+- head do PR nº 37: `995fb8300a76a7c6485c812d8587bdd6c4c265ba`;
+- árvore: `72f0bf8b0d1260f4ae6006fe52de2e7adf70ebc5`;
+- merge commit na `main`: `9db6bcea2269302974303dcc8defc1d6bd57a2af`;
+- mesclado em 21/08/2026, antes do PR nº 38, para preservar a ancestralidade da pilha.
+
 ## 4. Segundo marco implementado e validado
+
+**Estado atual:** integrado à `main` pelo PR nº 38 e publicado em produção.
 
 **Nome:** leitura operacional da escola.
 
@@ -76,8 +79,7 @@ Limites:
 - frontend apenas;
 - nenhum endpoint, schema, migration, fonte ou regra de conciliação;
 - nenhum cálculo de regularidade;
-- detalhes existentes permanecem;
-- nenhum merge ou deploy.
+- detalhes existentes permanecem.
 
 ## 5. Diagnóstico que orienta o desenho
 
@@ -141,14 +143,12 @@ Essa sequência não representa mudanças repetidas de objetivo. Foram camadas d
 
 ### Estado Git e publicação
 
-- branch local e remota: `codex/school-operational-reading`;
-- head local antes do checkpoint documental final: `0a8c1166ae0be5f039c396ae8d38161916da9f8d`;
-- head remoto equivalente antes do checkpoint documental final: `7e4a4492c691874b3580a5b358677e4e50de852d`;
-- árvore idêntica local/remota: `5714e75c5f8fc96b03979f330c595d58e7e1c66f`;
-- os SHAs dos commits locais e remotos diferem porque o Git CLI não possui credencial HTTPS interativa; cada commit remoto foi reconstruído pelo conector autenticado e sua árvore foi comparada à árvore local antes do avanço normal da branch;
-- PR [#38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) aberto, mesclável e ainda em rascunho;
-- base intencional: `codex/stabilize-human-workbook`, correspondente ao PR nº 37;
-- nenhum merge, marcação como pronto ou deploy foi executado.
+- head final do PR nº 38: `286e89bce7d45bffcbb3a4e349f9c8936cc9cfa1`;
+- árvore final do PR nº 38: `c3497ea07ce754497254991e29a50368ce92c4f2`;
+- merge commit na `main`: `f256442bf85b2879d7a9b3ffca7be30246ae4d43`;
+- o PR nº 38 foi mesclado em 21/08/2026, após o PR nº 37;
+- a árvore da `main` após o merge é idêntica à árvore final do PR nº 38;
+- o deployment automático de produção ficou `READY` e recebeu os aliases públicos canônicos.
 
 ### Riscos restantes, sem bloquear este marco
 
@@ -164,17 +164,17 @@ git status --short --branch
 
 Depois:
 
-1. confirmar que o checkout permanece limpo e na branch `codex/school-operational-reading`;
-2. ler a seção 8 deste documento e `docs/audits/2026-08-20-leitura-operacional-escola.md`;
-3. abrir o [PR nº 38](https://github.com/WilsonMPeixoto-2/pdde-repasse-conciliador/pull/38) e confirmar que continua rascunho;
-4. não marcar como pronto, mesclar nem executar deploy sem autorização específica;
-5. tratar a densidade do prontuário e a auditoria de acessibilidade como trabalhos posteriores, sem reabrir decisões financeiras já consolidadas.
+1. atualizar a referência local de `origin/main` e confirmar que ela contém `f256442bf85b2879d7a9b3ffca7be30246ae4d43` ou um descendente documental explícito;
+2. ler as seções 8 e 9 deste documento e `docs/audits/2026-08-20-leitura-operacional-escola.md`;
+3. não reabrir os PRs nº 37 e nº 38: ambos estão concluídos e mesclados;
+4. tratar a densidade do prontuário e a auditoria de acessibilidade como trabalhos posteriores, sem reabrir decisões financeiras já consolidadas;
+5. iniciar o próximo marco funcional em nova branch, com objetivo, limite e gate próprios.
 
 ## 8. Terceiro marco — continuidade visível da navegação mobile
 
 **Nome de trabalho:** navegação local acessível do prontuário.
 
-**Estado:** implementação publicada, CI aprovado e capturas desktop/mobile inspecionadas em resolução original; PR preservado em rascunho.
+**Estado:** implementação validada, integrada pelo PR nº 38 e publicada em produção.
 
 ### Decisão aprovada
 
@@ -225,19 +225,54 @@ Na inspeção original, o mobile apresentou `Resumo` como seção atual e o cont
 - commit remoto equivalente de código: `3cd7251558cc39fa7844d9da3f9f160d824e8801`;
 - árvore de código local/remota idêntica: `d34bc233b955602a3d4de362cc5eb24f62535aae`;
 - a reconstrução remota foi descendente direta de `74934979f8343ea815d37c5cada46cb07ed0d2ed`, sem force push;
-- PR nº 38 permanece aberto, mesclável e em rascunho contra `codex/stabilize-human-workbook`;
-- o preview automático da Vercel ficou `Ready`; nenhum deploy de produção foi solicitado ou executado;
-- nenhum merge ou marcação como pronto foi executado.
+- head remoto final do PR nº 38: `286e89bce7d45bffcbb3a4e349f9c8936cc9cfa1`;
+- árvore final local/remota: `c3497ea07ce754497254991e29a50368ce92c4f2`;
+- `Verificação contínua`, execução nº 1243, run `32441433903`: aprovada;
+- `Frontend Product Smoke 2026`, execução nº 370, run `32441433755`: aprovada;
+- artefato final `frontend-product-smoke-2026`, ID `9432576990`, digest `sha256:8e1c59333dc4a9605fa9f576a0260ae788324a8c3f073b70fc47cf99900b0951`;
+- PR nº 38 mesclado na `main` pelo commit `f256442bf85b2879d7a9b3ffca7be30246ae4d43`;
+- deployment de produção `dpl_D3YrRVGXVbX1adpYoj2fatRn8GVi`, estado `READY`.
 
 ### Próximo gate seguro
 
-1. preservar o PR nº 38 em rascunho e não mesclar nem fazer deploy sem nova autorização;
-2. não recolher mais conteúdo do prontuário sem validação com usuários;
-3. planejar separadamente a auditoria de contraste, leitor de tela e reflow a 200%/400%;
-4. retomar o board incompleto do Figma somente quando a cota da ferramenta voltar;
-5. iniciar novo marco apenas com objetivo e limite explícitos, usando esta seção como ponto de partida.
+1. não recolher mais conteúdo do prontuário sem validação com usuários;
+2. planejar separadamente a auditoria de contraste, leitor de tela e reflow a 200%/400%;
+3. retomar o board incompleto do Figma somente quando a cota da ferramenta voltar;
+4. iniciar novo marco apenas com objetivo e limite explícitos, usando esta seção como ponto de partida.
 
-## 9. Disciplina de checkpoint
+## 9. Checkpoint de produção de 21/08/2026
+
+### Promoção executada
+
+1. a árvore consolidada foi reinstalada com `npm ci` usando cache temporário gravável;
+2. `vitest run`: 134 arquivos aprovados e 4 ignorados; 448 testes aprovados e 6 ignorados;
+3. `tsc -p tsconfig.test.json --noEmit`: aprovado;
+4. build Vite cliente: 791 módulos transformados, aprovado;
+5. build Vite SSR: 30 módulos transformados, aprovado;
+6. PR nº 37 marcado como pronto e mesclado por merge commit;
+7. PR nº 38 redirecionado para `main`, recalculado como mesclável, marcado como pronto e mesclado por merge commit;
+8. `main` confirmada em `f256442bf85b2879d7a9b3ffca7be30246ae4d43`, árvore `c3497ea07ce754497254991e29a50368ce92c4f2`;
+9. Vercel confirmou o deployment `dpl_D3YrRVGXVbX1adpYoj2fatRn8GVi` como `READY`, alvo `production`, pronto em 21/08/2026 às 00:23:06 BRT.
+
+### Verificação pós-deploy
+
+- `/` respondeu `HTTP 200` com o título `Inteligência Financeira PDDE | 4ª CRE`;
+- `/unidades/33069093` respondeu `HTTP 200`, comprovando o rewrite de rota interna;
+- ambas as rotas serviram o bundle `assets/index-BJ1Zu8eA.js`, o mesmo nome de conteúdo produzido no build local validado;
+- o bundle público contém `Leitura rápida desta escola`, `Acompanhamento necessário`, `Seções do prontuário financeiro` e `Ver seções anteriores`;
+- a consulta agregada de erros da Vercel não encontrou erro de runtime na hora posterior ao deploy;
+- a consulta de logs do deployment não encontrou evento `warning`, `error` ou `fatal` no mesmo intervalo;
+- o Chromium local não pôde ser baixado porque o CDN devolveu arquivo vazio/truncado; esse bloqueio ambiental não substitui nem invalida o smoke desktop/mobile já aprovado no GitHub Actions sobre a mesma árvore Git.
+
+### Próximo trabalho funcional recomendado
+
+O próximo marco não é corrigir novamente a planilha ou a leitura operacional já publicadas. Deve ser escolhido entre:
+
+1. auditoria própria de acessibilidade: contraste, leitor de tela e reflow em 200%/400%;
+2. validação orientada com usuários comuns antes de recolher ou redistribuir novos blocos do prontuário;
+3. evolução do backend/persistência somente após definição explícita do contrato e da fonte de verdade.
+
+## 10. Disciplina de checkpoint
 
 Após cada ciclo relevante:
 
