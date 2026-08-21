@@ -1,0 +1,30 @@
+name: Completude financeira 2026 TDD
+
+on:
+  push:
+    branches:
+      - codex/financial-completeness-2026
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-red-green:
+    name: TDD focado
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências imutáveis
+        run: npm ci
+
+      - name: Executar teste focado do monitoramento
+        run: npx vitest run tests/unit/run-monitoring-public-reports.test.ts
