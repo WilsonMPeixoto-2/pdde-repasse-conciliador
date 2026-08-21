@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -66,10 +67,18 @@ const human: HumanFinancialPortfolioView = {
   }],
 };
 
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
 describe('empacotador do retrato humano publicado', () => {
-  it('produz manifesto e partes idênticos para a mesma entrada', async () => {
+  it('produz snapshot e workbook determinísticos e identifica partes obsoletas sem removê-las', async () => {
     const first = await mkdtemp(join(tmpdir(), 'pdde-package-a-'));
     const second = await mkdtemp(join(tmpdir(), 'pdde-package-b-'));
+    const staleName = 'pdde-2026-snapshot.part99.txt';
+    await writeFile(join(first, staleName), 'parte-antiga', 'utf8');
+    await writeFile(join(second, staleName), 'parte-antiga', 'utf8');
+
     const options = {
       human,
       runId: 'run-2026-fixture-001',
@@ -84,16 +93,38 @@ describe('empacotador do retrato humano publicado', () => {
 
     expect(a.payloadSha256).toBe(b.payloadSha256);
     expect(a.compressedSha256).toBe(b.compressedSha256);
+    expect(a.workbookSha256).toBe(b.workbookSha256);
     expect(a.partCount).toBeGreaterThan(1);
-    expect(await readFile(join(first, 'pdde-2026-snapshot.json'), 'utf8'))
-      .toBe(await readFile(join(second, 'pdde-2026-snapshot.json'), 'utf8'));
+    expect(a.staleParts).toEqual([`/data/${staleName}`]);
+    expect(b.staleParts).toEqual(a.staleParts);
 
-    const partNames = (await readdir(first)).filter((name) => name.startsWith('pdde-2026-snapshot.part')).sort();
+    const manifestA = await readFile(join(first, 'pdde-2026-snapshot.json'), 'utf8');
+    const manifestB = await readFile(join(second, 'pdde-2026-snapshot.json'), 'utf8');
+    expect(manifestA).toBe(manifestB);
+    const manifest = JSON.parse(manifestA) as {
+      staleParts: string[];
+      checksums: { workbookSha256: string };
+      workbook: { path: string; generatedFromSameHumanContract: boolean };
+    };
+    expect(manifest.staleParts).toEqual([`/data/${staleName}`]);
+    expect(manifest.workbook).toEqual({
+      path: '/data/inteligencia-financeira-pdde-4cre-2026.xlsx',
+      filename: 'inteligencia-financeira-pdde-4cre-2026.xlsx',
+      generatedFromSameHumanContract: true,
+    });
+
+    const partNames = (await readdir(first))
+      .filter((name) => name.startsWith('pdde-2026-snapshot.part') && name !== staleName)
+      .sort();
     expect(partNames).toHaveLength(a.partCount);
     for (const name of partNames) {
       expect(await readFile(join(first, name), 'utf8')).toBe(await readFile(join(second, name), 'utf8'));
     }
 
-    expect(await readdir(first)).toContain('inteligencia-financeira-pdde-4cre-2026.xlsx');
+    const workbookA = await readFile(join(first, 'inteligencia-financeira-pdde-4cre-2026.xlsx'));
+    const workbookB = await readFile(join(second, 'inteligencia-financeira-pdde-4cre-2026.xlsx'));
+    expect(workbookA.equals(workbookB)).toBe(true);
+    expect(manifest.checksums.workbookSha256).toBe(sha256(workbookA));
+    expect(await readFile(join(first, staleName), 'utf8')).toBe('parte-antiga');
   });
 });
