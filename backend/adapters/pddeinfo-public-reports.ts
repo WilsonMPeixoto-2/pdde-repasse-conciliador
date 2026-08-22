@@ -269,8 +269,15 @@ export async function fetchPddeInfoPublicReport(
           }
           throw new Error(message);
         }
+        const html = decodeHtml(bytes, response.headers.get('content-type'));
+        const sourceError = sourceErrorMessage(html);
+        if (sourceError) {
+          throw new AcquisitionUnavailableError(
+            `Relatório público do FNDE retornou erro da fonte: ${sourceError}`,
+          );
+        }
         return {
-          html: decodeHtml(bytes, response.headers.get('content-type')),
+          html,
           rawBytes: bytes,
           sourceUrl: response.url || sourceUrl,
           queriedAt: now(),
