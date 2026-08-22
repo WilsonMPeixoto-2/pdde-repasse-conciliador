@@ -75,6 +75,10 @@ export interface CollectPddeInfoPublicPortfolioOptions {
   discoverBalanceMonths?: DiscoverBalanceMonths;
   balanceMode?: BalanceCollectionMode;
   browserFallback?: boolean;
+  /** Máximo de tentativas para erro transitório de sessões da fonte de saldos. */
+  balanceRetryAttempts?: number;
+  /** Espera entre tentativas de erro transitório. */
+  balanceRetryDelayMs?: number;
   signal?: AbortSignal;
 }
 
@@ -109,6 +113,52 @@ function artifact(
   };
 }
 
+function isTransientBalanceSourceError(cause: unknown): boolean {
+  const message = errorText(cause);
+  return /ORA-02391|SESSIONS_PER_USER|excedeu temporariamente sess(?:ão|ões)|excedido.*sess/i.test(message);
+}
+
+async function waitForRetry(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  signal?.throwIfAborted();
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+  signal?.throwIfAborted();
+}
+
+async function fetchBalanceWithRetry(input: {
+  fetchReport: PublicPortfolioFetchReport;
+  month: string;
+  cnpj: string;
+  browserFallback: boolean;
+  attempts: number;
+  delayMs: number;
+  signal?: AbortSignal;
+}): Promise<PddeInfoPublicReportResult> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= input.attempts; attempt += 1) {
+    input.signal?.throwIfAborted();
+    try {
+      return await input.fetchReport({
+        filter: { kind: 'BALANCE', month: input.month, cnpj: input.cnpj },
+        browserFallback: input.browserFallback,
+        ...(input.signal ? { signal: input.signal } : {}),
+      });
+    } catch (cause) {
+      lastError = cause;
+      if (!isTransientBalanceSourceError(cause) || attempt >= input.attempts) throw cause;
+      await waitForRetry(input.delayMs, input.signal);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Falha inesperada na retentativa de saldo.');
+}
+
 export async function collectPddeInfoPublicPortfolio(
   options: CollectPddeInfoPublicPortfolioOptions,
 ): Promise<PddeInfoPublicPortfolioResult> {
@@ -125,6 +175,8 @@ export async function collectPddeInfoPublicPortfolio(
     ?? ((signal?: AbortSignal) => discoverPddeInfoBalanceMonths(signal ? { signal } : {}));
   const browserFallback = options.browserFallback ?? true;
   const balanceMode = options.balanceMode ?? 'LATEST';
+  const balanceRetryAttempts = Math.max(1, Math.min(5, options.balanceRetryAttempts ?? 3));
+  const balanceRetryDelayMs = Math.max(0, Math.min(10_000, options.balanceRetryDelayMs ?? 1_500));
   const attendance: PddeInfoAttendanceObservation[] = [];
   const accounting: PddeInfoAccountingObservation[] = [];
   const balances: PortfolioBalanceObservation[] = [];
@@ -191,9 +243,13 @@ export async function collectPddeInfoPublicPortfolio(
     await runRateLimited(balanceTasks, async ({ cnpj, month }) => {
       options.signal?.throwIfAborted();
       try {
-        const report = await fetchReport({
-          filter: { kind: 'BALANCE', month, cnpj },
+        const report = await fetchBalanceWithRetry({
+          fetchReport,
+          month,
+          cnpj,
           browserFallback,
+          attempts: balanceRetryAttempts,
+          delayMs: balanceRetryDelayMs,
           ...(options.signal ? { signal: options.signal } : {}),
         });
         artifacts.push(artifact(report, { cnpj }));
@@ -218,7 +274,7 @@ export async function collectPddeInfoPublicPortfolio(
       concurrency: 3,
       intervalCap: 6,
       intervalMs: 5_000,
-      timeoutMs: 35_000,
+      timeoutMs: 45_000,
       strict: true,
       ...(options.signal ? { signal: options.signal } : {}),
     });
