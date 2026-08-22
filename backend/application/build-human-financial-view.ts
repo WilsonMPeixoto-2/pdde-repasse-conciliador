@@ -208,8 +208,10 @@ function creditStatusLabel(status: FiscalCreditPresentationStatus): string {
   switch (status) {
     case 'CREDITO_LOCALIZADO':
       return 'Crédito localizado';
-    case 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA':
-      return 'Crédito não localizado';
+    case 'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO':
+      return 'Extrato ainda não cobre a data do pagamento';
+    case 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE':
+      return 'Crédito ainda não correlacionado automaticamente';
     case 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO':
       return 'Conta não exibida';
     case 'MAIS_DE_UM_CREDITO_COMPATIVEL':
@@ -696,12 +698,6 @@ function followUpFor(
   if (accounts.some((account) => account.latestPosition === null)) {
     messages.push('Há conta sem posição pública de saldo disponível na data desta consulta.');
   }
-  if (school.repasses.some((repasse) => repasse.installments.some((installment) => (
-    installment.amountPaidInformedCents > 0
-    && installment.bankCredit.presentationStatus === 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
-  )))) {
-    messages.push('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
-  }
   return [...new Set(messages)];
 }
 
@@ -784,12 +780,6 @@ function buildPortfolioMetrics(
 
 function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFinancialIndicator[] {
   return [
-    indicator('Pagamento informado sem crédito compatível localizado', schools, (school) => (
-      school.programs.some((program) => program.installments.some((installment) => (
-        installment.paymentInformedCents > 0
-        && installment.creditEvidence.status === 'Crédito não localizado'
-      )))
-    )),
     indicator('Pagamento informado sem conta do repasse exibida', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
         installment.paymentInformedCents > 0 && installment.account === null
