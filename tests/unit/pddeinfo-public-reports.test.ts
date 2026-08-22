@@ -67,4 +67,21 @@ describe('relatórios públicos PDDEInfo', () => {
       'ACCOUNT_OPENING',
     )).toThrow(/FNDE|ORA-00904|fonte/i);
   });
+
+  test('HTTP 200 com erro Oracle é indisponibilidade de aquisição e não resposta utilizável', async () => {
+    const mod = await subject();
+    expect(mod, 'adapter ainda não implementado').not.toBeNull();
+    if (!mod) return;
+    const oraHtml = '<html><body>SQLSTATE[HY000]: General error: 2391 OCIStmtExecute: ORA-02391 exceeded simultaneous SESSIONS_PER_USER limit</body></html>';
+    const fetchImpl = async () => new Response(oraHtml, {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+
+    await expect(mod.fetchPddeInfoPublicReport({
+      filter: { kind: 'BALANCE', month: '07-2026', cnpj: '04500463000173' },
+      fetchImpl,
+      browserFallback: false,
+    })).rejects.toMatchObject({ name: 'AcquisitionUnavailableError' });
+  });
 });

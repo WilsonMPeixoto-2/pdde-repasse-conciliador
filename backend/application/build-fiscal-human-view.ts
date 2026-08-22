@@ -50,7 +50,8 @@ const sourceSchema = z.object({
 
 export type FiscalCreditPresentationStatus =
   | 'CREDITO_LOCALIZADO'
-  | 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
+  | 'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO'
+  | 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE'
   | 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO'
   | 'MAIS_DE_UM_CREDITO_COMPATIVEL'
   | 'CONSULTA_DA_CONTA_INCONCLUSIVA'
@@ -129,8 +130,10 @@ function presentationCreditStatus(
   switch (status) {
     case 'CREDITO_CONFIRMADO':
       return 'CREDITO_LOCALIZADO';
-    case 'PAGO_CREDITO_NAO_LOCALIZADO':
-      return 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA';
+    case 'PAGO_COBERTURA_ANTERIOR_AO_PAGAMENTO':
+      return 'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO';
+    case 'PAGO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE':
+      return 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE';
     case 'PAGO_SEM_CONTA_ATUAL':
       return 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO';
     case 'CREDITO_AMBIGUO':
@@ -146,8 +149,10 @@ function repasseNote(repasse: OperationalRepasse): string | null {
   switch (repasse.bankCreditStatus) {
     case 'CREDITO_CONFIRMADO':
       return 'Pagamento informado no PDDEInfo e crédito compatível localizado no extrato SIGEF.';
-    case 'PAGO_CREDITO_NAO_LOCALIZADO':
-      return 'Pagamento informado no PDDEInfo; crédito compatível ainda não localizado nesta coleta do extrato SIGEF.';
+    case 'PAGO_COBERTURA_ANTERIOR_AO_PAGAMENTO':
+      return 'Pagamento informado no PDDEInfo; o extrato coletado termina antes da data deste pagamento e ainda não pode ser usado para procurar o crédito.';
+    case 'PAGO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE':
+      return 'Pagamento informado no PDDEInfo; o algoritmo não encontrou uma correspondência bancária única no período já coberto. Isso não implica ausência do pagamento.';
     case 'PAGO_SEM_CONTA_ATUAL':
       return 'Pagamento informado no PDDEInfo; a conta correspondente não estava exibida na coleta atual do PDDEInfo.';
     case 'CREDITO_AMBIGUO':

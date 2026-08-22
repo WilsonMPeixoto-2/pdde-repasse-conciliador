@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { buildHumanFinancialView } from '../../backend/application/build-human-financial-view';
 
-function fiscalSchool(inep: string, sme: string, name: string, paid: number, account: boolean) {
+type PresentationStatus =
+  | 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE'
+  | 'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO'
+  | 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO'
+  | 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO';
+
+function fiscalSchool(
+  inep: string,
+  sme: string,
+  name: string,
+  paid: number,
+  account: boolean,
+  presentationStatus?: PresentationStatus,
+) {
+  const defaultStatus: PresentationStatus = paid > 0 && !account
+    ? 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO'
+    : paid > 0
+      ? 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE'
+      : 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO';
   return {
     school: { inep, sme, name, uex: `UEx ${name}`, cnpj: `0${inep}00000100`.slice(0, 14) },
     repasses: [{
@@ -11,11 +29,7 @@ function fiscalSchool(inep: string, sme: string, name: string, paid: number, acc
         pddeInfoDate: paid > 0 ? '2026-08-04' : null,
         account: account ? { bank: '001', agency: '0249', number: `0000${inep}` } : null,
         bankCredit: {
-          presentationStatus: paid > 0 && !account
-            ? 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO'
-            : paid > 0
-              ? 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
-              : 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO',
+          presentationStatus: presentationStatus ?? defaultStatus,
           technicalStatus: 'INCONCLUSIVO', date: null, amountCents: null, document: null,
         },
         note: null,
@@ -26,7 +40,7 @@ function fiscalSchool(inep: string, sme: string, name: string, paid: number, acc
 }
 
 describe('indicadores acionáveis da visão humana', () => {
-  it('todo indicador quantitativo informa nominalmente as unidades que compõem o total', () => {
+  it('não transforma ausência de correlação automática em indicador ou follow-up da escola', () => {
     const view = buildHumanFinancialView({
       fiscalView: {
         fiscalYear: 2026,
@@ -42,13 +56,10 @@ describe('indicadores acionáveis da visão humana', () => {
       } as never,
     });
 
-    const missingCredit = view.indicators.find((item) => item.label === 'Pagamento informado sem crédito compatível localizado');
-    expect(missingCredit).toEqual(expect.objectContaining({ count: 1 }));
-    expect(missingCredit?.units).toEqual([
-      { sme: '0410001', name: 'ESCOLA A', inep: '33069247' },
-    ]);
-    expect(view.indicators.find((item) => item.label === '1ª parcela com pagamento informado')).toBeUndefined();
-    expect(view.schools[0]?.followUp).toContain('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
+    expect(view.schools[0]?.programs[0]?.installments[0]?.creditEvidence.status)
+      .toBe('Crédito ainda não correlacionado automaticamente');
+    expect(view.schools[0]?.followUp).toEqual([]);
+    expect(view.indicators.some((item) => /crédito.*não.*localizado/i.test(item.label))).toBe(false);
 
     const missingAccount = view.indicators.find((item) => item.label === 'Pagamento informado sem conta do repasse exibida');
     expect(missingAccount).toEqual(expect.objectContaining({ count: 0, units: [] }));
@@ -58,12 +69,35 @@ describe('indicadores acionáveis da visão humana', () => {
     expect(partial?.units).toEqual([
       { sme: '0410003', name: 'ESCOLA B', inep: '33069433' },
     ]);
-    expect(view.indicators.find((item) => item.label === 'Informação parcial')).toBeUndefined();
 
     for (const indicator of view.indicators) {
       expect(indicator.count).toBe(indicator.units.length);
       expect(new Set(indicator.units.map((unit) => unit.inep)).size).toBe(indicator.units.length);
     }
+  });
+
+  it('explica quando o extrato ainda não alcança a data do pagamento sem criar follow-up', () => {
+    const view = buildHumanFinancialView({
+      fiscalView: {
+        fiscalYear: 2026,
+        schools: [fiscalSchool(
+          '33069247',
+          '0410001',
+          'ESCOLA A',
+          100000,
+          true,
+          'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO',
+        )],
+      } as never,
+      publicReports: {
+        attendance: [], accounting: [], balances: [], artifacts: [], failures: [],
+        balanceReferenceMonth: null, coverageThrough: null,
+      } as never,
+    });
+
+    expect(view.schools[0]?.programs[0]?.installments[0]?.creditEvidence.status)
+      .toBe('Extrato ainda não cobre a data do pagamento');
+    expect(view.schools[0]?.followUp).toEqual([]);
   });
 
   it('sinaliza nominalmente somente pagamento informado cuja conta não foi exibida', () => {

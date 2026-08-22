@@ -37,6 +37,51 @@ function movement(
   };
 }
 
+function rawWithPaidRepasse(coverageThrough: string | null) {
+  return {
+    version: 2,
+    generatedAt: '2026-08-22T06:00:00Z',
+    fiscalYear: 2026,
+    status: 'COMPLETE',
+    sources: ['PDDEINFO', 'SIGEF_EXTRATO'],
+    coverage: { requestedSchools: 1, pddeInfoSchoolsCollected: 1 },
+    summary: {},
+    schools: [{
+      inep: '33069247',
+      sme: '0410001',
+      name: 'EM EMA NEGRAO DE LIMA',
+      uex: 'CEC EMA',
+      cnpj: '04.500.463/0001-73',
+      repasses: [{
+        programCode: '02',
+        action: 'PDDE Básico',
+        installment: '1ª Parcela',
+        programadoCents: 418_500,
+        pagoInformadoCents: 418_500,
+        dataOrdem: '2026-08-05',
+        account,
+      }],
+      accounts: [{
+        inep: '33069247',
+        programCode: '02',
+        programLabel: 'PDDE',
+        account,
+        saldoPddeInfoCents: 0,
+        status: 'COMPLETE',
+        error: null,
+        pagesFetched: 1,
+        declaredTotal: 0,
+        uniqueMovements: 0,
+        movementsInYear: 0,
+        coverageThrough,
+        totals: {},
+        movements: [],
+      }],
+      unknownProgramAccounts: [],
+    }],
+  };
+}
+
 describe('visão operacional do monitoramento', () => {
   test('refina somente históricos com semântica suficiente', () => {
     expect(refineOperationalMovementClass(
@@ -134,5 +179,15 @@ describe('visão operacional do monitoramento', () => {
     expect(view.alerts.some((alert) => (
       alert.kind === 'MOVIMENTO_REVISAR' && alert.schoolInep === '33069271'
     ))).toBe(true);
+  });
+
+  test('não procura crédito em período que o extrato ainda não cobre', () => {
+    const view = buildMonitoringOperationalView(rawWithPaidRepasse('2026-07-31'));
+    expect(view.repasses[0]?.bankCreditStatus).toBe('PAGO_COBERTURA_ANTERIOR_AO_PAGAMENTO');
+  });
+
+  test('distingue ausência de correlação automática quando a cobertura alcança o pagamento', () => {
+    const view = buildMonitoringOperationalView(rawWithPaidRepasse('2026-08-31'));
+    expect(view.repasses[0]?.bankCreditStatus).toBe('PAGO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE');
   });
 });

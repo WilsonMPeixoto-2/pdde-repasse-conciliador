@@ -8,7 +8,8 @@ export type OperationalRepasseStatus =
   | 'PROGRAMADO_NAO_PAGO'
   | 'CREDITO_CONFIRMADO'
   | 'PAGO_SEM_CONTA_ATUAL'
-  | 'PAGO_CREDITO_NAO_LOCALIZADO'
+  | 'PAGO_COBERTURA_ANTERIOR_AO_PAGAMENTO'
+  | 'PAGO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE'
   | 'CREDITO_AMBIGUO'
   | 'CONSULTA_INCONCLUSIVA';
 
@@ -216,54 +217,51 @@ function makeCreditIndex(movements: OperationalMovement[]): Map<string, Operatio
   return result;
 }
 
+function baseRepasse(
+  school: z.infer<typeof schoolSchema>,
+  repasse: z.infer<typeof repasseSchema>,
+  account: BankAccount | null,
+  bankCreditStatus: OperationalRepasseStatus,
+): OperationalRepasse {
+  return {
+    school: {
+      inep: school.inep,
+      sme: school.sme,
+      name: school.name,
+      cnpj: school.cnpj,
+    },
+    programCode: repasse.programCode,
+    action: repasse.action,
+    installment: repasse.installment,
+    amountProgrammedCents: repasse.programadoCents,
+    amountPaidInformedCents: repasse.pagoInformadoCents,
+    orderDate: repasse.dataOrdem,
+    account,
+    bankCreditStatus,
+    bankCreditDate: null,
+    bankCreditAmountCents: null,
+    bankDocument: null,
+    daysAfterOrder: null,
+  };
+}
+
 function reconcileRepasse(
   school: z.infer<typeof schoolSchema>,
   repasse: z.infer<typeof repasseSchema>,
   accountResults: z.infer<typeof accountResultSchema>[],
   creditIndex: Map<string, OperationalMovement[]>,
 ): OperationalRepasse {
-  const schoolRef = {
-    inep: school.inep,
-    sme: school.sme,
-    name: school.name,
-    cnpj: school.cnpj,
-  };
   const account = repasse.account ?? null;
 
   if (repasse.pagoInformadoCents === 0) {
     return {
-      school: schoolRef,
-      programCode: repasse.programCode,
-      action: repasse.action,
-      installment: repasse.installment,
-      amountProgrammedCents: repasse.programadoCents,
+      ...baseRepasse(school, repasse, account, 'PROGRAMADO_NAO_PAGO'),
       amountPaidInformedCents: 0,
-      orderDate: repasse.dataOrdem,
-      account,
-      bankCreditStatus: 'PROGRAMADO_NAO_PAGO',
-      bankCreditDate: null,
-      bankCreditAmountCents: null,
-      bankDocument: null,
-      daysAfterOrder: null,
     };
   }
 
   if (!account) {
-    return {
-      school: schoolRef,
-      programCode: repasse.programCode,
-      action: repasse.action,
-      installment: repasse.installment,
-      amountProgrammedCents: repasse.programadoCents,
-      amountPaidInformedCents: repasse.pagoInformadoCents,
-      orderDate: repasse.dataOrdem,
-      account: null,
-      bankCreditStatus: 'PAGO_SEM_CONTA_ATUAL',
-      bankCreditDate: null,
-      bankCreditAmountCents: null,
-      bankDocument: null,
-      daysAfterOrder: null,
-    };
+    return baseRepasse(school, repasse, null, 'PAGO_SEM_CONTA_ATUAL');
   }
 
   const correspondingAccount = accountResults.find((candidate) => (
@@ -271,21 +269,13 @@ function reconcileRepasse(
     && accountKey(candidate.account) === accountKey(account)
   ));
   if (!correspondingAccount || correspondingAccount.status !== 'COMPLETE') {
-    return {
-      school: schoolRef,
-      programCode: repasse.programCode,
-      action: repasse.action,
-      installment: repasse.installment,
-      amountProgrammedCents: repasse.programadoCents,
-      amountPaidInformedCents: repasse.pagoInformadoCents,
-      orderDate: repasse.dataOrdem,
-      account,
-      bankCreditStatus: 'CONSULTA_INCONCLUSIVA',
-      bankCreditDate: null,
-      bankCreditAmountCents: null,
-      bankDocument: null,
-      daysAfterOrder: null,
-    };
+    return baseRepasse(school, repasse, account, 'CONSULTA_INCONCLUSIVA');
+  }
+  if (!correspondingAccount.coverageThrough) {
+    return baseRepasse(school, repasse, account, 'CONSULTA_INCONCLUSIVA');
+  }
+  if (repasse.dataOrdem && correspondingAccount.coverageThrough < repasse.dataOrdem) {
+    return baseRepasse(school, repasse, account, 'PAGO_COBERTURA_ANTERIOR_AO_PAGAMENTO');
   }
 
   const key = `${school.inep}|${repasse.programCode}|${canonicalAccount(account)}`;
@@ -299,15 +289,7 @@ function reconcileRepasse(
   if (candidates.length === 1) {
     const credit = candidates[0];
     return {
-      school: schoolRef,
-      programCode: repasse.programCode,
-      action: repasse.action,
-      installment: repasse.installment,
-      amountProgrammedCents: repasse.programadoCents,
-      amountPaidInformedCents: repasse.pagoInformadoCents,
-      orderDate: repasse.dataOrdem,
-      account,
-      bankCreditStatus: 'CREDITO_CONFIRMADO',
+      ...baseRepasse(school, repasse, account, 'CREDITO_CONFIRMADO'),
       bankCreditDate: credit.movementDate,
       bankCreditAmountCents: credit.amountCents,
       bankDocument: credit.document || null,
@@ -317,21 +299,14 @@ function reconcileRepasse(
     };
   }
 
-  return {
-    school: schoolRef,
-    programCode: repasse.programCode,
-    action: repasse.action,
-    installment: repasse.installment,
-    amountProgrammedCents: repasse.programadoCents,
-    amountPaidInformedCents: repasse.pagoInformadoCents,
-    orderDate: repasse.dataOrdem,
+  return baseRepasse(
+    school,
+    repasse,
     account,
-    bankCreditStatus: candidates.length > 1 ? 'CREDITO_AMBIGUO' : 'PAGO_CREDITO_NAO_LOCALIZADO',
-    bankCreditDate: null,
-    bankCreditAmountCents: null,
-    bankDocument: null,
-    daysAfterOrder: null,
-  };
+    candidates.length > 1
+      ? 'CREDITO_AMBIGUO'
+      : 'PAGO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE',
+  );
 }
 
 export function buildMonitoringOperationalView(rawInput: unknown) {
@@ -403,7 +378,6 @@ export function buildMonitoringOperationalView(rawInput: unknown) {
   for (const repasse of repasses) {
     if (
       repasse.bankCreditStatus === 'PAGO_SEM_CONTA_ATUAL'
-      || repasse.bankCreditStatus === 'PAGO_CREDITO_NAO_LOCALIZADO'
       || repasse.bankCreditStatus === 'CREDITO_AMBIGUO'
       || repasse.bankCreditStatus === 'CONSULTA_INCONCLUSIVA'
     ) {
