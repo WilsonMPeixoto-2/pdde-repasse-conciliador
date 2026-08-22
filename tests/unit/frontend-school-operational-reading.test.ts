@@ -4,7 +4,6 @@ import { humanSchoolSchema } from '../../src/product/types';
 
 const sourceUnavailable = 'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.';
 const missingPosition = 'Há conta sem posição pública de saldo disponível na data desta consulta.';
-const missingCredit = 'Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.';
 
 const schoolWithAttention = humanSchoolSchema.parse({
   fiscalYear: 2026,
@@ -25,7 +24,7 @@ const schoolWithAttention = humanSchoolSchema.parse({
       paymentOrderDate: null,
       account: null,
       creditEvidence: {
-        status: 'Crédito não localizado',
+        status: 'Crédito ainda não correlacionado automaticamente',
         date: null,
         amountCents: null,
         document: null,
@@ -49,11 +48,11 @@ const schoolWithAttention = humanSchoolSchema.parse({
     paymentSuspended: true,
     expectedTotalCents: 100_000,
   }],
-  followUp: [missingPosition, missingCredit, sourceUnavailable],
+  followUp: [missingPosition, sourceUnavailable],
 });
 
 describe('leitura operacional da escola', () => {
-  it('transforma fatos simultâneos em ações únicas e ordenadas', () => {
+  it('transforma fatos simultâneos em ações únicas e ordenadas sem elevar lacuna de correlação', () => {
     const reading = deriveSchoolOperationalReading(schoolWithAttention);
 
     expect(reading.tone).toBe('attention');
@@ -61,10 +60,65 @@ describe('leitura operacional da escola', () => {
     expect(reading.attentionItems.map(({ title, target }) => [title, target])).toEqual([
       ['Pagamento suspenso informado', '#prestacao-contas'],
       ['Pagamento informado sem conta exibida', '#repasses'],
-      ['Pagamento informado sem crédito compatível localizado', '#repasses'],
       ['Conta sem posição pública de saldo', '#contas-saldos'],
       ['Informação de fonte ainda não disponível', null],
     ]);
+  });
+
+  it('mantém não correlação automática como informação neutra quando não há outro fato de atenção', () => {
+    const schoolWithCorrelationGapOnly = humanSchoolSchema.parse({
+      ...schoolWithAttention,
+      programs: [{
+        name: 'PDDE Básico',
+        installments: [{
+          ...schoolWithAttention.programs[0].installments[0],
+          account: { bank: '001', agency: '0249', number: '0000549797' },
+          creditEvidence: {
+            status: 'Crédito ainda não correlacionado automaticamente',
+            date: null,
+            amountCents: null,
+            document: null,
+          },
+        }],
+      }],
+      accounts: [],
+      accounting: [],
+      followUp: [],
+    });
+
+    expect(deriveSchoolOperationalReading(schoolWithCorrelationGapOnly)).toEqual({
+      tone: 'clear',
+      statusLabel: 'Sem apontamento no retrato atual',
+      attentionItems: [],
+    });
+  });
+
+  it('mantém cobertura anterior ao pagamento como informação neutra', () => {
+    const schoolWithCoverageGapOnly = humanSchoolSchema.parse({
+      ...schoolWithAttention,
+      programs: [{
+        name: 'PDDE Básico',
+        installments: [{
+          ...schoolWithAttention.programs[0].installments[0],
+          account: { bank: '001', agency: '0249', number: '0000549797' },
+          creditEvidence: {
+            status: 'Extrato ainda não cobre a data do pagamento',
+            date: null,
+            amountCents: null,
+            document: null,
+          },
+        }],
+      }],
+      accounts: [],
+      accounting: [],
+      followUp: [],
+    });
+
+    expect(deriveSchoolOperationalReading(schoolWithCoverageGapOnly)).toEqual({
+      tone: 'clear',
+      statusLabel: 'Sem apontamento no retrato atual',
+      attentionItems: [],
+    });
   });
 
   it('usa estado neutro sem transformar ausência de apontamento em regularidade', () => {
@@ -151,18 +205,12 @@ describe('leitura operacional da escola', () => {
       programs: [],
       accounts: [],
       accounting: [],
-      followUp: [missingCredit, missingPosition],
+      followUp: [missingPosition],
     });
 
     expect(deriveSchoolOperationalReading(schoolWithOrphanKnownMessage).attentionItems).toEqual([
       {
         key: 'follow-up-0',
-        title: 'Outro ponto de acompanhamento',
-        description: missingCredit,
-        target: null,
-      },
-      {
-        key: 'follow-up-1',
         title: 'Outro ponto de acompanhamento',
         description: missingPosition,
         target: null,
