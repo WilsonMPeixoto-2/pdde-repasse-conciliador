@@ -37,8 +37,10 @@ function creditStatusText(status: FiscalCreditPresentationStatus): string {
   switch (status) {
     case 'CREDITO_LOCALIZADO':
       return 'Crédito compatível localizado no extrato SIGEF';
-    case 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA':
-      return 'Pagamento informado no PDDEInfo; crédito compatível ainda não localizado nesta coleta SIGEF';
+    case 'PAGAMENTO_INFORMADO_COBERTURA_ANTERIOR_AO_PAGAMENTO':
+      return 'Pagamento informado no PDDEInfo; o extrato disponível ainda não cobre a data do pagamento';
+    case 'PAGAMENTO_INFORMADO_CREDITO_NAO_CORRELACIONADO_AUTOMATICAMENTE':
+      return 'Pagamento informado no PDDEInfo; crédito ainda não correlacionado automaticamente no período coberto';
     case 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO':
       return 'Pagamento informado no PDDEInfo; conta correspondente não exibida na coleta atual do PDDEInfo';
     case 'MAIS_DE_UM_CREDITO_COMPATIVEL':
@@ -48,6 +50,12 @@ function creditStatusText(status: FiscalCreditPresentationStatus): string {
     case 'PAGAMENTO_AINDA_NAO_INFORMADO_NO_PDDEINFO':
       return 'Pagamento ainda não informado no PDDEInfo';
   }
+}
+
+function requiresRepasseReview(status: FiscalCreditPresentationStatus): boolean {
+  return status === 'PAGAMENTO_INFORMADO_CONTA_NAO_EXIBIDA_NO_PDDEINFO'
+    || status === 'MAIS_DE_UM_CREDITO_COMPATIVEL'
+    || status === 'CONSULTA_DA_CONTA_INCONCLUSIVA';
 }
 
 function brDate(value: string | null): string {
@@ -162,7 +170,7 @@ function buildDashboard(workbook: ExcelJS.Workbook, view: ReturnType<typeof buil
   const entries = allEntries(schools);
   const reviewCount = installments.filter(({ installment }) => (
     installment.amountPaidInformedCents > 0
-    && installment.bankCredit.presentationStatus !== 'CREDITO_LOCALIZADO'
+    && requiresRepasseReview(installment.bankCredit.presentationStatus)
   )).length + entries.filter(({ entry }) => (
     entry.technicalClassification === 'TARIFA_BANCARIA'
     || entry.technicalClassification === 'ENTRADA_TERCEIRO'
@@ -371,7 +379,7 @@ function reviewRows(schools: FiscalSchoolView[]): ReviewRow[] {
   for (const item of schools) {
     for (const repasse of item.repasses) {
       for (const installment of repasse.installments) {
-        if (installment.amountPaidInformedCents > 0 && installment.bankCredit.presentationStatus !== 'CREDITO_LOCALIZADO') {
+        if (installment.amountPaidInformedCents > 0 && requiresRepasseReview(installment.bankCredit.presentationStatus)) {
           rows.push([item.school.sme, item.school.name, item.school.inep, 'Repasse', repasse.action, installment.installment ?? '—', brDate(installment.pddeInfoDate), reais(installment.amountPaidInformedCents), creditStatusText(installment.bankCredit.presentationStatus), installment.bankCredit.document ?? '']);
         }
       }
@@ -462,6 +470,7 @@ function buildLegend(workbook: ExcelJS.Workbook): void {
     ['Previsto PDDEInfo', 'Valor programado na fonte', 'Não significa que o valor já tenha sido pago ou creditado.'],
     ['Pagamento informado', 'Valor/data apresentados pelo PDDEInfo', 'É apresentado separadamente do crédito bancário.'],
     ['Crédito SIGEF', 'Lançamento compatível localizado no extrato', 'É a informação bancária encontrada; não substitui a análise documental da prestação de contas.'],
+    ['Correlação automática', 'A ausência de correspondência única é uma limitação do algoritmo, não prova de ausência do pagamento', 'Só conta ausente, ambiguidade real ou consulta inconclusiva entram em Registros para Conferência.'],
     ['Pagamento ainda não informado', 'A fonte ainda não apresenta pagamento para a parcela', 'Não é mostrado como erro, atraso ou irregularidade.'],
     ['Histórico original SIGEF', 'Texto original do extrato', 'Não é reescrito. A categoria auxiliar aparece separadamente.'],
     ['Categoria auxiliar', 'Descrição neutra para facilitar leitura', 'Não representa juízo sobre regularidade, finalidade ou correção da despesa.'],
