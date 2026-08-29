@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -24,7 +24,7 @@ jobs:
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
       - name: Preservar dados e HTMLs do teste
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sigef-live-monitor-2026
           path: |
