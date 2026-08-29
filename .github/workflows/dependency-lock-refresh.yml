@@ -1,0 +1,29 @@
+name: Dependency Lock Refresh
+on:
+  push:
+    branches:
+      - chore/dependency-refresh-2026-08
+    paths:
+      - package.json
+      - .github/workflows/dependency-lock-refresh.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Regenerar package-lock
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Preservar lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-lock-refresh
+          path: package-lock.json
+          retention-days: 1
