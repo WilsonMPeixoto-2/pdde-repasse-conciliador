@@ -4,6 +4,9 @@ on:
     paths:
       - '.github/workflows/financial-completeness-pilot-10.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
