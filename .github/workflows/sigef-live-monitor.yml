@@ -5,7 +5,6 @@ on:
       - 'backend/adapters/sigef-public-statement.ts'
       - 'scripts/monitor-live-2026.ts'
       - 'tests/unit/sigef-public-statement-compact.test.ts'
-      - '.github/workflows/sigef-live-monitor.yml'
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
