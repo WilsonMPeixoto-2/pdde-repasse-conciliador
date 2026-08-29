@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { unzipSync, zipSync } from 'fflate';
 import type { HumanFinancialPortfolioView } from '../backend/application/build-human-financial-view';
 import { prepareCurrentHumanFinancialSnapshot } from '../backend/application/current-human-financial-read-model';
 import { buildHumanFinancialWorkbook } from '../backend/report/human-financial-workbook';
@@ -76,6 +77,17 @@ function publicPayload(input: {
   return { portfolio, schools };
 }
 
+function canonicalizeWorkbookArchive(bytes: Uint8Array): Uint8Array {
+  const files = unzipSync(bytes);
+  const ordered = Object.fromEntries(
+    Object.entries(files).sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return zipSync(ordered, {
+    level: 9,
+    mtime: new Date(Date.UTC(1980, 0, 1)),
+  });
+}
+
 function splitBase64(value: string, partSize: number): string[] {
   if (!Number.isInteger(partSize) || partSize < 4) {
     throw new Error('partSize deve ser um inteiro maior ou igual a 4.');
@@ -132,7 +144,7 @@ export async function packageHumanFinancialSnapshot(
   }
 
   const workbook = buildHumanFinancialWorkbook(options.human, { generatedAt: generatedDate });
-  const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
+  const workbookBytes = Buffer.from(canonicalizeWorkbookArchive(new Uint8Array(await workbook.xlsx.writeBuffer())));
   const workbookSha256 = sha256(workbookBytes);
   const workbookPath = resolve(outputDir, WORKBOOK_FILENAME);
   await writeFile(workbookPath, workbookBytes);
