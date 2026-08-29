@@ -1,6 +1,8 @@
 name: Frontend Product Smoke 2026
 on:
   push:
+    branches:
+      - main
     paths:
       - 'src/**'
       - 'shared/**'
@@ -29,6 +31,9 @@ on:
       - 'playwright.config.ts'
       - 'tests/e2e/**'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
