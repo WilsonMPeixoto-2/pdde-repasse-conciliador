@@ -1,10 +1,9 @@
 name: Dependency Lock Refresh
 on:
-  push:
-    branches:
-      - chore/dependency-refresh-2026-08
+  pull_request:
     paths:
       - package.json
+      - package-lock.json
       - .github/workflows/dependency-lock-refresh.yml
   workflow_dispatch:
 permissions:
