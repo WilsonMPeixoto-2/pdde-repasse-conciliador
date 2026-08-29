@@ -41,8 +41,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "check": "npm run test && npm run typecheck && npm run build",
-    "test:e2e": "playwright test",
-    "test:e2e:a11y": "playwright test tests/e2e/accessibility.spec.ts"
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:a11y": "npm run build && playwright test tests/e2e/accessibility.spec.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "1.5.5-r.4",
