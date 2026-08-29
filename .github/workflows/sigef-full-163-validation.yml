@@ -16,6 +16,9 @@ on:
       - 'scripts/run-temporary-session.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
