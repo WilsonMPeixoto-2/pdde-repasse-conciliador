@@ -14,7 +14,6 @@ on:
       - 'backend/adapters/sigef-releases-html.ts'
       - 'backend/report/human-financial-workbook.ts'
       - 'scripts/run-temporary-session.ts'
-      - '.github/workflows/sigef-full-163-validation.yml'
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
