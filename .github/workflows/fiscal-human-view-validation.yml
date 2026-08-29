@@ -11,6 +11,9 @@ on:
       - 'tests/unit/fiscal-human-view.test.ts'
       - 'package.json'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
