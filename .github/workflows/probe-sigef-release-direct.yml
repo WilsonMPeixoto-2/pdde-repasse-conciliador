@@ -20,7 +20,7 @@ jobs:
           curl -L --silent --show-error "$url" -o out/sample.html -w 'HTTP=%{http_code} URL=%{url_effective}\n'
           iconv -f ISO-8859-1 -t UTF-8 out/sample.html > out/sample.utf8.html || cp out/sample.html out/sample.utf8.html
           grep -n -i -E '04\.500\.463|EMA|PDDE|BANCO DO BRASIL|Conta Corrente|Data de pagamento|não foram encontrados|Nenhum' out/sample.utf8.html | head -200 || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sigef-release-direct-probe
           path: out/
