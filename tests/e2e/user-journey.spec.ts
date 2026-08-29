@@ -11,7 +11,7 @@ test('usuário encontra uma escola e chega ao prontuário financeiro', async ({ 
     page.getByRole('link', { name: 'Gerar visualização em arquivo Excel' }),
   ).toBeVisible();
 
-  await page.getByRole('link', { name: 'Escolas' }).click();
+  await page.getByRole('link', { name: 'Escolas', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Unidades da 4ª CRE' }),
   ).toBeVisible();
