@@ -14,8 +14,10 @@ on:
       - 'backend/adapters/sigef-releases-html.ts'
       - 'backend/report/human-financial-workbook.ts'
       - 'scripts/run-temporary-session.ts'
-      - '.github/workflows/sigef-full-163-validation.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -23,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -42,7 +44,7 @@ jobs:
           node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); if(s.status!=='COMPLETE'||s.schoolCount!==163){console.error('Validação 163 incompleta',s);process.exit(2)} console.log(JSON.stringify({status:s.status,schoolCount:s.schoolCount,workbook:s.workbookFilename}))"
       - name: Preservar produto e evidências integrais
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sigef-full-163-2026
           path: |
