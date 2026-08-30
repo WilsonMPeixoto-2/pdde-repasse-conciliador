@@ -11,6 +11,9 @@ on:
       - 'tests/unit/fiscal-human-view.test.ts'
       - 'package.json'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -18,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -36,7 +39,7 @@ jobs:
         run: npm run monitor:technical:xlsx -- --input artifacts/monitor-all-163-2026.json --output artifacts/monitor-fiscal-2026.xlsx
       - name: Preservar saídas da validação
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fiscal-human-view-163-2026
           path: |
