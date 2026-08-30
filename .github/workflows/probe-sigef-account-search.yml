@@ -31,7 +31,7 @@ jobs:
           grep -n -i -E '04\.500\.463|04500463|conta|agencia|PDDE|programa|nenhum|resultado' out/post.html | head -160 || true
 
       - name: Upload probe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sigef-account-search-probe
           path: out/
