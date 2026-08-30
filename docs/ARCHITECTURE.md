@@ -1,10 +1,10 @@
 # Arquitetura atual e direção de evolução
 
-## Estado corrente — 19/08/2026
+## Estado corrente — 30/08/2026
 
 A arquitetura canônica já une o **motor financeiro**, o **read model humano** e o **produto web publicado**. A infraestrutura institucional persistente também existe em código, mas ainda não está conectada a um Supabase dedicado.
 
-O estado factual resumido está em [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md).
+O estado factual resumido está em [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md).
 
 ## Princípio arquitetural
 
@@ -171,3 +171,17 @@ A principal lacuna deixou de ser coleta ou frontend. É **durabilidade instituci
 5. fazer o frontend consumir o retrato corrente persistido sem perder o comportamento conservador já validado.
 
 Mudanças futuras de UX ou novas fontes devem ser feitas sobre essa arquitetura, não substituindo-a por outra pilha sem ganho comprovado.
+
+
+## Gates técnicos incorporados — 30/08/2026
+
+A arquitetura de validação passa a incluir quatro camadas complementares:
+
+1. Vitest para regras e contratos determinísticos;
+2. MSW para simular integrações HTTP de forma controlada;
+3. Playwright Test para jornadas reais em Chromium desktop/mobile;
+4. Axe sobre Playwright para regressões de acessibilidade de impacto sério ou crítico, preservando dívida conhecida explicitamente registrada.
+
+O workflow de frontend continua executando o smoke determinístico existente e acrescenta a jornada E2E e o gate de acessibilidade. Isso mantém testes de unidade e experiência real separados, sem converter o frontend em autoridade sobre regras financeiras.
+
+A remoção da dependência opcional explícita de Rollup Linux é aceita somente porque instalação e build continuam sendo exercitados em runner Linux. A política de dependências permanece conservadora para bibliotecas com impacto semântico: Zod 4.5 não entra no ciclo corrente antes de maturação e benchmark.
