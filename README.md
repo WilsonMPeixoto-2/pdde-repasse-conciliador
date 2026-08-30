@@ -60,7 +60,7 @@ A versão de código **v0.5.0** já contém:
 - frontend fiscal React/Vite publicado no Vercel;
 - consulta ao vivo da carteira a partir do site, com concorrência e retentativas controladas;
 - preservação do retrato anterior durante a atualização e bloqueio de promoção quando qualquer unidade termina com cobertura parcial;
-- testes unitários, propriedades, PGlite/Postgres, smoke desktop/mobile e validações live controladas.
+- testes unitários, propriedades, PGlite/Postgres, Playwright em navegador real, gate Axe de acessibilidade, MSW, smoke desktop/mobile e validações live controladas.
 
 ## Baseline público comprovado nas 163 UEs
 
@@ -328,7 +328,7 @@ Para retomar o projeto sem depender de chats ou de arquivos locais, ler primeiro
 1. [`docs/INDICE_DOCUMENTAL.md`](docs/INDICE_DOCUMENTAL.md)
 2. [`docs/CONTINUIDADE_WORK.md`](docs/CONTINUIDADE_WORK.md)
 3. [`docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`](docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md)
-4. [`docs/ESTADO_ATUAL_2026-08-19.md`](docs/ESTADO_ATUAL_2026-08-19.md)
+4. [`docs/ESTADO_ATUAL_2026-08-30.md`](docs/ESTADO_ATUAL_2026-08-30.md)
 5. [`docs/DECISOES.md`](docs/DECISOES.md)
 
 Documentos estruturais complementares:
