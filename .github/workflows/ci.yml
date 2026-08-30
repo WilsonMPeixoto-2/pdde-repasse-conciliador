@@ -2,7 +2,13 @@ name: Verificação contínua
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -14,10 +20,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Obter código-fonte
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Preparar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -32,7 +38,7 @@ jobs:
 
       - name: Preservar diagnóstico dos testes
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-output
           path: test-output.txt
