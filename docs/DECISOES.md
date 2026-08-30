@@ -1,6 +1,16 @@
 # Decisões consolidadas
 
-Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é um changelog nem uma descrição automática do estado atual.** O estado operacional corrente está em [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md).
+## 2026-08-30 — Manutenção de dependências é isolada de mudanças financeiras
+
+**Decisão:** atualizações de toolchain, CI e infraestrutura de testes são promovidas em PR próprio sobre a `main`, sem transportar mudanças de completude financeira ou segurança semântica.
+
+O ciclo incorpora Playwright Test, Axe e MSW como gates de experiência e integração. Motion 13.1.1 é aceito após smoke visual. PGlite sobe para 0.5.8. A dependência opcional explícita de Rollup Linux é removida após validação Linux.
+
+**Zod 4.5 permanece adiado** até cumprir a condição já definida de maturação e benchmark. Um CI verde não substitui esse critério.
+
+**Motivo:** reduzir risco de regressão e tornar rastreável se uma falha decorre de regra financeira, frontend, dependência ou infraestrutura de teste.
+
+Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é um changelog nem uma descrição automática do estado atual.** O estado operacional corrente está em [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md).
 
 ## 2026-08-19 — Encontrabilidade é parte do produto financeiro
 
@@ -18,7 +28,7 @@ Indicadores agregados devem permitir chegar aos casos que os compõem. Códigos 
 
 ## 2026-08-19 — Documentos datados são fotografias, não status corrente
 
-**Decisão:** baseline, auditoria e plano datados preservam o estado daquele momento. Para saber o que existe hoje, prevalecem `main`, verificações do commit corrente, README e `ESTADO_ATUAL_2026-08-19.md`.
+**Decisão:** baseline, auditoria e plano datados preservam o estado daquele momento. Para saber o que existe hoje, prevalecem `main`, verificações do commit corrente, README e `ESTADO_ATUAL_2026-08-30.md`.
 
 **Motivo:** o projeto evoluiu rapidamente entre 14 e 19/08; manter frases antigas como “frontend não publicado” sem hierarquia documental pode induzir retrabalho.
 
