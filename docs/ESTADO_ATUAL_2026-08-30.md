@@ -115,3 +115,19 @@ Zod permanece em 4.4.3. A série 4.5 não foi promovida neste ciclo porque a dec
 ## Relação com PRs pendentes
 
 As frentes de completude financeira e segurança semântica permanecem separadas. O refresh de dependências é construído diretamente sobre a `main` para que possa ser validado e promovido sem carregar alterações funcionais dessas frentes.
+
+
+## Publicação do refresh em 30/08/2026
+
+O refresh de dependências e gates foi integrado à `main` pelo PR #45, com merge funcional em `6711ccf81ea458cb84563710102cd6a8270d6408`.
+
+Os gates pós-merge da `main` foram aprovados:
+
+- `Verificação contínua`: run `33339818684`, `success`;
+- `Frontend Product Smoke 2026`: run `33339818696`, `success`, incluindo jornada Playwright desktop/mobile e Axe.
+
+A publicação do novo commit no Vercel ficou **externamente bloqueada** em 30/08/2026 pela cota diária do plano gratuito: `api-deployments-free-per-day`, 100/100 deployments consumidos, 0 restantes. A própria API da Vercel informou reset para **31/08/2026 às 19:46:57 (America/Sao_Paulo)**.
+
+Até esse reset, o domínio público continua servindo com segurança o deployment anterior `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`, associado ao commit `6cab204dcd2bc49da233a1d8fca966b2607b3d36`. O deep link `/repasses` respondeu HTTP 200 e `/api/live` respondeu HTTP 405 para GET, conforme contrato. A consulta de erros de runtime da última hora retornou zero ocorrências.
+
+**Consequência:** código, CI e documentação do refresh estão integrados à `main`; a promoção do novo build para o domínio público não pode ser afirmada como concluída enquanto a Vercel não aceitar um novo deployment. Não promover previews antigos do PR #43, pois pertencem à pilha #41/#42.

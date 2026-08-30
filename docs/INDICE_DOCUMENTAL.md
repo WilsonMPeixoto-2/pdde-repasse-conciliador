@@ -1,10 +1,10 @@
 # Índice documental canônico — PDDE Repasse Conciliador
 
-**Atualização:** 21/08/2026
+**Atualização:** 30/08/2026
 
 **Repositório:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
-**Branch deste checkpoint:** `codex/accessibility-legibility-aa`
+**Branch deste checkpoint:** `main`
 
 **Finalidade:** permitir que qualquer ferramenta retome o projeto sem descobrir documentos por tentativa e erro.
 
@@ -29,7 +29,7 @@ Toda retomada deve começar por esta sequência:
 1. `docs/INDICE_DOCUMENTAL.md`;
 2. `docs/CONTINUIDADE_WORK.md`;
 3. `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
-4. `docs/ESTADO_ATUAL_2026-08-19.md`;
+4. `docs/ESTADO_ATUAL_2026-08-30.md`;
 5. `docs/DECISOES.md`;
 6. auditoria, especificação e plano do marco corrente indicados em `CONTINUIDADE_WORK.md`;
 7. código, testes, histórico Git e estado remoto real.
@@ -64,7 +64,9 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/CONTINUIDADE_WORK.md` | Checkpoint operacional e próximo ponto de retomada | Vigente | branch remota `codex/accessibility-legibility-aa`; versão anterior em `origin/main` |
 | `docs/DECISOES.md` | Registro enxuto de decisões estabilizadas | Vigente | `origin/main` |
 | `docs/ESCOPO_V05.md` | Escopo da v0.5 | Histórico | `origin/main` |
-| `docs/ESTADO_ATUAL_2026-08-19.md` | Estado consolidado anterior aos marcos publicados | Vigente com complementos posteriores | `origin/main` |
+| `docs/ESTADO_ATUAL_2026-08-19.md` | Estado consolidado anterior aos marcos publicados | Histórico | `origin/main` |
+| `docs/ESTADO_ATUAL_2026-08-30.md` | Estado operacional corrente e situação de publicação | Vigente | `origin/main` |
+| `docs/PRODUCTION_CHECKPOINT_2026-08-30.md` | Checkpoint do refresh, CI e bloqueio externo da Vercel | Vigente até nova publicação | `origin/main` |
 | `docs/FONTES_E_REGRAS.md` | Fontes, semântica e regras financeiras | Vigente | `origin/main` |
 | `docs/FRONTEND_PRODUCT_IMPLEMENTATION_2026-08-16.md` | Registro de implementação do frontend inicial | Histórico | `origin/main` |
 | `docs/FRONTEND_PRODUCT_QA_2026.md` | QA do frontend do marco inicial | Histórico de verificação | `origin/main` |

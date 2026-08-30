@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 21/08/2026, marcos nº 1, nº 2 e nº 3 em produção; memória documental integral recuperada; marco nº 4 em especificação, sem alteração funcional
+**Última atualização:** 30/08/2026, refresh de dependências e gates integrado à `main`; publicação do novo build bloqueada temporariamente pela cota diária da Vercel
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -13,7 +13,7 @@ Ler, nesta ordem:
 1. `docs/INDICE_DOCUMENTAL.md`;
 2. `docs/CONTINUIDADE_WORK.md`;
 3. `docs/audits/AUDITORIA_CONTINUIDADE_PDDE_2026-08-20.md`;
-4. `docs/ESTADO_ATUAL_2026-08-19.md`;
+4. `docs/ESTADO_ATUAL_2026-08-30.md`;
 5. `docs/DECISOES.md`;
 6. a auditoria, a especificação e o plano do marco corrente indicados abaixo;
 7. `git status --short --branch` e o diff integral antes de editar.
@@ -21,6 +21,50 @@ Ler, nesta ordem:
 Não reconstruir decisões a partir de documentos antigos isolados. O código e os testes do commit corrente continuam sendo a fonte técnica principal.
 
 Um arquivo local, um commit sem push, uma resposta de chat ou uma cópia isolada na Biblioteca não podem ser descritos como documentação salva para continuidade. A definição completa e o inventário estão em `docs/INDICE_DOCUMENTAL.md`.
+
+
+## 1.1. Checkpoint soberano de 30/08/2026
+
+Este bloco prevalece sobre descrições de estado Git/produção datadas de 21/08 existentes nas seções históricas abaixo.
+
+### Estado Git
+
+- repositório canônico: `WilsonMPeixoto-2/pdde-repasse-conciliador`;
+- refresh final: PR #45;
+- merge funcional na `main`: `6711ccf81ea458cb84563710102cd6a8270d6408`;
+- PR #43 fechado como supersedido;
+- PR #44 fechado e substituído por #45 por falha do conector ao retirar Draft;
+- PRs #41 e #42 permanecem Draft e não foram mesclados.
+
+### Gates pós-merge
+
+- `Verificação contínua`, run `33339818684`: `success`;
+- `Frontend Product Smoke 2026`, run `33339818696`: `success`;
+- jornada real Playwright desktop/mobile: aprovada;
+- Axe: aprovado para violações críticas/sérias fora da dívida conhecida de contraste;
+- MSW: integrado ao teste do adapter PDDEInfo.
+
+### Política de dependências vigente
+
+- PGlite 0.5.8;
+- Motion 13.1.1;
+- Vite 8.2.2;
+- Vitest 4.1.11;
+- Supabase JS 2.112.4;
+- React Virtual 3.14.10;
+- GitHub Actions v6/v7;
+- Zod **fixado em 4.4.3**, com salto para 4.5 adiado até maturação + benchmark;
+- Dependabot habilitado, com Zod minor/major ignorado enquanto esse gate estiver vigente.
+
+### Produção Vercel
+
+O deployment novo **não foi concluído em 30/08 por bloqueio externo de quota**. A API da Vercel retornou `api-deployments-free-per-day`: 100/100 deployments usados, 0 restantes, reset em **31/08/2026 às 19:46:57 America/Sao_Paulo**.
+
+O domínio público continua no deployment `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`, commit `6cab204dcd2bc49da233a1d8fca966b2607b3d36`, estado `READY`. `/repasses` respondeu HTTP 200, `/api/live` respondeu HTTP 405 para GET conforme contrato, e não foram encontrados erros de runtime na última hora.
+
+A próxima promoção deve partir exclusivamente da `main` corrente ou de descendente documental. Não promover previews do antigo PR #43.
+
+Checkpoint detalhado: `docs/PRODUCTION_CHECKPOINT_2026-08-30.md`.
 
 ## 2. Estado Git e produção após a integração
 
