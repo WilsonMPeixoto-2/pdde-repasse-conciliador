@@ -5,8 +5,10 @@ on:
       - 'backend/adapters/sigef-public-statement.ts'
       - 'scripts/monitor-live-2026.ts'
       - 'tests/unit/sigef-public-statement-compact.test.ts'
-      - '.github/workflows/sigef-live-monitor.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -14,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -24,7 +26,7 @@ jobs:
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
       - name: Preservar dados e HTMLs do teste
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sigef-live-monitor-2026
           path: |
