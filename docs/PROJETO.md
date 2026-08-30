@@ -6,7 +6,7 @@ Construir uma plataforma interna para a 4ª CRE capaz de **coletar, validar, con
 
 O caso prioritário é a carteira das **163 escolas da 4ª CRE no exercício de 2026**. Expansões de exercício, CRE ou fonte só entram quando melhorarem o produto real.
 
-> **Estado corrente:** consulte [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md). Baselines e planos anteriores continuam preservados como fotografias históricas e não devem ser usados isoladamente para concluir o que existe hoje.
+> **Estado corrente:** consulte [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md). Baselines e planos anteriores continuam preservados como fotografias históricas e não devem ser usados isoladamente para concluir o que existe hoje.
 
 ## Fonte de verdade
 
@@ -128,10 +128,17 @@ Essas pendências não invalidam o frontend ou o monitoramento já publicados; e
 
 ## Documentos de referência
 
-- estado corrente: [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md);
+- estado corrente: [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md);
 - regras das fontes: [`FONTES_E_REGRAS.md`](FONTES_E_REGRAS.md);
 - constituição visual: [`VISUAL_PRODUCT_CONSTITUTION_2026.md`](VISUAL_PRODUCT_CONSTITUTION_2026.md);
 - baseline PDDEInfo + SIGEF: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md);
 - baseline financeiro público: [`BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md);
 - decisões: [`DECISOES.md`](DECISOES.md);
 - conhecimento ainda não incorporado: [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
+
+
+## Qualidade de engenharia — checkpoint 30/08/2026
+
+A manutenção de dependências passa a ser tratada como capacidade de produto, não como atualização cosmética. O projeto incorpora jornada E2E com Playwright Test, verificação automatizada de acessibilidade com Axe e simulação HTTP com MSW. Dependências de infraestrutura são atualizadas em PR isolado das regras financeiras, preservando a possibilidade de atribuir regressões à camada correta.
+
+Motion 13.1.1 foi aceito após smoke visual. PGlite 0.5.8 integra o ciclo corrente. Zod permanece em 4.4.3 até cumprir maturação e benchmark antes de qualquer promoção para 4.5.
