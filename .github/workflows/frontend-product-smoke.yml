@@ -1,6 +1,8 @@
 name: Frontend Product Smoke 2026
 on:
   push:
+    branches:
+      - main
     paths:
       - 'src/**'
       - 'shared/**'
@@ -12,6 +14,8 @@ on:
       - 'package-lock.json'
       - 'vite.config.ts'
       - 'index.html'
+      - 'playwright.config.ts'
+      - 'tests/e2e/**'
   pull_request:
     paths:
       - 'src/**'
@@ -24,7 +28,12 @@ on:
       - 'package-lock.json'
       - 'vite.config.ts'
       - 'index.html'
+      - 'playwright.config.ts'
+      - 'tests/e2e/**'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -32,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -46,11 +55,16 @@ jobs:
         run: node scripts/frontend-product-smoke.mjs
       - name: Navegar e validar produto publicado desktop/mobile
         run: node scripts/frontend-published-smoke.mjs
+      - name: Executar jornadas e acessibilidade no navegador real
+        run: npx playwright test
+
       - name: Preservar screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-product-smoke-2026
-          path: artifacts/frontend-product-smoke/*.png
+          path: |
+            artifacts/frontend-product-smoke/*.png
+            artifacts/playwright-report/**
           if-no-files-found: warn
           retention-days: 7
