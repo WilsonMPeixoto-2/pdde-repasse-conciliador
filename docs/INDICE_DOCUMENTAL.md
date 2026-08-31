@@ -1,6 +1,6 @@
 # Índice documental canônico — PDDE Repasse Conciliador
 
-**Atualização:** 30/08/2026
+**Atualização:** 31/08/2026
 
 **Repositório:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -66,7 +66,8 @@ A cópia versionada preserva exatamente os bytes e o SHA-256 do arquivo existent
 | `docs/ESCOPO_V05.md` | Escopo da v0.5 | Histórico | `origin/main` |
 | `docs/ESTADO_ATUAL_2026-08-19.md` | Estado consolidado anterior aos marcos publicados | Histórico | `origin/main` |
 | `docs/ESTADO_ATUAL_2026-08-30.md` | Estado operacional corrente e situação de publicação | Vigente | `origin/main` |
-| `docs/PRODUCTION_CHECKPOINT_2026-08-30.md` | Checkpoint do refresh, CI e bloqueio externo da Vercel | Vigente até nova publicação | `origin/main` |
+| `docs/PRODUCTION_CHECKPOINT_2026-08-30.md` | Checkpoint do refresh, CI e bloqueio externo da Vercel | Histórico | `origin/main` |
+| `docs/PRODUCTION_CHECKPOINT_2026-08-31.md` | Fechamento do refresh e homologação da publicação em produção | Vigente | `origin/main` |
 | `docs/FONTES_E_REGRAS.md` | Fontes, semântica e regras financeiras | Vigente | `origin/main` |
 | `docs/FRONTEND_PRODUCT_IMPLEMENTATION_2026-08-16.md` | Registro de implementação do frontend inicial | Histórico | `origin/main` |
 | `docs/FRONTEND_PRODUCT_QA_2026.md` | QA do frontend do marco inicial | Histórico de verificação | `origin/main` |

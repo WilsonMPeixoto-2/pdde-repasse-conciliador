@@ -1,6 +1,6 @@
 # Continuidade do projeto no modo Work
 
-**Última atualização:** 30/08/2026, refresh de dependências e gates integrado à `main`; publicação do novo build bloqueada temporariamente pela cota diária da Vercel
+**Última atualização:** 31/08/2026, refresh de dependências e gates integrado à `main`, validado e publicado em produção
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
@@ -58,13 +58,19 @@ Este bloco prevalece sobre descrições de estado Git/produção datadas de 21/0
 
 ### Produção Vercel
 
-O deployment novo **não foi concluído em 30/08 por bloqueio externo de quota**. A API da Vercel retornou `api-deployments-free-per-day`: 100/100 deployments usados, 0 restantes, reset em **31/08/2026 às 19:46:57 America/Sao_Paulo**.
+O bloqueio de quota de 30/08 foi encerrado após o reset da Vercel. A árvore funcional validada foi publicada em produção em 31/08/2026 por meio do commit de acionamento `107a78d92de0d089445cdeb3911d98cdf4f3b859`.
 
-O domínio público continua no deployment `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`, commit `6cab204dcd2bc49da233a1d8fca966b2607b3d36`, estado `READY`. `/repasses` respondeu HTTP 200, `/api/live` respondeu HTTP 405 para GET conforme contrato, e não foram encontrados erros de runtime na última hora.
+- deployment homologado: `dpl_J74Zef4USvkMjjPG21yXLbRM1gGv`;
+- estado: `READY`;
+- branch: `main`;
+- aliases públicos canônicos: atribuídos sem erro;
+- `/repasses`, `/saldos` e `/unidades`: HTTP 200;
+- `/api/live` via GET: HTTP 405 esperado;
+- erros de runtime na última hora: zero.
 
-A próxima promoção deve partir exclusivamente da `main` corrente ou de descendente documental. Não promover previews do antigo PR #43.
+Os PRs #41 e #42 continuam Draft e não foram incluídos. O PR #43 permanece supersedido.
 
-Checkpoint detalhado: `docs/PRODUCTION_CHECKPOINT_2026-08-30.md`.
+Checkpoint final: `docs/PRODUCTION_CHECKPOINT_2026-08-31.md`.
 
 ## 2. Estado Git e produção após a integração
 

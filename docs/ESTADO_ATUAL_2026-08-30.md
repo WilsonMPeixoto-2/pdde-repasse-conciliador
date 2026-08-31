@@ -131,3 +131,33 @@ A publicação do novo commit no Vercel ficou **externamente bloqueada** em 30/0
 Até esse reset, o domínio público continua servindo com segurança o deployment anterior `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`, associado ao commit `6cab204dcd2bc49da233a1d8fca966b2607b3d36`. O deep link `/repasses` respondeu HTTP 200 e `/api/live` respondeu HTTP 405 para GET, conforme contrato. A consulta de erros de runtime da última hora retornou zero ocorrências.
 
 **Consequência:** código, CI e documentação do refresh estão integrados à `main`; a promoção do novo build para o domínio público não pode ser afirmada como concluída enquanto a Vercel não aceitar um novo deployment. Não promover previews antigos do PR #43, pois pertencem à pilha #41/#42.
+
+
+## Fechamento de produção — 31/08/2026
+
+Após o reset da cota diária da Vercel, a integração Git foi acionada novamente a partir da `main` sem qualquer alteração funcional adicional. O commit `107a78d92de0d089445cdeb3911d98cdf4f3b859` possui a mesma árvore validada `1232a855796c307a00739ff8fa5358e9185d8522` do checkpoint anterior e serviu exclusivamente para disparar a publicação.
+
+A publicação foi concluída com sucesso:
+
+- deployment Vercel: `dpl_J74Zef4USvkMjjPG21yXLbRM1gGv`;
+- target: `production`;
+- branch: `main`;
+- commit publicado: `107a78d92de0d089445cdeb3911d98cdf4f3b859`;
+- estado: `READY`;
+- `aliasError`: ausente;
+- aliases canônicos atribuídos, incluindo `pdde-repasse-conciliador.vercel.app`;
+- build Vite 8.2.2 cliente + SSR concluído com sucesso;
+- `npm ci`: concluído;
+- auditoria de dependências do build: 0 vulnerabilidades.
+
+Homologação pública após a promoção:
+
+- `/repasses`: HTTP 200;
+- `/saldos`: HTTP 200;
+- `/unidades`: HTTP 200;
+- `/api/live` via GET: HTTP 405, conforme contrato do endpoint;
+- erros de runtime na última hora: zero.
+
+O bloqueio por quota registrado em 30/08 permanece apenas como histórico. O refresh de dependências e gates está, a partir de 31/08/2026, **integrado à `main`, validado e publicado em produção**.
+
+Os PRs #41 e #42 permanecem Draft e continuam fora desta publicação. O antigo PR #43 não deve ser promovido.
