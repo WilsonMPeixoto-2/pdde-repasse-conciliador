@@ -1,6 +1,5 @@
 import ExcelJS from 'exceljs';
 import type {
-  HumanFinancialIndicator,
   HumanFinancialPortfolioView,
   HumanFinancialSchoolView,
 } from '../application/build-human-financial-view';
