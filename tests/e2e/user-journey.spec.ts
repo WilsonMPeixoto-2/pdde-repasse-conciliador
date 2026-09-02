@@ -10,6 +10,9 @@ test('usuário encontra uma escola e chega ao prontuário financeiro', async ({ 
   await expect(
     page.getByRole('button', { name: 'Fazer nova consulta' }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Baixar planilha Excel' }),
+  ).toBeVisible();
 
   await page.getByRole('link', { name: 'Escolas', exact: true }).click();
   await expect(
