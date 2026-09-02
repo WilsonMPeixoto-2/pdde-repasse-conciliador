@@ -121,7 +121,7 @@ describe('Excel humano da inteligência financeira', () => {
       'Cobertura das Fontes',
     ]);
     for (const sheet of workbook.worksheets) {
-      expect(sheet.columnCount).toBeLessThanOrEqual(17);
+      expect(sheet.columnCount).toBeLessThanOrEqual(25);
     }
   });
 
@@ -191,10 +191,13 @@ describe('Excel humano da inteligência financeira', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     const sheet = workbook.getWorksheet('Repasses');
     expect(sheet).toBeDefined();
-    const paidCell = sheet?.getCell(4, 12);
-    const plannedCell = sheet?.getCell(4, 9);
+    const paidCell = sheet?.getCell(4, 15);
+    const plannedCell = sheet?.getCell(4, 12);
     expect(paidCell?.font?.color?.argb).toBeDefined();
     expect(paidCell?.font?.color?.argb).not.toBe(plannedCell?.font?.color?.argb);
+    expect(sheet?.getRow(3).values).toContain('Programado Custeio');
+    expect(sheet?.getRow(3).values).toContain('Programado Capital');
+    expect(sheet?.getRow(3).values).toContain('Documento do crédito');
   });
 
   it('não expõe metadados ou vocabulário técnico do backend', () => {
