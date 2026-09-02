@@ -71,7 +71,7 @@ export interface FiscalInstallmentView {
   installment: string | null;
   amountProgrammedCents: number;
   amountPaidInformedCents: number;
-  breakdown: {
+  breakdown?: {
     programmedCusteioCents: number | null;
     programmedCapitalCents: number | null;
     adjustmentCusteioCents: number | null;
@@ -121,7 +121,7 @@ export interface FiscalAccountStatementView {
   programLabel: string;
   account: BankAccount;
   saldoPddeInfoCents: number | null;
-  occurrence: string | null;
+  occurrence?: string | null;
   collectionStatus: 'COMPLETE' | 'PARTIAL' | 'ERROR';
   collectionError: string | null;
   coverageThrough: string | null;
@@ -138,7 +138,7 @@ export interface FiscalSchoolView {
     uex: string;
     cnpj: string;
   };
-  status: {
+  status?: {
     uexRegistration: string;
     mandate: string;
     mandateStartDate: string;
@@ -238,7 +238,7 @@ function groupRepasses(repasses: OperationalRepasse[]): FiscalRepasseGroupView[]
       installment: repasse.installment,
       amountProgrammedCents: repasse.amountProgrammedCents,
       amountPaidInformedCents: repasse.amountPaidInformedCents,
-      breakdown: { ...repasse.breakdown },
+      ...(repasse.breakdown ? { breakdown: { ...repasse.breakdown } } : {}),
       pddeInfoDate: repasse.orderDate,
       account: repasse.account,
       bankCredit: {
@@ -316,15 +316,7 @@ export function buildFiscalHumanView(rawInput: unknown) {
         uex: school.uex,
         cnpj: school.cnpj,
       },
-      status: school.status ?? {
-        uexRegistration: '',
-        mandate: '',
-        mandateStartDate: '',
-        mandateEndDate: '',
-        uexAccounting: '',
-        eexAdhesion: '',
-        eexAccounting: '',
-      },
+      ...(school.status ? { status: { ...school.status } } : {}),
       repasses: groupRepasses(repassesBySchool.get(school.inep) ?? []),
       statements: school.accounts
         .map((accountResult) => {
@@ -334,7 +326,7 @@ export function buildFiscalHumanView(rawInput: unknown) {
             programLabel: accountResult.programLabel,
             account: accountResult.account,
             saldoPddeInfoCents: accountResult.saldoPddeInfoCents,
-            occurrence: accountResult.occurrence ?? null,
+            ...(accountResult.occurrence !== undefined ? { occurrence: accountResult.occurrence } : {}),
             collectionStatus: accountResult.status,
             collectionError: accountResult.error,
             coverageThrough: accountResult.coverageThrough,
