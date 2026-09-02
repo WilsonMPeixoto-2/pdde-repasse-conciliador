@@ -472,7 +472,7 @@ function registrationFor(
   school: FiscalSchoolView,
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanRegistrationStatus | null {
-  const report = publicReports.registrations.find((item) => item.schoolInep === school.school.inep) ?? null;
+  const report = (publicReports.registrations ?? []).find((item) => item.schoolInep === school.school.inep) ?? null;
   const raw = school.status;
   const hasRaw = Object.values(raw).some((value) => Boolean(value.trim()));
   if (!report && !hasRaw) return null;
@@ -501,7 +501,7 @@ function accountOpeningsFor(
   schoolInep: string,
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanAccountOpeningStatus[] {
-  return publicReports.accountOpenings
+  return (publicReports.accountOpenings ?? [])
     .filter((item) => item.schoolInep === schoolInep)
     .map((item) => ({
       program: item.programName,
@@ -516,7 +516,7 @@ function suspensionsFor(
   schoolInep: string,
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanSuspensionStatus[] {
-  return publicReports.suspensions
+  return (publicReports.suspensions ?? [])
     .filter((item) => item.schoolInep === schoolInep)
     .map((item) => ({
       program: item.programName,
@@ -566,17 +566,17 @@ function sourceCoverageFor(
     },
     {
       dataset: 'PDDEInfo · Cadastro',
-      status: coverageStatus(publicReports, inep, 'REGISTRATION', publicReports.registrations.some((item) => item.schoolInep === inep)),
+      status: coverageStatus(publicReports, inep, 'REGISTRATION', (publicReports.registrations ?? []).some((item) => item.schoolInep === inep)),
       detail: 'Situação cadastral, mandato e atualização da UEx.',
     },
     {
       dataset: 'PDDEInfo · Abertura de Conta',
-      status: coverageStatus(publicReports, inep, 'ACCOUNT_OPENING', publicReports.accountOpenings.some((item) => item.schoolInep === inep)),
+      status: coverageStatus(publicReports, inep, 'ACCOUNT_OPENING', (publicReports.accountOpenings ?? []).some((item) => item.schoolInep === inep)),
       detail: 'Situação publicada para abertura/vínculo de conta.',
     },
     {
       dataset: 'PDDEInfo · Suspensões',
-      status: coverageStatus(publicReports, inep, 'SUSPENSION', publicReports.suspensions.some((item) => item.schoolInep === inep)),
+      status: coverageStatus(publicReports, inep, 'SUSPENSION', (publicReports.suspensions ?? []).some((item) => item.schoolInep === inep)),
       detail: 'Motivos de suspensão informados pelo FNDE.',
     },
     {
