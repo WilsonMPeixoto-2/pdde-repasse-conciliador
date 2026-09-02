@@ -179,6 +179,8 @@ npm run monitor:human:xlsx -- \
 
 Este é o único comando canônico da planilha destinada ao usuário humano.
 
+No produto web, o botão **Baixar planilha Excel** reutiliza esse mesmo gerador canônico. Se a tela estiver mostrando o snapshot publicado, o arquivo corresponde ao snapshot publicado; após uma nova consulta completa, o arquivo corresponde aos 163 prontuários atualizados mantidos naquela sessão. A exportação não executa uma nova coleta.
+
 O workbook possui sete recortes curtos:
 
 1. `Visão Geral`;
@@ -267,6 +269,7 @@ Nenhuma chave deve ser incluída em código, frontend, planilha ou documentaçã
 - navegação da visão da carteira para indicadores, unidades, programas, contas e séries financeiras;
 - retrato financeiro 2026 previamente publicado como base estável da experiência;
 - ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela;
+- ação **Baixar planilha Excel**, que gera o Excel humano a partir do mesmo retrato financeiro exibido na interface, sem disparar uma segunda coleta;
 - endpoint server-side `/api/live` para executar a coleta de uma unidade com o pipeline financeiro real;
 - atualização do retrato no navegador somente quando todas as unidades solicitadas terminam sem falha e sem cobertura parcial;
 - smoke automatizado desktop/mobile e CI com testes, TypeScript e build.
