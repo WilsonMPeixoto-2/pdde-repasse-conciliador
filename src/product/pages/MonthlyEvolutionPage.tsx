@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { SchoolSearch } from '../components/SchoolSearch';
 import { schoolMatchesSearch } from '../derive';
 import { formatDate, formatMoney } from '../format';
+import type { HumanSchool } from '../types';
 import { usePortfolioSchoolDetails } from '../usePortfolioSchoolDetails';
 
 type PositionRow = {
-  school: ReturnType<typeof usePortfolioSchoolDetails> extends never ? never : any;
+  school: HumanSchool;
   program: string;
   bank: string;
   agency: string;
