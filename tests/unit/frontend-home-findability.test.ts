@@ -45,12 +45,18 @@ describe('encontrabilidade da página inicial', () => {
     expect(html.match(/class="global-school-finder__result"/g)?.length).toBe(6);
   });
 
-  test('expõe atalhos operacionais para dados básicos', () => {
+  test('expõe as nove dimensões detalhadas além da visão geral', () => {
     const html = render(createElement(FinancialTaskLinks));
-    expect(html).toContain('Ver repasses');
-    expect(html).toContain('Ver saldos e contas');
-    expect(html).toContain('Ver pendências');
-    expect(html).toContain('Ver prestação de contas');
-    expect(html).toContain('Ver todas as escolas');
+    for (const label of [
+      'Escolas',
+      'Repasses',
+      'Contas e saldos',
+      'Evolução mensal',
+      'Movimentações',
+      'Cadastro e habilitação',
+      'Pendências e suspensões',
+      'Prestação de contas',
+      'Cobertura das fontes',
+    ]) expect(html).toContain(label);
   });
 });
