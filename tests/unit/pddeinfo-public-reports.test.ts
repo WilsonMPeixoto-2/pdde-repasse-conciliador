@@ -67,4 +67,28 @@ describe('relatórios públicos PDDEInfo', () => {
       'ACCOUNT_OPENING',
     )).toThrow(/FNDE|ORA-00904|fonte/i);
   });
+
+  test('constrói consultas públicas de cadastro, abertura de conta e suspensão por INEP', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    const registration = new URL(mod.buildPddeInfoPublicReportUrl({
+      kind: 'REGISTRATION', fiscalYear: 2026, inep: '33069247', uf: 'RJ', administrationSphere: 2,
+    }));
+    expect(registration.pathname).toContain('situacaocadastroentidade');
+    expect(registration.searchParams.get('tp_relatorio')).toBe('1');
+    expect(registration.searchParams.get('co_escola')).toBe('33069247');
+
+    const opening = new URL(mod.buildPddeInfoPublicReportUrl({
+      kind: 'ACCOUNT_OPENING', fiscalYear: 2026, inep: '33069247', uf: 'RJ', administrationSphere: 2,
+    }));
+    expect(opening.pathname).toContain('staberturacontaentidade');
+
+    const suspension = new URL(mod.buildPddeInfoPublicReportUrl({
+      kind: 'SUSPENSION', fiscalYear: 2026, inep: '33069247', uf: 'RJ', administrationSphere: 2,
+    }));
+    expect(suspension.pathname).toContain('relatoriosuspensao');
+    expect(suspension.searchParams.getAll('tp_suspensao[]')).toContain('0');
+  });
 });
