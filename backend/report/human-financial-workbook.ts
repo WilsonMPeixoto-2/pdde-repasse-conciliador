@@ -586,16 +586,16 @@ export function buildHumanFinancialWorkbook(
   workbook.calcProperties.fullCalcOnLoad = true;
 
   const overviewSheet = workbook.addWorksheet('Visão Geral', { views: [{ state: 'frozen', ySplit: 2 }] });
-  const followUpSheet = workbook.addWorksheet('Pendências e Suspensões', { views: [{ state: 'frozen', ySplit: 3 }] });
-  const indicatorRows = buildFollowUp(followUpSheet, view);
-  buildOverview(overviewSheet, view, indicatorRows, generatedAt);
   buildUnits(workbook, view);
   buildTransfers(workbook, view);
   buildBalances(workbook, view);
   buildMonthlyHistory(workbook, view);
   buildMovements(workbook, view);
   buildRegistration(workbook, view);
+  const followUpSheet = workbook.addWorksheet('Pendências e Suspensões', { views: [{ state: 'frozen', ySplit: 3 }] });
+  const indicatorRows = buildFollowUp(followUpSheet, view);
   buildAccounting(workbook, view);
   buildCoverage(workbook, view);
+  buildOverview(overviewSheet, view, indicatorRows, generatedAt);
   return workbook;
 }
