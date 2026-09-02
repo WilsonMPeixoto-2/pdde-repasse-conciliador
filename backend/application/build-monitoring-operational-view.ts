@@ -131,7 +131,7 @@ export interface OperationalRepasse {
   installment: string | null;
   amountProgrammedCents: number;
   amountPaidInformedCents: number;
-  breakdown: {
+  breakdown?: {
     programmedCusteioCents: number | null;
     programmedCapitalCents: number | null;
     adjustmentCusteioCents: number | null;
@@ -232,6 +232,15 @@ function makeCreditIndex(movements: OperationalMovement[]): Map<string, Operatio
 
 
 function repasseBreakdown(repasse: z.infer<typeof repasseSchema>): OperationalRepasse['breakdown'] {
+  const values = [
+    repasse.programadoCusteioCents,
+    repasse.programadoCapitalCents,
+    repasse.ajusteCusteioCents,
+    repasse.ajusteCapitalCents,
+    repasse.pagoCusteioCents,
+    repasse.pagoCapitalCents,
+  ];
+  if (values.every((value) => value === undefined)) return undefined;
   return {
     programmedCusteioCents: repasse.programadoCusteioCents ?? null,
     programmedCapitalCents: repasse.programadoCapitalCents ?? null,
@@ -264,7 +273,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: 0,
-      breakdown: repasseBreakdown(repasse),
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'PROGRAMADO_NAO_PAGO',
@@ -283,7 +292,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
-      breakdown: repasseBreakdown(repasse),
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account: null,
       bankCreditStatus: 'PAGO_SEM_CONTA_ATUAL',
@@ -306,7 +315,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
-      breakdown: repasseBreakdown(repasse),
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'CONSULTA_INCONCLUSIVA',
@@ -334,7 +343,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
-      breakdown: repasseBreakdown(repasse),
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'CREDITO_CONFIRMADO',
