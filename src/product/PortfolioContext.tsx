@@ -102,7 +102,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
   }, []);
 
   const downloadWorkbook = useCallback(async (): Promise<void> => {
-    if (exportingWorkbook || state.status !== 'ready') return;
+    if (refreshing || exportingWorkbook || state.status !== 'ready') return;
     setExportingWorkbook(true);
     setExportError(null);
 
@@ -120,7 +120,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     } finally {
       setExportingWorkbook(false);
     }
-  }, [exportingWorkbook, liveGeneratedAt, state]);
+  }, [exportingWorkbook, liveGeneratedAt, refreshing, state]);
 
   const value = useMemo<PortfolioContextValue>(() => ({
     ...state,
