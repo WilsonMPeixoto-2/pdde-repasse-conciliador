@@ -46,7 +46,7 @@ export interface HumanFinancialAccount {
   bank: string;
   agency: string;
   account: string;
-  occurrence: string | null;
+  occurrence?: string | null;
   positions: HumanFinancialPosition[];
   latestPosition: HumanFinancialPosition | null;
   movements: HumanFinancialMovement[];
@@ -57,7 +57,7 @@ export interface HumanFinancialInstallment {
   installment: string | null;
   programmedCents: number;
   paymentInformedCents: number;
-  breakdown: {
+  breakdown?: {
     programmedCusteioCents: number | null;
     programmedCapitalCents: number | null;
     adjustmentCusteioCents: number | null;
@@ -139,10 +139,10 @@ export interface HumanFinancialSchoolView {
   };
   programs: HumanFinancialProgram[];
   accounts: HumanFinancialAccount[];
-  registration: HumanRegistrationStatus | null;
-  accountOpenings: HumanAccountOpeningStatus[];
-  suspensions: HumanSuspensionStatus[];
-  sourceCoverage: HumanSourceCoverage[];
+  registration?: HumanRegistrationStatus | null;
+  accountOpenings?: HumanAccountOpeningStatus[];
+  suspensions?: HumanSuspensionStatus[];
+  sourceCoverage?: HumanSourceCoverage[];
   accounting: HumanAccountingStatus[];
   followUp: string[];
 }
@@ -344,7 +344,7 @@ function schoolPrograms(
       installment: installment.installment,
       programmedCents: installment.amountProgrammedCents,
       paymentInformedCents: installment.amountPaidInformedCents,
-      breakdown: { ...installment.breakdown },
+      breakdown: installment.breakdown ? { ...installment.breakdown } : null,
       paymentInformedDate: installment.pddeInfoDate,
       paymentOrderDate: publicOrderDateFor({
         schoolInep: school.school.inep,
@@ -408,7 +408,7 @@ function schoolAccounts(
       bank: statement.account.bank,
       agency: statement.account.agency,
       account: statement.account.number,
-      occurrence: statement.occurrence,
+      occurrence: statement.occurrence ?? null,
       positions,
       latestPosition,
       movements: statement.entries.map((entry) => ({
@@ -473,7 +473,15 @@ function registrationFor(
   publicReports: PddeInfoPublicPortfolioResult,
 ): HumanRegistrationStatus | null {
   const report = (publicReports.registrations ?? []).find((item) => item.schoolInep === school.school.inep) ?? null;
-  const raw = school.status;
+  const raw = school.status ?? {
+    uexRegistration: '',
+    mandate: '',
+    mandateStartDate: '',
+    mandateEndDate: '',
+    uexAccounting: '',
+    eexAdhesion: '',
+    eexAccounting: '',
+  };
   const hasRaw = Object.values(raw).some((value) => Boolean(value.trim()));
   if (!report && !hasRaw) return null;
   const studentCount = publicReports.attendance
