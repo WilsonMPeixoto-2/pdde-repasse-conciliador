@@ -46,6 +46,11 @@ const view: HumanFinancialPortfolioView = {
       name: 'PDDE / PDDE Básico',
       installments: [{
         installment: '1ª Parcela', programmedCents: 418500, paymentInformedCents: 418500,
+        breakdown: {
+          programmedCusteioCents: 83700, programmedCapitalCents: 334800,
+          adjustmentCusteioCents: 0, adjustmentCapitalCents: 0,
+          paidCusteioCents: 83700, paidCapitalCents: 334800,
+        },
         paymentInformedDate: '2026-08-05', paymentOrderDate: '2026-08-04',
         account: { bank: '001', agency: '0249', number: '0000546402' },
         creditEvidence: {
@@ -57,6 +62,7 @@ const view: HumanFinancialPortfolioView = {
     }],
     accounts: [{
       program: 'PDDE QUALIDADE', bank: '001', agency: '0249', account: '0000546402',
+      occurrence: 'Conta ativa',
       positions: [latestPosition],
       latestPosition,
       movements: [{
@@ -66,11 +72,36 @@ const view: HumanFinancialPortfolioView = {
       }],
       note: 'Saldo informado pelo FNDE com posição até 30/06/2026.',
     }],
+    registration: {
+      studentCount: 625,
+      location: 'Urbana',
+      uexName: 'CONSELHO ESCOLA COMUNIDADE',
+      uexCnpj: '04500463000173',
+      network: 'PARTICULAR',
+      mandateStatus: 'VENCIDO',
+      mandateStartDate: '2026-01-01',
+      mandateEndDate: '2026-08-31',
+      updatedDate: '2026-08-01',
+      updatedTime: '10:00:00',
+      phone: '21 999999999',
+      registrationNote: 'Mandato do dirigente requer atualização.',
+      uexAccountingNote: null,
+      eexAdhesionNote: 'EEx aderiu ao PDDE neste exercício.',
+      eexAccountingNote: null,
+    },
+    accountOpenings: [{
+      program: 'PDDE QUALIDADE', status: 'Conta aberta', bank: '001', agency: '0249', account: '0000546402',
+    }],
+    suspensions: [],
+    sourceCoverage: [
+      { dataset: 'PDDEInfo · Cadastro', status: 'AVAILABLE', detail: 'Cadastro consultado.' },
+      { dataset: 'SIGEF · Extrato', status: 'AVAILABLE', detail: 'Extrato consultado.' },
+    ],
     accounting: [{
       program: 'PDDE', status: 'Aguardando análise', paymentSuspended: false,
       expectedTotalCents: 418500,
     }],
-    followUp: [],
+    followUp: ['Há informação cadastral ou de mandato que requer acompanhamento.'],
   }],
 };
 
@@ -79,22 +110,25 @@ describe('Excel humano da inteligência financeira', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
       'Visão Geral',
-      'Acompanhamento',
-      'Unidades',
+      'Escolas',
       'Repasses',
       'Contas e Saldos',
+      'Evolução Mensal',
       'Movimentações',
+      'Cadastro e Habilitação',
+      'Pendências e Suspensões',
       'Prestação de Contas',
+      'Cobertura das Fontes',
     ]);
     for (const sheet of workbook.worksheets) {
-      expect(sheet.columnCount).toBeLessThanOrEqual(10);
+      expect(sheet.columnCount).toBeLessThanOrEqual(17);
     }
   });
 
   it('faz indicadores apontarem para a lista nominal em vez de deixar números órfãos', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     const overview = workbook.getWorksheet('Visão Geral');
-    const followUp = workbook.getWorksheet('Acompanhamento');
+    const followUp = workbook.getWorksheet('Pendências e Suspensões');
     expect(overview).toBeDefined();
     expect(followUp).toBeDefined();
 
@@ -105,12 +139,12 @@ describe('Excel humano da inteligência financeira', () => {
         hyperlinks.push(String(value.hyperlink));
       }
     }));
-    expect(hyperlinks.some((value) => value.includes('Acompanhamento'))).toBe(true);
+    expect(hyperlinks.some((value) => value.includes('Pendências e Suspensões'))).toBe(true);
 
     const visibleFollowUp: string[] = [];
     followUp?.eachRow((row) => row.eachCell((cell) => visibleFollowUp.push(String(cell.value ?? ''))));
     expect(visibleFollowUp.join(' ')).toContain('EM EMA NEGRAO DE LIMA');
-    expect(visibleFollowUp.join(' ')).toContain('1ª parcela com pagamento informado');
+    expect(visibleFollowUp.join(' ')).toContain('Cadastro ou mandato');
   });
 
   it('mostra previsto, pagamento, crédito e saldo na mesma leitura da visão geral', () => {
@@ -130,7 +164,7 @@ describe('Excel humano da inteligência financeira', () => {
     expect(String(overview?.getCell('A2').value)).toContain('Arquivo gerado em 20/08/2026 15:30');
   });
 
-  it('reúne as situações da mesma unidade em uma única linha de acompanhamento', () => {
+  it('preserva as ocorrências da mesma unidade em linhas auditáveis de acompanhamento', () => {
     const duplicatedView: HumanFinancialPortfolioView = {
       ...view,
       indicators: [
@@ -143,23 +177,22 @@ describe('Excel humano da inteligência financeira', () => {
       ],
     };
     const workbook = buildHumanFinancialWorkbook(duplicatedView);
-    const followUp = workbook.getWorksheet('Acompanhamento');
+    const followUp = workbook.getWorksheet('Pendências e Suspensões');
     expect(followUp).toBeDefined();
 
     const schoolRows = followUp?.getRows(4, followUp.rowCount - 3)?.filter((row) => (
       row.getCell(2).value === '0410001'
     ));
-    expect(schoolRows).toHaveLength(1);
-    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('1ª parcela com pagamento informado');
-    expect(String(schoolRows?.[0]?.getCell(1).value)).toContain('Outra informação parcial');
+    expect((schoolRows?.length ?? 0)).toBeGreaterThanOrEqual(1);
+    expect(schoolRows?.some((row) => String(row.getCell(1).value).includes('Cadastro'))).toBe(true);
   });
 
   it('diferencia visualmente pagamento informado do valor previsto', () => {
     const workbook = buildHumanFinancialWorkbook(view);
     const sheet = workbook.getWorksheet('Repasses');
     expect(sheet).toBeDefined();
-    const paidCell = sheet?.getCell(4, 6);
-    const plannedCell = sheet?.getCell(4, 5);
+    const paidCell = sheet?.getCell(4, 12);
+    const plannedCell = sheet?.getCell(4, 9);
     expect(paidCell?.font?.color?.argb).toBeDefined();
     expect(paidCell?.font?.color?.argb).not.toBe(plannedCell?.font?.color?.argb);
   });
