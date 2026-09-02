@@ -57,6 +57,6 @@ export async function downloadCurrentWorkbook(
     anchor.click();
   } finally {
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }
