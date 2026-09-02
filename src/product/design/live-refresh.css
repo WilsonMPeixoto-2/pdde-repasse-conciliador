@@ -5,6 +5,17 @@
   justify-items: start;
 }
 
+.live-refresh-actions {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.live-refresh-actions .button {
+  flex: 1 1 10rem;
+}
+
 .live-refresh-status {
   width: 100%;
   display: grid;
@@ -84,6 +95,14 @@
 
 @media (max-width: 420px) {
   .live-refresh-control {
+    width: 100%;
+  }
+
+  .live-refresh-actions {
+    display: grid;
+  }
+
+  .live-refresh-actions .button {
     width: 100%;
   }
 
