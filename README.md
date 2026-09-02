@@ -198,7 +198,7 @@ O workbook humano possui dez recortes alinhados à navegação do produto:
 9. `Prestação de Contas`;
 10. `Cobertura das Fontes`.
 
-A aba `Repasses` preserva custeio, capital, ajustes e valores pagos separadamente. `Cobertura das Fontes` distingue dado disponível, consulta sem registro e fonte indisponível.
+As dez dimensões também estão disponíveis como abas do site. A aba `Repasses` preserva custeio, capital, ajustes, pagamento, ordem e evidência de crédito separadamente; `Contas e Saldos` preserva abertura, ocorrência e composição das aplicações; `Movimentações` mantém documento e contraparte; e `Cobertura das Fontes` distingue dado disponível, consulta sem registro, cobertura parcial e fonte indisponível.
 
 Nenhuma dessas abas padrão replica uma “mega tabela” do backend.
 
@@ -275,7 +275,7 @@ Nenhuma chave deve ser incluída em código, frontend, planilha ou documentaçã
 ### Já publicado / operacional para validação
 
 - frontend fiscal React/Vite integrado à `main` e publicado automaticamente no Vercel;
-- navegação da carteira para escolas, repasses, saldos e contas, pendências e prestação de contas;
+- navegação global pelas mesmas dez dimensões do Excel humano: visão geral, escolas, repasses, contas e saldos, evolução mensal, movimentações, cadastro e habilitação, pendências e suspensões, prestação de contas e cobertura das fontes;
 - retrato financeiro 2026 previamente publicado como base estável da experiência;
 - ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela;
 - ação **Baixar planilha Excel**, que gera o Excel humano a partir do mesmo retrato financeiro exibido na interface, sem disparar uma segunda coleta;
