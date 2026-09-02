@@ -49,4 +49,13 @@ describe('nova consulta financeira em tempo real', () => {
     expect(liveConfig).toContain('server/live-source.ts');
     expect(liveConfig).toContain('server-dist');
   });
+
+  test('protege a exportação contra refresh concorrente e revoga o blob somente após o clique', async () => {
+    const context = await readFile(new URL('../../src/product/PortfolioContext.tsx', import.meta.url), 'utf8');
+    const workbook = await readFile(new URL('../../src/product/export-workbook.ts', import.meta.url), 'utf8');
+
+    expect(context).toContain("if (refreshing || exportingWorkbook || state.status !== 'ready') return;");
+    expect(workbook).toContain('window.setTimeout(() => URL.revokeObjectURL(url), 0)');
+  });
+
 });
