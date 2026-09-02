@@ -88,6 +88,10 @@ const school = {
       note: null,
     },
   ],
+  registration: null,
+  accountOpenings: [],
+  suspensions: [],
+  sourceCoverage: [],
   accounting: [
     {
       program: 'PDDE',
@@ -162,10 +166,10 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
         },
       }],
       registration: null,
-    accountOpenings: [],
-    suspensions: [],
-    sourceCoverage: [],
-    accounting: [],
+      accountOpenings: [],
+      suspensions: [],
+      sourceCoverage: [],
+      accounting: [],
       followUp: [],
       programs: [],
     };
