@@ -14,9 +14,9 @@ test('usuário encontra uma escola e chega ao prontuário financeiro', async ({ 
   await expect(workbookButton).toBeVisible();
   const workbookDownload = page.waitForEvent('download');
   await workbookButton.click();
-  await expect(workbookButton).toHaveText('Gerando planilha…');
   const downloadedWorkbook = await workbookDownload;
   expect(downloadedWorkbook.suggestedFilename()).toBe('inteligencia-financeira-pdde-4cre-2026.xlsx');
+  expect(await downloadedWorkbook.failure()).toBeNull();
   await expect(workbookButton).toHaveText('Baixar planilha Excel');
 
   await page.getByRole('link', { name: 'Escolas', exact: true }).click();
