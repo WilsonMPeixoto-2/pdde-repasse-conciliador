@@ -161,7 +161,11 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
           totalReportedBalanceCents: 0,
         },
       }],
-      accounting: [],
+      registration: null,
+    accountOpenings: [],
+    suspensions: [],
+    sourceCoverage: [],
+    accounting: [],
       followUp: [],
       programs: [],
     };
