@@ -12,6 +12,8 @@ const schools = [
     knownBalanceCents: null, referenceDate: null, accountsTotal: 0,
     accountsWithReferencePosition: 0, paymentSuspended: false,
     repasseAccountMissing: false, followUpCount: 0,
+    pendingCount: 0, registrationAttention: false, mandateStatus: null,
+    suspensionCount: 0, accountOpeningIssueCount: 0, accountingAttentionCount: 0,
   },
 ];
 
@@ -47,6 +49,8 @@ describe('encontrabilidade da página inicial', () => {
     const html = render(createElement(FinancialTaskLinks));
     expect(html).toContain('Ver repasses');
     expect(html).toContain('Ver saldos e contas');
+    expect(html).toContain('Ver pendências');
+    expect(html).toContain('Ver prestação de contas');
     expect(html).toContain('Ver todas as escolas');
   });
 });
