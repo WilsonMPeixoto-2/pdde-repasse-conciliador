@@ -91,6 +91,7 @@ export interface HumanAccountingStatus {
 
 
 export interface HumanRegistrationStatus {
+  studentCount: number | null;
   location: string | null;
   uexName: string | null;
   uexCnpj: string | null;
@@ -475,7 +476,10 @@ function registrationFor(
   const raw = school.status;
   const hasRaw = Object.values(raw).some((value) => Boolean(value.trim()));
   if (!report && !hasRaw) return null;
+  const studentCount = publicReports.attendance
+    .find((item) => item.schoolInep === school.school.inep)?.studentCount ?? null;
   return {
+    studentCount,
     location: report?.location ?? null,
     uexName: report?.uexName ?? school.school.uex ?? null,
     uexCnpj: report?.uexCnpj ?? school.school.cnpj ?? null,
