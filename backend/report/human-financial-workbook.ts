@@ -333,152 +333,157 @@ function buildUnits(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioVie
 
 function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Repasses', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Repasses, custeio e capital · PDDE 2026', 16);
-  subtitle(sheet, 'Programação e pagamento são preservados por componente. “Pagamento informado” continua separado da evidência de crédito bancário.', 16);
+  title(sheet, 'Repasses, custeio e capital · PDDE 2026', 25);
+  subtitle(sheet, 'Programação, ajustes, pagamento informado, ordem FNDE e evidência de crédito permanecem separados por programa e parcela.', 25);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'Programa / ação', 'Parcela',
+    'SME', 'Unidade escolar', 'INEP', 'UEx', 'CNPJ', 'Programa / ação', 'Parcela',
     'Programado Custeio', 'Programado Capital', 'Ajuste Custeio', 'Ajuste Capital', 'Programado Final',
-    'Pago Custeio', 'Pago Capital', 'Pagamento Informado', 'Data do pagamento', 'Ordem FNDE', 'Conta', 'Situação do crédito',
+    'Pago Custeio', 'Pago Capital', 'Pagamento Informado', 'Data do pagamento', 'Ordem FNDE',
+    'Banco', 'Agência', 'Conta', 'Situação do crédito', 'Data do crédito', 'Valor do crédito', 'Documento do crédito', 'Observação',
   ]));
   for (const school of view.schools) {
     for (const program of school.programs) {
       for (const installment of program.installments) {
-        const account = installment.account
-          ? 'Banco ' + installment.account.bank + ' · Ag. ' + installment.account.agency + ' · Conta ' + installment.account.number
-          : '';
         const b = installment.breakdown ?? null;
         sheet.addRow([
-          safeText(school.school.sme), safeText(school.school.name), safeText(program.name),
+          safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep),
+          safeText(school.school.uex), safeText(school.school.cnpj), safeText(program.name),
           safeText(installment.installment ?? 'Sem divisão'),
-          reais(b?.programmedCusteioCents ?? null),
-          reais(b?.programmedCapitalCents ?? null),
-          reais(b?.adjustmentCusteioCents ?? null),
-          reais(b?.adjustmentCapitalCents ?? null),
-          reais(installment.programmedCents),
-          reais(b?.paidCusteioCents ?? null),
-          reais(b?.paidCapitalCents ?? null),
-          reais(installment.paymentInformedCents),
-          brDate(installment.paymentInformedDate),
-          brDate(installment.paymentOrderDate),
-          safeText(account),
-          safeText(installment.creditEvidence.status),
+          reais(b?.programmedCusteioCents ?? null), reais(b?.programmedCapitalCents ?? null),
+          reais(b?.adjustmentCusteioCents ?? null), reais(b?.adjustmentCapitalCents ?? null),
+          reais(installment.programmedCents), reais(b?.paidCusteioCents ?? null), reais(b?.paidCapitalCents ?? null),
+          reais(installment.paymentInformedCents), brDate(installment.paymentInformedDate), brDate(installment.paymentOrderDate),
+          safeText(installment.account?.bank ?? ''), safeText(installment.account?.agency ?? ''), safeText(installment.account?.number ?? ''),
+          safeText(installment.creditEvidence.status), brDate(installment.creditEvidence.date),
+          reais(installment.creditEvidence.amountCents), safeText(installment.creditEvidence.document ?? ''),
+          safeText(installment.note ?? ''),
         ]);
       }
     }
   }
-  moneyColumns(sheet, [5, 6, 7, 8, 9, 10, 11, 12]);
+  moneyColumns(sheet, [8, 9, 10, 11, 12, 13, 14, 15, 23]);
   formatData(sheet);
+  for (const index of [1, 3, 5, 18, 19, 20, 24]) sheet.getColumn(index).numFmt = '@';
   for (let rowNumber = 4; rowNumber <= sheet.rowCount; rowNumber += 1) {
-    const paidCell = sheet.getCell(rowNumber, 12);
+    const paidCell = sheet.getCell(rowNumber, 15);
     paidCell.font = { bold: true, color: { argb: PAID_GREEN }, size: 10 };
     if (typeof paidCell.value === 'number' && paidCell.value > 0) {
       paidCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
     }
   }
   sheet.columns = [
-    { width: 12 }, { width: 36 }, { width: 32 }, { width: 16 },
+    { width: 12 }, { width: 36 }, { width: 13 }, { width: 34 }, { width: 18 }, { width: 32 }, { width: 16 },
     { width: 18 }, { width: 18 }, { width: 16 }, { width: 16 }, { width: 18 },
     { width: 16 }, { width: 16 }, { width: 20 }, { width: 17 }, { width: 15 },
-    { width: 32 }, { width: 25 },
+    { width: 10 }, { width: 12 }, { width: 18 }, { width: 28 }, { width: 16 }, { width: 18 }, { width: 22 }, { width: 42 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'P3' };
+  sheet.autoFilter = { from: 'A3', to: 'Y3' };
 }
 
 function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Contas e Saldos', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Contas, saldos, aplicações e abertura · PDDE 2026', 12);
-  subtitle(sheet, 'Situação de abertura e ocorrência da conta são exibidas separadamente do saldo financeiro.', 12);
+  title(sheet, 'Contas, saldos, aplicações e abertura · PDDE 2026', 19);
+  subtitle(sheet, 'Identidade da escola e da conta, situação de abertura, ocorrência e composição financeira permanecem na mesma linha.', 19);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'Programa', 'Banco', 'Agência', 'Conta',
-    'Situação de abertura', 'Ocorrência', 'Saldo em conta', 'Aplicações', 'Saldo total informado', 'Posição',
+    'SME', 'Unidade escolar', 'INEP', 'UEx', 'CNPJ', 'Programa', 'Banco', 'Agência', 'Conta',
+    'Situação de abertura', 'Ocorrência', 'Saldo em conta', 'Fundos', 'Poupança', 'RDB/CDB',
+    'Aplicações', 'Saldo total informado', 'Posição', 'Observação',
   ]));
   for (const school of view.schools) {
     for (const account of school.accounts) {
       const position = account.latestPosition;
-      const opening = school.accountOpenings
+      const openings = school.accountOpenings ?? [];
+      const opening = openings
         .filter((item) => !item.program || account.program.toUpperCase().includes(item.program.toUpperCase()) || item.program.toUpperCase().includes(account.program.toUpperCase()))
         .map((item) => item.status)
         .join(' · ');
       sheet.addRow([
-        safeText(school.school.sme), safeText(school.school.name), safeText(account.program),
+        safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep),
+        safeText(school.school.uex), safeText(school.school.cnpj), safeText(account.program),
         safeText(account.bank), safeText(account.agency), safeText(account.account),
         safeText(opening), safeText(account.occurrence ?? ''),
-        reais(position?.checkingBalanceCents ?? null),
-        reais(position?.applications.totalCents ?? null),
-        reais(position?.totalReportedBalanceCents ?? null),
-        brDate(position?.referenceDate ?? null),
+        reais(position?.checkingBalanceCents ?? null), reais(position?.applications.fundsCents ?? null),
+        reais(position?.applications.savingsCents ?? null), reais(position?.applications.rdbCdbCents ?? null),
+        reais(position?.applications.totalCents ?? null), reais(position?.totalReportedBalanceCents ?? null),
+        brDate(position?.referenceDate ?? null), safeText(account.note ?? ''),
       ]);
     }
   }
-  moneyColumns(sheet, [9, 10, 11]);
+  moneyColumns(sheet, [12, 13, 14, 15, 16, 17]);
   formatData(sheet);
-  for (const index of [1, 4, 5, 6]) sheet.getColumn(index).numFmt = '@';
+  for (const index of [1, 3, 5, 7, 8, 9]) sheet.getColumn(index).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 36 }, { width: 28 }, { width: 10 }, { width: 12 }, { width: 18 },
-    { width: 32 }, { width: 34 }, { width: 18 }, { width: 18 }, { width: 22 }, { width: 16 },
+    { width: 12 }, { width: 36 }, { width: 13 }, { width: 34 }, { width: 18 }, { width: 28 },
+    { width: 10 }, { width: 12 }, { width: 18 }, { width: 32 }, { width: 34 },
+    { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 22 }, { width: 16 }, { width: 42 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'L3' };
+  sheet.autoFilter = { from: 'A3', to: 'S3' };
 }
 
 function buildMonthlyHistory(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Evolução Mensal', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Evolução das posições financeiras · 2026', 13);
-  subtitle(sheet, 'Uma linha por conta e data de referência. O formato longo facilita filtros, tabelas dinâmicas e Power Query.', 13);
+  title(sheet, 'Evolução das posições financeiras · 2026', 17);
+  subtitle(sheet, 'Uma linha por escola, conta e data de referência. Meses sem posição permanecem ausentes e não são preenchidos com zero.', 17);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'Programa', 'Banco', 'Agência', 'Conta', 'Referência',
-    'Saldo em conta', 'Fundos', 'Poupança', 'RDB/CDB', 'Aplicações', 'Saldo total',
+    'SME', 'Unidade escolar', 'INEP', 'CNPJ', 'Programa', 'Banco', 'Agência', 'Conta', 'Referência',
+    'Saldo em conta', 'Fundos', 'Poupança', 'RDB/CDB', 'Aplicações', 'Saldo total', 'Ocorrência', 'Observação',
   ]));
   for (const school of view.schools) {
     for (const account of school.accounts) {
       for (const position of account.positions) {
         sheet.addRow([
-          safeText(school.school.sme), safeText(school.school.name), safeText(account.program),
-          safeText(account.bank), safeText(account.agency), safeText(account.account), brDate(position.referenceDate),
-          reais(position.checkingBalanceCents), reais(position.applications.fundsCents),
+          safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep), safeText(school.school.cnpj),
+          safeText(account.program), safeText(account.bank), safeText(account.agency), safeText(account.account),
+          brDate(position.referenceDate), reais(position.checkingBalanceCents), reais(position.applications.fundsCents),
           reais(position.applications.savingsCents), reais(position.applications.rdbCdbCents),
           reais(position.applications.totalCents), reais(position.totalReportedBalanceCents),
+          safeText(account.occurrence ?? ''), safeText(account.note ?? ''),
         ]);
       }
     }
   }
-  moneyColumns(sheet, [8, 9, 10, 11, 12, 13]);
+  moneyColumns(sheet, [10, 11, 12, 13, 14, 15]);
   formatData(sheet);
+  for (const index of [1, 3, 4, 6, 7, 8]) sheet.getColumn(index).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 36 }, { width: 28 }, { width: 10 }, { width: 12 }, { width: 18 }, { width: 16 },
-    { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 20 },
+    { width: 12 }, { width: 36 }, { width: 13 }, { width: 18 }, { width: 28 }, { width: 10 }, { width: 12 }, { width: 18 }, { width: 16 },
+    { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 20 }, { width: 32 }, { width: 42 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'M3' };
+  sheet.autoFilter = { from: 'A3', to: 'Q3' };
 }
 
 function buildMovements(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Movimentações', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Movimentações financeiras · 2026', 12);
-  subtitle(sheet, 'Histórico original, documento e contraparte são preservados; a categoria é apenas auxiliar.', 12);
+  title(sheet, 'Movimentações financeiras · 2026', 19);
+  subtitle(sheet, 'Histórico original, documento, conta e contraparte são preservados; a categoria continua apenas auxiliar.', 19);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'Programa', 'Conta', 'Data', 'Categoria', 'Histórico original',
-    'Documento', 'Contraparte', 'CPF/CNPJ contraparte', 'Crédito', 'Débito',
+    'SME', 'Unidade escolar', 'INEP', 'CNPJ', 'Programa', 'Banco', 'Agência', 'Conta', 'Data', 'Categoria',
+    'Histórico original', 'Documento', 'Contraparte', 'CPF/CNPJ contraparte', 'Banco contraparte',
+    'Agência contraparte', 'Conta contraparte', 'Crédito', 'Débito',
   ]));
   for (const school of view.schools) {
     for (const account of school.accounts) {
       for (const movement of account.movements) {
         sheet.addRow([
-          safeText(school.school.sme), safeText(school.school.name), safeText(account.program),
-          safeText(account.account), brDate(movement.date), safeText(movement.category ?? ''),
-          safeText(movement.description), safeText(movement.document ?? ''),
-          safeText(movement.counterparty?.name ?? ''),
-          safeText(movement.counterparty?.document ?? ''),
+          safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep), safeText(school.school.cnpj),
+          safeText(account.program), safeText(account.bank), safeText(account.agency), safeText(account.account),
+          brDate(movement.date), safeText(movement.category ?? ''), safeText(movement.description),
+          safeText(movement.document ?? ''), safeText(movement.counterparty?.name ?? ''),
+          safeText(movement.counterparty?.document ?? ''), safeText(movement.counterparty?.bank ?? ''),
+          safeText(movement.counterparty?.agency ?? ''), safeText(movement.counterparty?.account ?? ''),
           reais(movement.creditCents), reais(movement.debitCents),
         ]);
       }
     }
   }
-  moneyColumns(sheet, [11, 12]);
+  moneyColumns(sheet, [18, 19]);
   formatData(sheet);
+  for (const index of [1, 3, 4, 6, 7, 8, 12, 14, 15, 16, 17]) sheet.getColumn(index).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 36 }, { width: 28 }, { width: 18 }, { width: 15 }, { width: 25 },
-    { width: 48 }, { width: 24 }, { width: 34 }, { width: 20 }, { width: 18 }, { width: 18 },
+    { width: 12 }, { width: 36 }, { width: 13 }, { width: 18 }, { width: 28 }, { width: 10 }, { width: 12 }, { width: 18 }, { width: 15 }, { width: 25 },
+    { width: 48 }, { width: 24 }, { width: 34 }, { width: 20 }, { width: 14 }, { width: 16 }, { width: 20 }, { width: 18 }, { width: 18 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'L3' };
+  sheet.autoFilter = { from: 'A3', to: 'S3' };
 }
 
 function buildRegistration(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
@@ -512,40 +517,40 @@ function buildRegistration(workbook: ExcelJS.Workbook, view: HumanFinancialPortf
 
 function buildAccounting(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Prestação de Contas', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Situação da prestação de contas · 2026', 8);
-  subtitle(sheet, 'Situação informada na fonte pública. Motivos de suspensão permanecem em coluna separada.', 8);
+  title(sheet, 'Situação da prestação de contas · 2026', 11);
+  subtitle(sheet, 'Situação informada por programa, com suspensão e seus motivos preservados separadamente.', 11);
   header(sheet.addRow([
-    'SME', 'Unidade escolar', 'INEP', 'Programa', 'Situação', 'Pagamento suspenso', 'Motivo(s) de suspensão', 'Valor previsto',
+    'SME', 'Unidade escolar', 'INEP', 'UEx', 'CNPJ', 'Programa', 'Situação',
+    'Pagamento suspenso', 'Motivo(s) de suspensão', 'Detalhe(s) da suspensão', 'Valor previsto',
   ]));
   for (const school of view.schools) {
     for (const item of school.accounting) {
-      const reasons = school.suspensions
-        .filter((suspension) => !suspension.program || suspension.program === item.program)
-        .map((suspension) => suspension.type)
-        .join(' · ');
+      const suspensions = (school.suspensions ?? []).filter((suspension) => !suspension.program || suspension.program === item.program);
+      const reasons = suspensions.map((suspension) => suspension.type).join(' · ');
+      const details = suspensions.map((suspension) => suspension.detail).filter(Boolean).join(' · ');
       const row = sheet.addRow([
         safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep),
-        safeText(item.program), safeText(item.status), item.paymentSuspended ? 'Sim' : 'Não',
-        safeText(reasons), reais(item.expectedTotalCents),
+        safeText(school.school.uex), safeText(school.school.cnpj), safeText(item.program), safeText(item.status),
+        item.paymentSuspended ? 'Sim' : 'Não', safeText(reasons), safeText(details), reais(item.expectedTotalCents),
       ]);
-      if (item.paymentSuspended) {
-        row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_YELLOW } };
-      }
+      if (item.paymentSuspended) row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_YELLOW } };
     }
   }
-  moneyColumns(sheet, [8]);
+  moneyColumns(sheet, [11]);
   formatData(sheet);
+  for (const index of [1, 3, 5]) sheet.getColumn(index).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 38 }, { width: 13 }, { width: 28 }, { width: 34 }, { width: 19 }, { width: 42 }, { width: 20 },
+    { width: 12 }, { width: 38 }, { width: 13 }, { width: 34 }, { width: 18 }, { width: 28 },
+    { width: 34 }, { width: 19 }, { width: 42 }, { width: 52 }, { width: 20 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'H3' };
+  sheet.autoFilter = { from: 'A3', to: 'K3' };
 }
 
 function buildCoverage(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Cobertura das Fontes', { views: [{ state: 'frozen', ySplit: 3 }] });
-  title(sheet, 'Cobertura das fontes · PDDE 2026', 6);
-  subtitle(sheet, 'Distingue “sem registro” de “fonte indisponível” e permite auditar o que foi realmente consultado.', 6);
-  header(sheet.addRow(['SME', 'Unidade escolar', 'INEP', 'Fonte / conjunto', 'Cobertura', 'Detalhe']));
+  title(sheet, 'Cobertura das fontes · PDDE 2026', 9);
+  subtitle(sheet, 'Distingue dado disponível, consulta sem registro, cobertura parcial e fonte indisponível por escola.', 9);
+  header(sheet.addRow(['SME', 'Unidade escolar', 'INEP', 'UEx', 'CNPJ', 'Fonte / conjunto', 'Cobertura', 'Detalhe', 'Referência geral']));
   for (const school of view.schools) {
     for (const item of (school.sourceCoverage ?? [])) {
       const label = item.status === 'AVAILABLE'
@@ -557,15 +562,18 @@ function buildCoverage(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolio
             : 'Indisponível';
       sheet.addRow([
         safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep),
-        safeText(item.dataset), label, safeText(item.detail ?? ''),
+        safeText(school.school.uex), safeText(school.school.cnpj),
+        safeText(item.dataset), label, safeText(item.detail ?? ''), safeText(view.referenceLabel),
       ]);
     }
   }
   formatData(sheet);
+  for (const index of [1, 3, 5]) sheet.getColumn(index).numFmt = '@';
   sheet.columns = [
-    { width: 12 }, { width: 38 }, { width: 13 }, { width: 36 }, { width: 18 }, { width: 62 },
+    { width: 12 }, { width: 38 }, { width: 13 }, { width: 34 }, { width: 18 },
+    { width: 36 }, { width: 18 }, { width: 62 }, { width: 46 },
   ];
-  sheet.autoFilter = { from: 'A3', to: 'F3' };
+  sheet.autoFilter = { from: 'A3', to: 'I3' };
 }
 
 export interface BuildHumanFinancialWorkbookOptions {
