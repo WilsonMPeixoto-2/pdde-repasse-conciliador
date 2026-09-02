@@ -611,7 +611,7 @@ function normalizedStatus(value: string | null): string {
   return normalizedMatchText(value ?? '');
 }
 
-function registrationNeedsAttention(registration: HumanRegistrationStatus | null): boolean {
+function registrationNeedsAttention(registration: HumanRegistrationStatus | null | undefined): boolean {
   if (!registration) return false;
   const status = normalizedStatus(registration.mandateStatus);
   const note = normalizedStatus(registration.registrationNote);
@@ -668,16 +668,6 @@ function followUpFor(
     && installment.bankCredit.presentationStatus === 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
   )))) {
     messages.push('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
-  }
-  const registration = registrationFor(school, publicReports);
-  if (registrationNeedsAttention(registration)) {
-    messages.push('Há informação cadastral ou de mandato que requer acompanhamento.');
-  }
-  if (suspensionsFor(school.school.inep, publicReports).length > 0) {
-    messages.push('O relatório público de suspensões apresenta ocorrência para esta unidade.');
-  }
-  if (accountOpeningsFor(school.school.inep, publicReports).some(accountOpeningNeedsAttention)) {
-    messages.push('A situação de abertura de conta apresenta ocorrência para acompanhamento.');
   }
   return [...new Set(messages)];
 }
@@ -781,9 +771,9 @@ function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFin
     indicator('Cadastro ou mandato requer acompanhamento', schools, (school) => (
       registrationNeedsAttention(school.registration)
     )),
-    indicator('Suspensão informada pelo FNDE', schools, (school) => school.suspensions.length > 0),
+    indicator('Suspensão informada pelo FNDE', schools, (school) => (school.suspensions ?? []).length > 0),
     indicator('Abertura de conta requer acompanhamento', schools, (school) => (
-      school.accountOpenings.some(accountOpeningNeedsAttention)
+      (school.accountOpenings ?? []).some(accountOpeningNeedsAttention)
     )),
     indicator('Outra informação parcial', schools, (school) => (
       school.followUp.includes(SOURCE_UNAVAILABLE_FOLLOW_UP)
