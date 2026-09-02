@@ -2,25 +2,25 @@
 
 Este documento registra o estado operacional das fontes e as regras que afetam conclusões financeiras. Ele muda quando a fonte ou a regra muda de forma material, não a cada ajuste visual.
 
-Estado corrente consolidado: [`ESTADO_ATUAL_2026-08-19.md`](ESTADO_ATUAL_2026-08-19.md).  
+Estado corrente consolidado: [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md).  
 Baseline PDDEInfo + SIGEF: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).  
 Baseline dos relatórios públicos complementares: [`BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md).  
 Pesquisas futuras: [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
 
-## Estado das fontes — 19/08/2026
+## Estado das fontes — revisão de 02/09/2026
 
 | Fonte | Finalidade | Estado no canônico | Observação |
 |---|---|---|---|
-| **PDDEInfo — consulta por escola** | valores programados/pagos, datas, UEx/CNPJ e contas apresentadas | **INTEGRADO E VALIDADO** | Consulta direta por INEP; carteira integral de 163 escolas já comprovada. |
+| **PDDEInfo — consulta por escola** | valores programados/pagos com custeio e capital, ajustes, datas, UEx/CNPJ, situação textual, contas e ocorrência | **INTEGRADO; CONTRATO AMPLIADO EM 02/09** | Consulta direta por INEP; carteira integral de 163 escolas já comprovada. |
 | **SIGEF Extrato público direto** | créditos, débitos, aplicações, resgates, documentos, histórico e contraparte | **INTEGRADO E VALIDADO** | Extrato público integra o monitoramento e a visão humana; 284/284 contas então mapeadas foram completadas na rodada integral de 14/08. |
-| **PDDEInfo/FNDE — relatórios públicos complementares** | atendimento/ordem, prestação de contas, suspensão, saldo e aplicações | **INTEGRADO E VALIDADO** | Backfill de 16/08: 2.690 posições mensais, 461 séries conta/programa, 1.304 artefatos, 0 falhas. |
+| **PDDEInfo/FNDE — relatórios públicos complementares** | atendimento/ordem/alunos, cadastro/mandato, abertura de conta, suspensão e motivo, prestação de contas, saldo e aplicações | **INTEGRADO; ESCOPO AMPLIADO EM 02/09** | Atendimento/prestação/saldos possuem baseline integral de 16/08; cadastro, abertura e suspensão entram como fontes complementares explicitamente cobertas no novo read model. |
 | **SIGEF Liberações** | OB, data, valor e conta destinatária | **INTEGRADO COMO COMPLEMENTO / ASSISTIDO QUANDO NECESSÁRIO** | O fluxo possui recuperação complementar e continua aceitando exportações preservadas como evidência adicional. |
 | **SIGEF Movimentações por CSV/arquivo** | movimentos bancários em arquivos autorizados/exportados | **LEITOR SUPORTADO** | Fonte adicional; a cobertura temporal do arquivo precisa permanecer explícita. |
 | **Portal da Transparência / CGU** | documentos e transferências federais | **CLIENTE IMPLEMENTADO; FONTE OPERACIONAL DESABILITADA** | Depende de credencial oficial e piloto real antes de influenciar conclusões correntes. |
 | **Novo Webservice do SIGEF** | potencial interface institucional de extrato | **PESQUISA CONFIRMADA; NÃO INTEGRADO** | Depende de documentação/credenciais/escopo institucional. |
-| **BB Gestão Ágil API** | potencial camada bancária institucional e documentos | **ACESSO INSTITUCIONAL PENDENTE** | Não fazer scraping da interface autenticada; futura integração deve usar API/autorização apropriada. |
+| **BB Gestão Ágil / transição SIGPC Ágil** | potencial camada bancária institucional e documentos | **NÃO INTEGRADO** | O FNDE iniciou a transição gradual ao SIGPC Ágil em 31/08/2026; as UEx não integram a fase inicial. Não fazer scraping de interface autenticada. |
 | **Plataforma Antonieta de Barros** | produtos estruturados/datasets | **POTENCIAL; CONEXÃO NÃO CERTIFICADA** | Exige piloto que prove ganho material para 2026. |
-| **PDDEREx** | possível fonte complementar | **PILOTO NECESSÁRIO** | Só integrar se acrescentar informação atual que as fontes existentes não fornecem. |
+| **PDDEREx** | fonte legada | **NÃO USAR COMO FONTE CORRENTE** | Foi sucedido pelo PDDEInfo; manter apenas como referência histórica quando necessário. |
 | **Dados Abertos FNDE / Olinda** | controle secundário/histórico | **CANDIDATO SECUNDÁRIO** | Frescor e cobertura precisam ser avaliados dataset a dataset. |
 | **SiGPC** | prestação de contas/regularidade | **FUTURO / PILOTO** | Autenticação e proteções devem ser respeitadas. |
 
@@ -195,3 +195,20 @@ Uma fonte só vira oficial quando possuir:
 7. comportamento compatível com o foco de 2026.
 
 Pesquisa, protótipo ou existência de API não equivalem a integração produtiva.
+
+
+## Ampliação de cobertura — 02/09/2026
+
+A revisão de completude identificou informação oficial que já existia nas fontes, mas não sobrevivia até o produto humano. O contrato passa a preservar:
+
+- programação e pagamento separados em custeio/capital;
+- ajustes de custeio/capital;
+- quantidade de alunos informada no relatório de atendimento;
+- situação cadastral e mandato da UEx;
+- data de atualização cadastral e dados de contato quando publicados;
+- situação pública de abertura de conta;
+- coluna `Ocorrência` da conta exibida na Consulta por Escola;
+- motivos/tipos de suspensão publicados;
+- cobertura nominal de cada conjunto consultado.
+
+As fontes complementares de cadastro, abertura e suspensão **não são tratadas como prova negativa quando retornam sem cobertura**. Falha dessas fontes fica exposta como cobertura indisponível e não apaga um retrato financeiro completo obtido pelas fontes nucleares.
