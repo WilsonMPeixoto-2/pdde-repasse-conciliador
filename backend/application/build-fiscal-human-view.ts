@@ -21,6 +21,7 @@ const sourceAccountSchema = z.object({
   programLabel: z.string(),
   account: accountSchema,
   saldoPddeInfoCents: z.number().int().nullable(),
+  occurrence: z.string().nullable().optional(),
   status: z.enum(['COMPLETE', 'PARTIAL', 'ERROR']),
   error: z.string().nullable(),
   pagesFetched: z.number().int().nonnegative(),
@@ -35,6 +36,15 @@ const sourceSchoolSchema = z.object({
   name: z.string(),
   uex: z.string(),
   cnpj: z.string(),
+  status: z.object({
+    uexRegistration: z.string(),
+    mandate: z.string(),
+    mandateStartDate: z.string(),
+    mandateEndDate: z.string(),
+    uexAccounting: z.string(),
+    eexAdhesion: z.string(),
+    eexAccounting: z.string(),
+  }).strict().optional(),
   accounts: z.array(sourceAccountSchema),
 }).passthrough();
 
@@ -61,6 +71,14 @@ export interface FiscalInstallmentView {
   installment: string | null;
   amountProgrammedCents: number;
   amountPaidInformedCents: number;
+  breakdown: {
+    programmedCusteioCents: number | null;
+    programmedCapitalCents: number | null;
+    adjustmentCusteioCents: number | null;
+    adjustmentCapitalCents: number | null;
+    paidCusteioCents: number | null;
+    paidCapitalCents: number | null;
+  };
   /** Data associada ao pagamento/ordem na coleta do PDDEInfo. */
   pddeInfoDate: string | null;
   account: BankAccount | null;
@@ -103,6 +121,7 @@ export interface FiscalAccountStatementView {
   programLabel: string;
   account: BankAccount;
   saldoPddeInfoCents: number | null;
+  occurrence: string | null;
   collectionStatus: 'COMPLETE' | 'PARTIAL' | 'ERROR';
   collectionError: string | null;
   coverageThrough: string | null;
@@ -118,6 +137,15 @@ export interface FiscalSchoolView {
     name: string;
     uex: string;
     cnpj: string;
+  };
+  status: {
+    uexRegistration: string;
+    mandate: string;
+    mandateStartDate: string;
+    mandateEndDate: string;
+    uexAccounting: string;
+    eexAdhesion: string;
+    eexAccounting: string;
   };
   repasses: FiscalRepasseGroupView[];
   statements: FiscalAccountStatementView[];
@@ -210,6 +238,7 @@ function groupRepasses(repasses: OperationalRepasse[]): FiscalRepasseGroupView[]
       installment: repasse.installment,
       amountProgrammedCents: repasse.amountProgrammedCents,
       amountPaidInformedCents: repasse.amountPaidInformedCents,
+      breakdown: { ...repasse.breakdown },
       pddeInfoDate: repasse.orderDate,
       account: repasse.account,
       bankCredit: {
@@ -287,6 +316,15 @@ export function buildFiscalHumanView(rawInput: unknown) {
         uex: school.uex,
         cnpj: school.cnpj,
       },
+      status: school.status ?? {
+        uexRegistration: '',
+        mandate: '',
+        mandateStartDate: '',
+        mandateEndDate: '',
+        uexAccounting: '',
+        eexAdhesion: '',
+        eexAccounting: '',
+      },
       repasses: groupRepasses(repassesBySchool.get(school.inep) ?? []),
       statements: school.accounts
         .map((accountResult) => {
@@ -296,6 +334,7 @@ export function buildFiscalHumanView(rawInput: unknown) {
             programLabel: accountResult.programLabel,
             account: accountResult.account,
             saldoPddeInfoCents: accountResult.saldoPddeInfoCents,
+            occurrence: accountResult.occurrence ?? null,
             collectionStatus: accountResult.status,
             collectionError: accountResult.error,
             coverageThrough: accountResult.coverageThrough,
