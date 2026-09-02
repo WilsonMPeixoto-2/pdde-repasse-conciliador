@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { normalizeSearchText, schoolMatchesSearch } from '../derive';
+import type { HumanSchool } from '../types';
 import { usePortfolioSchoolDetails } from '../usePortfolioSchoolDetails';
 
 function normalizedStatus(value: string | null | undefined): string {
   return (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 }
-function registrationNeedsAttention(school: any): boolean {
+function registrationNeedsAttention(school: HumanSchool): boolean {
   const status = normalizedStatus(school.registration?.mandateStatus);
   const note = normalizedStatus(school.registration?.registrationNote);
   return status.includes('VENCID') || status.includes('VENCER') || note.includes('PENDENCIA') || note.includes('DESATUALIZ');
