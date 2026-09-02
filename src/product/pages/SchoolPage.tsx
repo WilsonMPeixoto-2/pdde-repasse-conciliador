@@ -230,9 +230,11 @@ export function SchoolContent({ school }: { school: HumanSchool }) {
               {school.accounting.filter((item) => item.paymentSuspended).map((item, index) => (
                 <div className="school-issue-card" key={`accounting-${index}`}><strong>Pagamento suspenso · {item.program}</strong><p>{item.status || 'Suspensão informada na prestação de contas.'}</p></div>
               ))}
-              {school.followUp.map((message, index) => (
-                <div className="school-issue-card school-issue-card--neutral" key={`follow-up-${index}`}><strong>Outro ponto de acompanhamento</strong><p>{message}</p></div>
-              ))}
+              {school.followUp
+                .filter((message) => message !== 'Há informação de fonte ainda não disponível para esta unidade; a leitura financeira permanece parcial.')
+                .map((message, index) => (
+                  <div className="school-issue-card school-issue-card--neutral" key={`follow-up-${index}`}><strong>Outro ponto de acompanhamento</strong><p>{message}</p></div>
+                ))}
               {!hasRegistrationIssue && school.suspensions.length === 0 && openingIssues.length === 0 && !school.accounting.some((item) => item.paymentSuspended) && school.followUp.length === 0
                 ? <p className="school-followup-empty">Nenhuma ocorrência de acompanhamento foi estruturada no retrato atual.</p>
                 : null}
