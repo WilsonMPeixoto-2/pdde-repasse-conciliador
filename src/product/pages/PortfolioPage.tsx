@@ -65,15 +65,26 @@ export function PortfolioPage() {
             <p className="lead">Consulte rapidamente repasses, contas, saldos e movimentações das escolas da 4ª CRE. A plataforma mantém separadas as diferentes evidências financeiras para não transformar indicação em comprovação.</p>
           </div>
           <div className="live-refresh-control">
-            <button
-              className="button button--primary"
-              type="button"
-              disabled={state.refreshing}
-              aria-busy={state.refreshing}
-              onClick={() => void state.refreshLive()}
-            >
-              Fazer nova consulta
-            </button>
+            <div className="live-refresh-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={state.refreshing || state.exportingWorkbook}
+                aria-busy={state.refreshing}
+                onClick={() => void state.refreshLive()}
+              >
+                Fazer nova consulta
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={state.refreshing || state.exportingWorkbook}
+                aria-busy={state.exportingWorkbook}
+                onClick={() => void state.downloadWorkbook()}
+              >
+                {state.exportingWorkbook ? 'Gerando planilha…' : 'Baixar planilha Excel'}
+              </button>
+            </div>
             {state.refreshing ? (
               <div className="live-refresh-status">
                 <div className="live-refresh-status__header">
@@ -97,6 +108,11 @@ export function PortfolioPage() {
             {state.refreshError ? (
               <span className="live-refresh-message live-refresh-message--error" role="alert">
                 {state.refreshError}
+              </span>
+            ) : null}
+            {state.exportError ? (
+              <span className="live-refresh-message live-refresh-message--error" role="alert">
+                {state.exportError}
               </span>
             ) : null}
             {state.source === 'live' && generatedAt ? (
