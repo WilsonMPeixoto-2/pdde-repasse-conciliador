@@ -120,7 +120,7 @@ describe('buildHumanFinancialView', () => {
     expect(view.sources).toEqual([
       {
         name: 'PDDEInfo',
-        information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
+        information: 'Repasses informados, cadastro e mandato da UEx, abertura de contas, suspensões, saldos e situação da prestação de contas.',
       },
       {
         name: 'SIGEF',
