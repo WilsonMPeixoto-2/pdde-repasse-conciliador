@@ -42,6 +42,15 @@ const rawSchoolSchema = z.object({
   cnpj: z.string().min(1),
   accounts: z.array(rawAccountSchema),
   finance: z.array(rawFinanceSchema),
+  status: z.object({
+    uexRegistration: z.string(),
+    mandate: z.string(),
+    mandateStartDate: z.string(),
+    mandateEndDate: z.string(),
+    uexAccounting: z.string(),
+    eexAdhesion: z.string(),
+    eexAccounting: z.string(),
+  }).strict().optional(),
   source: z.string().url(),
   sourceIdentity: z.object({
     inep: z.string(),
