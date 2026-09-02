@@ -160,6 +160,7 @@ export const humanAccountSchema = z.object({
 
 
 export const humanRegistrationSchema = z.object({
+  studentCount: z.number().int().nonnegative().nullable(),
   location: z.string().nullable(),
   uexName: z.string().nullable(),
   uexCnpj: z.string().nullable(),
