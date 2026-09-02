@@ -14,6 +14,8 @@ export function AppHeader() {
           <NavLink to="/unidades">Escolas</NavLink>
           <NavLink to="/repasses">Repasses</NavLink>
           <NavLink to="/saldos">Saldos e contas</NavLink>
+          <NavLink to="/pendencias">Pendências</NavLink>
+          <NavLink to="/prestacao-contas">Prestação</NavLink>
           <span className="year-pill">2026</span>
         </nav>
       </div>
