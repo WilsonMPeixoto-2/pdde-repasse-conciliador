@@ -15,8 +15,18 @@ function isReal2026Date(value: string): boolean {
 }
 
 export const humanIsoDateSchema = z.string().refine(isReal2026Date, {
-  message: 'Data humana deve ser uma data calendário válida de 2026.',
+  message: 'Data financeira humana deve ser uma data calendário válida de 2026.',
 });
+
+export const humanCalendarDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return year >= 1900
+    && year <= 2100
+    && date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}, 'data cadastral inválida');
 
 export const humanUnitSchema = z.object({
   sme: z.string().regex(/^\d{7}$/),
@@ -166,9 +176,9 @@ export const humanRegistrationSchema = z.object({
   uexCnpj: z.string().nullable(),
   network: z.string().nullable(),
   mandateStatus: z.string().nullable(),
-  mandateStartDate: humanIsoDateSchema.nullable(),
-  mandateEndDate: humanIsoDateSchema.nullable(),
-  updatedDate: humanIsoDateSchema.nullable(),
+  mandateStartDate: humanCalendarDateSchema.nullable(),
+  mandateEndDate: humanCalendarDateSchema.nullable(),
+  updatedDate: humanCalendarDateSchema.nullable(),
   updatedTime: z.string().nullable(),
   phone: z.string().nullable(),
   registrationNote: z.string().nullable(),
