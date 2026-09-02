@@ -1,0 +1,161 @@
+.school-data-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--ink-200);
+  background: var(--ink-200);
+}
+.school-data-grid > div {
+  min-height: 92px;
+  padding: 1rem 1.1rem;
+  background: var(--paper);
+}
+.school-data-grid span,
+.school-data-grid strong,
+.repasse-breakdown small,
+.repasse-breakdown strong,
+.school-source-notes strong,
+.account-opening-row strong,
+.account-opening-row small,
+.source-coverage-row strong,
+.source-coverage-row small {
+  display: block;
+}
+.school-data-grid span,
+.repasse-breakdown small,
+.account-opening-row small,
+.source-coverage-row small {
+  color: var(--ink-500);
+  font-size: 0.72rem;
+}
+.school-data-grid strong {
+  margin-top: 0.35rem;
+  color: var(--ink-950);
+  font-size: 0.92rem;
+}
+.school-source-notes {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.school-source-notes p {
+  margin: 0;
+  color: var(--ink-700);
+  line-height: 1.55;
+}
+.repasse-breakdown {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 0.55rem 1rem;
+}
+.repasse-breakdown strong {
+  margin-top: 0.12rem;
+  color: var(--ink-800);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.account-opening-list {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--ink-200);
+}
+.account-opening-row,
+.source-coverage-row {
+  min-height: 68px;
+  padding: 0.8rem 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: center;
+  border-bottom: 1px solid var(--ink-100);
+}
+.account-opening-row[data-attention='true'] {
+  background: var(--warning-50, #fff8e8);
+}
+.account-occurrence {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--ink-300);
+  background: rgb(255 255 255 / 0.55);
+}
+.school-issues-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.school-issue-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.school-issue-card strong {
+  color: var(--ink-950);
+}
+.school-issue-card p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-600);
+  line-height: 1.5;
+}
+.school-issue-card--neutral {
+  background: rgb(255 255 255 / 0.45);
+}
+.source-coverage {
+  margin-top: 2rem;
+}
+.source-coverage h3 {
+  margin-bottom: 0.75rem;
+}
+.source-coverage-row > span:last-child {
+  flex: 0 0 auto;
+  color: var(--ink-700);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+.source-coverage-row[data-status='unavailable'] > span:last-child,
+.source-coverage-row[data-status='partial'] > span:last-child {
+  color: var(--warning-700, #8a5a00);
+}
+.financial-overview-list--issues .financial-overview-list__head,
+.financial-overview-row--issues {
+  grid-template-columns: minmax(220px, 1.4fr) 70px minmax(150px, 1fr) 95px 95px 95px 20px;
+}
+.financial-overview-list--accounting .financial-overview-list__head,
+.financial-overview-row--accounting {
+  grid-template-columns: minmax(260px, 1.5fr) minmax(160px, 0.9fr) minmax(150px, 0.8fr) minmax(100px, 0.6fr) 20px;
+}
+.financial-overview-list--issues .financial-overview-list__head span:last-child,
+.financial-overview-list--accounting .financial-overview-list__head span:last-child {
+  grid-column: auto;
+}
+@media (max-width: 1040px) {
+  .financial-overview-row--issues,
+  .financial-overview-row--accounting {
+    grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(110px, 0.8fr)) 20px;
+  }
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(5),
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(6) {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .school-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .repasse-breakdown { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .school-issues-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .financial-overview-row--issues,
+  .financial-overview-row--accounting {
+    grid-template-columns: 1fr 18px;
+  }
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(5),
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(6) {
+    display: grid;
+  }
+}
+@media (max-width: 460px) {
+  .school-data-grid { grid-template-columns: 1fr; }
+  .repasse-breakdown { grid-template-columns: 1fr; }
+  .account-opening-row,
+  .source-coverage-row { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
+}
