@@ -32,10 +32,10 @@ O frontend React/Vite está publicado no Vercel e possui:
 - Home financeira;
 - busca por escola;
 - carteira das 163 unidades;
-- visões consolidadas de **Repasses** e **Saldos e contas**;
+- visões globais de **Escolas, Repasses, Contas e saldos, Evolução mensal, Movimentações, Cadastro e habilitação, Pendências e suspensões, Prestação de contas e Cobertura das fontes**;
 - indicadores acionáveis;
 - prontuário financeiro por escola;
-- navegação por `Resumo`, `Repasses`, `Contas e saldos`, `Movimentações` e `Prestação de contas` quando houver dados;
+- navegação do prontuário por `Resumo`, `Cadastro`, `Repasses`, `Contas e saldos`, `Movimentações`, `Pendências` e `Prestação de contas` quando houver dados;
 - composição do saldo e série mensal;
 - extrato de movimentações;
 - consulta ao vivo da carteira com progresso por unidade;
@@ -197,12 +197,16 @@ A implementação corrente amplia o read model humano e os produtos de apresenta
 
 Navegação global:
 
-- Início;
+- Visão geral;
 - Escolas;
 - Repasses;
-- Saldos e contas;
-- Pendências;
-- Prestação.
+- Contas e saldos;
+- Evolução mensal;
+- Movimentações;
+- Cadastro e habilitação;
+- Pendências e suspensões;
+- Prestação de contas;
+- Cobertura das fontes.
 
 Prontuário da escola:
 
