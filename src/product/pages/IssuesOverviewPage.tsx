@@ -1,81 +1,60 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SchoolSearch } from '../components/SchoolSearch';
-import { schoolMatchesSearch } from '../derive';
-import { usePortfolio } from '../PortfolioContext';
-import type { HumanPortfolioSchool } from '../types';
+import { normalizeSearchText, schoolMatchesSearch } from '../derive';
+import { usePortfolioSchoolDetails } from '../usePortfolioSchoolDetails';
 
-function sortSchools(schools: readonly HumanPortfolioSchool[]): HumanPortfolioSchool[] {
-  return [...schools].sort((left, right) => (
-    right.pendingCount - left.pendingCount
-    || left.sme.localeCompare(right.sme)
-    || left.name.localeCompare(right.name, 'pt-BR')
-  ));
+function normalizedStatus(value: string | null | undefined): string {
+  return (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 }
-
-function registrationLabel(school: HumanPortfolioSchool): string {
-  if (!school.registrationAttention) return school.mandateStatus || 'Sem apontamento';
-  return school.mandateStatus ? `Acompanhar · ${school.mandateStatus}` : 'Acompanhar cadastro';
+function registrationNeedsAttention(school: any): boolean {
+  const status = normalizedStatus(school.registration?.mandateStatus);
+  const note = normalizedStatus(school.registration?.registrationNote);
+  return status.includes('VENCID') || status.includes('VENCER') || note.includes('PENDENCIA') || note.includes('DESATUALIZ');
+}
+function openingNeedsAttention(status: string): boolean {
+  const normalized = normalizedStatus(status);
+  return Boolean(normalized) && !(normalized.includes('SEM PENDENCIA') || normalized.includes('REGULAR') || normalized.includes('CONCLUID') || normalized.includes('ABERTA') || normalized.includes('ATIVA'));
 }
 
 export function IssuesOverviewPage() {
-  const state = usePortfolio();
+  const details = usePortfolioSchoolDetails();
   const [query, setQuery] = useState('');
-  const schools = state.status === 'ready' ? state.data.schools : [];
-  const filtered = useMemo(
-    () => sortSchools(schools.filter((school) => (
-      schoolMatchesSearch(school, query)
-      && (school.pendingCount > 0 || query.trim().length > 0)
-    ))),
-    [query, schools],
-  );
+  const schools = details.status === 'ready' ? details.schools : [];
+  const wanted = normalizeSearchText(query);
+  const rows = useMemo(() => schools.flatMap((school) => {
+    const items: Array<{ school: typeof school; kind: string; context: string; detail: string; source: string; target: string }> = [];
+    if (registrationNeedsAttention(school)) items.push({ school, kind: 'Cadastro ou mandato', context: school.registration?.mandateStatus ?? 'UEx', detail: school.registration?.registrationNote ?? 'Situação cadastral requer acompanhamento.', source: 'PDDEInfo · Cadastro', target: 'cadastro' });
+    school.suspensions.forEach((item) => items.push({ school, kind: 'Suspensão informada', context: [item.program, item.destination].filter(Boolean).join(' · '), detail: [item.type, item.detail].filter(Boolean).join(' · '), source: 'PDDEInfo · Suspensões', target: 'pendencias' }));
+    school.accountOpenings.filter((item) => openingNeedsAttention(item.status)).forEach((item) => items.push({ school, kind: 'Abertura de conta', context: [item.program, item.bank, item.agency, item.account].filter(Boolean).join(' · '), detail: item.status, source: 'PDDEInfo · Abertura de Conta', target: 'contas-saldos' }));
+    school.accounting.filter((item) => item.paymentSuspended || normalizedStatus(item.status).includes('INADIMPL') || normalizedStatus(item.status).includes('PENDENCIA')).forEach((item) => items.push({ school, kind: item.paymentSuspended ? 'Pagamento suspenso' : 'Prestação requer acompanhamento', context: item.program, detail: item.status || 'Situação informada na prestação de contas.', source: 'PDDEInfo · Prestação de Contas', target: 'prestacao-contas' }));
+    school.followUp.forEach((message) => items.push({ school, kind: 'Outro ponto de acompanhamento', context: '', detail: message, source: 'Conciliação / cobertura', target: 'pendencias' }));
+    return items;
+  }).filter((item) => {
+    if (!wanted) return true;
+    if (schoolMatchesSearch(item.school.school, query)) return true;
+    return normalizeSearchText([item.kind, item.context, item.detail, item.source].join(' ')).includes(wanted);
+  }).sort((left, right) => left.school.school.sme.localeCompare(right.school.school.sme) || left.kind.localeCompare(right.kind, 'pt-BR')), [query, schools, wanted]);
 
-  if (state.status === 'loading') return <main className="page loading"><p>Carregando pendências…</p></main>;
-  if (state.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir as pendências.</strong><span>{state.error}</span></div></main>;
+  if (details.status === 'loading') return <main className="page loading"><p>Carregando pendências e suspensões…</p></main>;
+  if (details.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir as pendências.</strong><span>{details.error}</span></div></main>;
 
   return (
-    <main className="page financial-overview-page">
-      <div className="eyebrow">Acompanhamento operacional · 2026</div>
-      <h1>Pendências</h1>
-      <p className="lead">Consolida cadastro e mandato, suspensões informadas pelo FNDE, abertura de conta, prestação de contas e demais pontos de acompanhamento sem transformar ausência de dado em irregularidade.</p>
-
-      <section className="section financial-overview-controls" aria-label="Buscar escola nas pendências">
-        <SchoolSearch
-          value={query}
-          onChange={setQuery}
-          visibleCount={filtered.length}
-          totalCount={schools.length}
-          label="Buscar escola nas pendências"
-        />
+    <main className="page data-overview-page">
+      <div className="eyebrow">Acompanhamento · 2026</div>
+      <h1>Pendências e Suspensões</h1>
+      <p className="lead">Cada ocorrência é exibida com sua origem, contexto e detalhe. Ausência de registro ou indisponibilidade de fonte não é convertida em regularidade.</p>
+      <section className="section financial-overview-controls">
+        <div className="search-field"><label className="sr-only" htmlFor="issue-search">Buscar pendência</label><input id="issue-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar escola, tipo, programa, motivo ou fonte" autoComplete="off" /><div className="search-count" aria-live="polite">{rows.length} ocorrências</div></div>
       </section>
-
-      <section className="section" aria-labelledby="issues-results-title">
-        <div className="section-heading">
-          <div><div className="eyebrow">Por escola</div><h2 id="issues-results-title">Pontos para acompanhamento</h2></div>
-          <p>Cada ocorrência mantém sua origem. Abra a escola para consultar motivo, programa e cobertura da fonte.</p>
+      <section className="section" aria-labelledby="issues-table-title">
+        <div className="section-heading"><div><div className="eyebrow">Por ocorrência</div><h2 id="issues-table-title">Pontos para acompanhamento</h2></div><p>Um fato estruturado aparece uma vez, sem duplicação artificial no total.</p></div>
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead><tr><th>Escola</th><th>Tipo</th><th>Programa / contexto</th><th>Detalhe</th><th>Fonte</th></tr></thead>
+            <tbody>{rows.map((item, index) => <tr key={`${item.school.school.inep}-${item.kind}-${index}`}><td><Link to={`/unidades/${item.school.school.inep}#${item.target}`}><strong>{item.school.school.name}</strong></Link><small>SME {item.school.school.sme} · INEP {item.school.school.inep}</small></td><td>{item.kind}</td><td>{item.context || '—'}</td><td>{item.detail || '—'}</td><td>{item.source}</td></tr>)}</tbody>
+          </table>
         </div>
-        <div className="financial-overview-list financial-overview-list--issues" role="list">
-          <div className="financial-overview-list__head" aria-hidden="true">
-            <span>Escola</span><span>Total</span><span>Cadastro / mandato</span><span>Suspensões</span><span>Contas</span><span>Prestação</span>
-          </div>
-          {filtered.map((school) => (
-            <Link className="financial-overview-row financial-overview-row--issues" key={school.inep} to={`/unidades/${school.inep}#pendencias`} role="listitem">
-              <span className="financial-overview-row__school">
-                <strong>{school.name}</strong>
-                <small>SME {school.sme} · INEP {school.inep}</small>
-              </span>
-              <span className="financial-overview-row__metric"><small>Total</small><strong>{school.pendingCount}</strong></span>
-              <span className="financial-overview-row__metric"><small>Cadastro / mandato</small><strong>{registrationLabel(school)}</strong></span>
-              <span className="financial-overview-row__metric"><small>Suspensões</small><strong>{school.suspensionCount}</strong></span>
-              <span className="financial-overview-row__metric"><small>Abertura de conta</small><strong>{school.accountOpeningIssueCount}</strong></span>
-              <span className="financial-overview-row__metric"><small>Prestação</small><strong>{school.accountingAttentionCount}</strong></span>
-              <span className="financial-overview-row__arrow" aria-hidden="true">→</span>
-            </Link>
-          ))}
-        </div>
-        {filtered.length === 0 ? (
-          <div className="empty-state"><div><strong>Nenhuma pendência encontrada no retrato atual.</strong><span>A ausência de apontamento não substitui novas consultas às fontes oficiais.</span></div></div>
-        ) : null}
+        {rows.length === 0 ? <div className="empty-state"><div><strong>Nenhuma ocorrência no recorte.</strong><span>Isso não substitui a cobertura explicitada na aba Cobertura das Fontes.</span></div></div> : null}
       </section>
     </main>
   );
