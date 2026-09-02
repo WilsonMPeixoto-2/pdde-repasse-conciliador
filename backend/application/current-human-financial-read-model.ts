@@ -122,7 +122,7 @@ function portfolioRegistrationAttention(
 function portfolioOpeningIssueCount(
   school: z.infer<typeof humanSchoolContentSchema>,
 ): number {
-  return school.accountOpenings.filter((item) => {
+  return (school.accountOpenings ?? []).filter((item) => {
     const status = normalizedHumanStatus(item.status);
     return status && !(
       status.includes('SEM PENDENCIA')
@@ -137,7 +137,7 @@ function portfolioOpeningIssueCount(
 function portfolioAccountingAttentionCount(
   school: z.infer<typeof humanSchoolContentSchema>,
 ): number {
-  return school.accounting.filter((item) => {
+  return (school.accounting ?? []).filter((item) => {
     const status = normalizedHumanStatus(item.status);
     return item.paymentSuspended || status.includes('INADIMPL') || status.includes('PENDENCIA');
   }).length;
@@ -178,7 +178,7 @@ export function buildCurrentPortfolioSchoolSummary(
   const registrationAttention = portfolioRegistrationAttention(school);
   const accountOpeningIssueCount = portfolioOpeningIssueCount(school);
   const accountingAttentionCount = portfolioAccountingAttentionCount(school);
-  const suspensionCount = school.suspensions.length;
+  const suspensionCount = (school.suspensions ?? []).length;
   const pendingCount = school.followUp.length
     + (registrationAttention ? 1 : 0)
     + accountOpeningIssueCount
