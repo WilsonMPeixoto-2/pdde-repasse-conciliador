@@ -267,6 +267,7 @@ interface AccountResult {
   programLabel: string;
   account: BankAccount;
   saldoPddeInfoCents: number | null;
+  occurrence: string | null;
   status: 'COMPLETE' | 'PARTIAL' | 'ERROR';
   error: string | null;
   pagesFetched: number;
@@ -305,6 +306,15 @@ function createRawMonitoring(input: {
     name: school.nome,
     uex: school.uex,
     cnpj: school.cnpj,
+    status: school.status ?? {
+      uexRegistration: '',
+      mandate: '',
+      mandateStartDate: '',
+      mandateEndDate: '',
+      uexAccounting: '',
+      eexAdhesion: '',
+      eexAccounting: '',
+    },
     pddeInfo: input.pddeMeta[school.inep],
     repasses: pdde.payments
       .filter((payment) => payment.school.inep === school.inep)
@@ -313,7 +323,13 @@ function createRawMonitoring(input: {
         action: payment.actionName,
         installment: payment.installmentLabel ?? null,
         programadoCents: payment.amountFinalDueCents,
+        programadoCusteioCents: payment.amountFinalDueCusteioCents ?? null,
+        programadoCapitalCents: payment.amountFinalDueCapitalCents ?? null,
+        ajusteCusteioCents: payment.adjustmentCusteioCents ?? null,
+        ajusteCapitalCents: payment.adjustmentCapitalCents ?? null,
         pagoInformadoCents: payment.amountPaidCents,
+        pagoCusteioCents: payment.amountPaidCusteioCents ?? null,
+        pagoCapitalCents: payment.amountPaidCapitalCents ?? null,
         dataOrdem: payment.paymentDate ?? null,
         account: payment.account ?? null,
       })),
@@ -489,6 +505,7 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
     programLabel: string;
     programCode: string;
     saldo: string;
+    occurrence: string;
     account: BankAccount;
   }> = [];
 
@@ -520,6 +537,7 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
         programLabel: raw.programa,
         programCode: code,
         saldo: raw.saldo,
+        occurrence: raw.ocorrencia,
         account,
       });
     }
@@ -578,6 +596,7 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
         programLabel: task.programLabel,
         account: task.account,
         saldoPddeInfoCents: money(task.saldo),
+        occurrence: task.occurrence.trim() || null,
         status: statement.status,
         error: null,
         pagesFetched: statement.pagesFetched,
@@ -596,6 +615,7 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
         programLabel: task.programLabel,
         account: task.account,
         saldoPddeInfoCents: money(task.saldo),
+        occurrence: task.occurrence.trim() || null,
         status: 'ERROR',
         error: cause instanceof Error ? cause.message : String(cause),
         pagesFetched: 0,
