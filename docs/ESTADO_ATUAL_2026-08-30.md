@@ -175,3 +175,70 @@ O produto web passa a expor a ação **Baixar planilha Excel** ao lado de **Faze
 - ExcelJS é carregado sob demanda apenas quando a exportação é solicitada.
 
 A limitação de persistência permanece a mesma: enquanto não houver publicação durável do novo retrato, recarregar a página retorna ao snapshot estável publicado.
+
+
+## Ampliação do universo de informação — 02/09/2026
+
+A implementação corrente amplia o read model humano e os produtos de apresentação para aproveitar informações oficiais antes descartadas ou não coletadas.
+
+### Dados incorporados
+
+- programação por custeio e capital;
+- ajustes por custeio e capital;
+- pagamento informado por custeio e capital;
+- quantidade de alunos do relatório de atendimento;
+- cadastro, mandato e atualização da UEx;
+- situação de abertura de conta;
+- ocorrência textual da conta publicada no PDDEInfo;
+- suspensões e seus motivos;
+- cobertura explícita por conjunto de fonte.
+
+### Arquitetura do site
+
+Navegação global:
+
+- Início;
+- Escolas;
+- Repasses;
+- Saldos e contas;
+- Pendências;
+- Prestação.
+
+Prontuário da escola:
+
+- Resumo;
+- Cadastro;
+- Repasses;
+- Contas e saldos;
+- Movimentações, quando houver;
+- Pendências;
+- Prestação de contas, quando houver.
+
+### Excel humano
+
+A exportação canônica passa a usar dez abas:
+
+1. Visão Geral;
+2. Escolas;
+3. Repasses;
+4. Contas e Saldos;
+5. Evolução Mensal;
+6. Movimentações;
+7. Cadastro e Habilitação;
+8. Pendências e Suspensões;
+9. Prestação de Contas;
+10. Cobertura das Fontes.
+
+### Regra de cobertura
+
+Cadastro, abertura de conta e suspensão são conjuntos complementares. Falha técnica nesses relatórios fica registrada como cobertura indisponível e **não converte um resultado financeiro completo em ausência de dado nem apaga o retrato anterior**. Atendimento, prestação de contas, saldo e a cadeia PDDEInfo/SIGEF continuam sujeitos aos gates de completude financeira já existentes.
+
+### Fontes ainda fora do pipeline corrente
+
+- Portal da Transparência: cliente implementado, sem credencial oficial configurada;
+- SiGPC Acesso Público: candidato a segunda evidência de prestação;
+- painéis PDDE Total/Básico/Ações Integradas: candidatos a controle secundário;
+- Dados Abertos FNDE: candidato a controle/backfill;
+- SIGPC Ágil: lançado em 31/08/2026, mas UEx não integram a fase inicial informada pelo FNDE.
+
+Essas fontes não são apresentadas como integradas antes de piloto/contrato real.
