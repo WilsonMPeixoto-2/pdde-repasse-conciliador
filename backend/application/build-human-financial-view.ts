@@ -46,6 +46,7 @@ export interface HumanFinancialAccount {
   bank: string;
   agency: string;
   account: string;
+  occurrence: string | null;
   positions: HumanFinancialPosition[];
   latestPosition: HumanFinancialPosition | null;
   movements: HumanFinancialMovement[];
@@ -56,6 +57,14 @@ export interface HumanFinancialInstallment {
   installment: string | null;
   programmedCents: number;
   paymentInformedCents: number;
+  breakdown: {
+    programmedCusteioCents: number | null;
+    programmedCapitalCents: number | null;
+    adjustmentCusteioCents: number | null;
+    adjustmentCapitalCents: number | null;
+    paidCusteioCents: number | null;
+    paidCapitalCents: number | null;
+  } | null;
   paymentInformedDate: string | null;
   paymentOrderDate: string | null;
   account: { bank: string; agency: string; number: string } | null;
@@ -80,6 +89,45 @@ export interface HumanAccountingStatus {
   expectedTotalCents: number;
 }
 
+
+export interface HumanRegistrationStatus {
+  location: string | null;
+  uexName: string | null;
+  uexCnpj: string | null;
+  network: string | null;
+  mandateStatus: string | null;
+  mandateStartDate: string | null;
+  mandateEndDate: string | null;
+  updatedDate: string | null;
+  updatedTime: string | null;
+  phone: string | null;
+  registrationNote: string | null;
+  uexAccountingNote: string | null;
+  eexAdhesionNote: string | null;
+  eexAccountingNote: string | null;
+}
+
+export interface HumanAccountOpeningStatus {
+  program: string | null;
+  status: string;
+  bank: string | null;
+  agency: string | null;
+  account: string | null;
+}
+
+export interface HumanSuspensionStatus {
+  program: string | null;
+  destination: string | null;
+  type: string;
+  detail: string | null;
+}
+
+export interface HumanSourceCoverage {
+  dataset: string;
+  status: 'AVAILABLE' | 'EMPTY' | 'PARTIAL' | 'UNAVAILABLE';
+  detail: string | null;
+}
+
 export interface HumanFinancialSchoolView {
   school: {
     inep: string;
@@ -90,6 +138,10 @@ export interface HumanFinancialSchoolView {
   };
   programs: HumanFinancialProgram[];
   accounts: HumanFinancialAccount[];
+  registration: HumanRegistrationStatus | null;
+  accountOpenings: HumanAccountOpeningStatus[];
+  suspensions: HumanSuspensionStatus[];
+  sourceCoverage: HumanSourceCoverage[];
   accounting: HumanAccountingStatus[];
   followUp: string[];
 }
@@ -140,7 +192,7 @@ export interface BuildHumanFinancialViewOptions {
 const HUMAN_SOURCES: HumanSourceDescription[] = [
   {
     name: 'PDDEInfo',
-    information: 'Repasses informados, contas vinculadas, saldos e situação da prestação de contas.',
+    information: 'Repasses informados, cadastro e mandato da UEx, abertura de contas, suspensões, saldos e situação da prestação de contas.',
   },
   {
     name: 'SIGEF',
@@ -291,6 +343,7 @@ function schoolPrograms(
       installment: installment.installment,
       programmedCents: installment.amountProgrammedCents,
       paymentInformedCents: installment.amountPaidInformedCents,
+      breakdown: { ...installment.breakdown },
       paymentInformedDate: installment.pddeInfoDate,
       paymentOrderDate: publicOrderDateFor({
         schoolInep: school.school.inep,
@@ -354,6 +407,7 @@ function schoolAccounts(
       bank: statement.account.bank,
       agency: statement.account.agency,
       account: statement.account.number,
+      occurrence: statement.occurrence,
       positions,
       latestPosition,
       movements: statement.entries.map((entry) => ({
@@ -391,6 +445,7 @@ function schoolAccounts(
       bank: balance.bank,
       agency: balance.agency,
       account: balance.account,
+      occurrence: null,
       positions,
       latestPosition,
       movements: [],
@@ -404,6 +459,166 @@ function schoolAccounts(
     || left.agency.localeCompare(right.agency)
     || left.account.localeCompare(right.account)
   ));
+}
+
+
+function isoFromBrazilian(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(2026)$/.exec(value.trim());
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : null;
+}
+
+function registrationFor(
+  school: FiscalSchoolView,
+  publicReports: PddeInfoPublicPortfolioResult,
+): HumanRegistrationStatus | null {
+  const report = publicReports.registrations.find((item) => item.schoolInep === school.school.inep) ?? null;
+  const raw = school.status;
+  const hasRaw = Object.values(raw).some((value) => Boolean(value.trim()));
+  if (!report && !hasRaw) return null;
+  return {
+    location: report?.location ?? null,
+    uexName: report?.uexName ?? school.school.uex ?? null,
+    uexCnpj: report?.uexCnpj ?? school.school.cnpj ?? null,
+    network: report?.network ?? null,
+    mandateStatus: report?.mandateStatus ?? (raw.mandate || null),
+    mandateStartDate: isoFromBrazilian(raw.mandateStartDate),
+    mandateEndDate: report?.mandateEndDate ?? isoFromBrazilian(raw.mandateEndDate),
+    updatedDate: report?.updatedDate ?? null,
+    updatedTime: report?.updatedTime ?? null,
+    phone: report?.phone ?? null,
+    registrationNote: raw.uexRegistration || null,
+    uexAccountingNote: raw.uexAccounting || null,
+    eexAdhesionNote: raw.eexAdhesion || null,
+    eexAccountingNote: raw.eexAccounting || null,
+  };
+}
+
+function accountOpeningsFor(
+  schoolInep: string,
+  publicReports: PddeInfoPublicPortfolioResult,
+): HumanAccountOpeningStatus[] {
+  return publicReports.accountOpenings
+    .filter((item) => item.schoolInep === schoolInep)
+    .map((item) => ({
+      program: item.programName,
+      status: item.status,
+      bank: item.bank,
+      agency: item.agency,
+      account: item.account,
+    }));
+}
+
+function suspensionsFor(
+  schoolInep: string,
+  publicReports: PddeInfoPublicPortfolioResult,
+): HumanSuspensionStatus[] {
+  return publicReports.suspensions
+    .filter((item) => item.schoolInep === schoolInep)
+    .map((item) => ({
+      program: item.programName,
+      destination: item.destination,
+      type: item.suspensionType,
+      detail: item.detail,
+    }));
+}
+
+function coverageStatus(
+  publicReports: PddeInfoPublicPortfolioResult,
+  schoolInep: string,
+  kind: PddeInfoPublicPortfolioResult['failures'][number]['kind'],
+  hasRows: boolean,
+): HumanSourceCoverage['status'] {
+  if (publicReports.failures.some((failure) => failure.schoolInep === schoolInep && failure.kind === kind)) {
+    return 'UNAVAILABLE';
+  }
+  return hasRows ? 'AVAILABLE' : 'EMPTY';
+}
+
+function sourceCoverageFor(
+  school: FiscalSchoolView,
+  publicReports: PddeInfoPublicPortfolioResult,
+): HumanSourceCoverage[] {
+  const inep = school.school.inep;
+  const cnpj = school.school.cnpj.replace(/\D/g, '');
+  const balanceFailure = publicReports.failures.some((failure) => failure.kind === 'BALANCE' && failure.cnpj === cnpj);
+  const statements = school.statements;
+  const sigefStatus: HumanSourceCoverage['status'] = statements.length === 0
+    ? 'EMPTY'
+    : statements.some((statement) => statement.collectionStatus === 'ERROR')
+      ? 'UNAVAILABLE'
+      : statements.some((statement) => statement.collectionStatus === 'PARTIAL')
+        ? 'PARTIAL'
+        : 'AVAILABLE';
+  return [
+    {
+      dataset: 'PDDEInfo · Consulta por Escola',
+      status: 'AVAILABLE',
+      detail: 'Repasses, componentes financeiros, contas e situação textual da escola.',
+    },
+    {
+      dataset: 'PDDEInfo · Atendimento',
+      status: coverageStatus(publicReports, inep, 'ATTENDANCE', publicReports.attendance.some((item) => item.schoolInep === inep)),
+      detail: 'Custeio, capital, total e data da ordem de pagamento.',
+    },
+    {
+      dataset: 'PDDEInfo · Cadastro',
+      status: coverageStatus(publicReports, inep, 'REGISTRATION', publicReports.registrations.some((item) => item.schoolInep === inep)),
+      detail: 'Situação cadastral, mandato e atualização da UEx.',
+    },
+    {
+      dataset: 'PDDEInfo · Abertura de Conta',
+      status: coverageStatus(publicReports, inep, 'ACCOUNT_OPENING', publicReports.accountOpenings.some((item) => item.schoolInep === inep)),
+      detail: 'Situação publicada para abertura/vínculo de conta.',
+    },
+    {
+      dataset: 'PDDEInfo · Suspensões',
+      status: coverageStatus(publicReports, inep, 'SUSPENSION', publicReports.suspensions.some((item) => item.schoolInep === inep)),
+      detail: 'Motivos de suspensão informados pelo FNDE.',
+    },
+    {
+      dataset: 'PDDEInfo · Prestação de Contas',
+      status: coverageStatus(publicReports, inep, 'ACCOUNTING', publicReports.accounting.some((item) => item.schoolInep === inep)),
+      detail: 'Situação da prestação e suspensão de pagamento.',
+    },
+    {
+      dataset: 'PDDEInfo · Saldos',
+      status: balanceFailure
+        ? 'UNAVAILABLE'
+        : publicReports.balances.some((item) => item.schoolIneps.includes(inep)) ? 'AVAILABLE' : 'EMPTY',
+      detail: publicReports.coverageThrough ? `Posição pública até ${brDate(publicReports.coverageThrough)}.` : 'Sem posição pública de 2026 nesta coleta.',
+    },
+    {
+      dataset: 'SIGEF · Extrato',
+      status: sigefStatus,
+      detail: 'Movimentações bancárias do exercício e evidência de créditos compatíveis.',
+    },
+  ];
+}
+
+function normalizedStatus(value: string | null): string {
+  return normalizedMatchText(value ?? '');
+}
+
+function registrationNeedsAttention(registration: HumanRegistrationStatus | null): boolean {
+  if (!registration) return false;
+  const status = normalizedStatus(registration.mandateStatus);
+  const note = normalizedStatus(registration.registrationNote);
+  return status.includes('VENCID')
+    || status.includes('VENCER')
+    || note.includes('PENDENCIA')
+    || note.includes('DESATUALIZ');
+}
+
+function accountOpeningNeedsAttention(item: HumanAccountOpeningStatus): boolean {
+  const status = normalizedStatus(item.status);
+  if (!status) return false;
+  return !(
+    status.includes('SEM PENDENCIA')
+    || status.includes('REGULAR')
+    || status.includes('CONCLUID')
+    || status.includes('ABERTA')
+    || status.includes('ATIVA')
+  );
 }
 
 function accountingFor(
@@ -441,6 +656,16 @@ function followUpFor(
     && installment.bankCredit.presentationStatus === 'PAGAMENTO_INFORMADO_CREDITO_NAO_LOCALIZADO_NESTA_COLETA'
   )))) {
     messages.push('Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.');
+  }
+  const registration = registrationFor(school, publicReports);
+  if (registrationNeedsAttention(registration)) {
+    messages.push('Há informação cadastral ou de mandato que requer acompanhamento.');
+  }
+  if (suspensionsFor(school.school.inep, publicReports).length > 0) {
+    messages.push('O relatório público de suspensões apresenta ocorrência para esta unidade.');
+  }
+  if (accountOpeningsFor(school.school.inep, publicReports).some(accountOpeningNeedsAttention)) {
+    messages.push('A situação de abertura de conta apresenta ocorrência para acompanhamento.');
   }
   return [...new Set(messages)];
 }
@@ -541,6 +766,13 @@ function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFin
     indicator('Prestação com pagamento suspenso', schools, (school) => (
       school.accounting.some((item) => item.paymentSuspended)
     )),
+    indicator('Cadastro ou mandato requer acompanhamento', schools, (school) => (
+      registrationNeedsAttention(school.registration)
+    )),
+    indicator('Suspensão informada pelo FNDE', schools, (school) => school.suspensions.length > 0),
+    indicator('Abertura de conta requer acompanhamento', schools, (school) => (
+      school.accountOpenings.some(accountOpeningNeedsAttention)
+    )),
     indicator('Outra informação parcial', schools, (school) => (
       school.followUp.includes(SOURCE_UNAVAILABLE_FOLLOW_UP)
     )),
@@ -559,6 +791,10 @@ export function buildHumanFinancialView(
       school: { ...school.school },
       programs: schoolPrograms(school, options.publicReports),
       accounts,
+      registration: registrationFor(school, options.publicReports),
+      accountOpenings: accountOpeningsFor(school.school.inep, options.publicReports),
+      suspensions: suspensionsFor(school.school.inep, options.publicReports),
+      sourceCoverage: sourceCoverageFor(school, options.publicReports),
       accounting: accountingFor(school.school.inep, options.publicReports),
       followUp: followUpFor(school, accounts, options.publicReports),
     };
