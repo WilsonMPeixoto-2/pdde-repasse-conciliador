@@ -116,7 +116,7 @@ describe('collectPddeInfoPublicPortfolio', () => {
         expect(filter.month).toBe('06-2026');
         return report('BALANCE', [balanceRow], '2026-06-30');
       }
-      throw new Error(`relatório não esperado: ${filter.kind}`);
+      throw new Error('relatório não esperado');
     };
 
     const result = await collectPddeInfoPublicPortfolio({
