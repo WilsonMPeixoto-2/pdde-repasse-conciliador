@@ -15,6 +15,10 @@ function school(inep: string): HumanSchool {
     },
     programs: [],
     accounts: [],
+    registration: null,
+    accountOpenings: [],
+    suspensions: [],
+    sourceCoverage: [],
     accounting: [],
     followUp: [],
   };
