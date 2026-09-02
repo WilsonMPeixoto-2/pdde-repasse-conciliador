@@ -167,7 +167,7 @@ function buildFollowUp(
       add(school, 'Cadastro ou mandato', 'UEx', registrationText || 'Cadastro/mandato requer acompanhamento.', 'PDDEInfo · Cadastro');
     }
 
-    for (const item of school.suspensions) {
+    for (const item of (school.suspensions ?? [])) {
       add(
         school,
         'Suspensão informada',
@@ -177,7 +177,7 @@ function buildFollowUp(
       );
     }
 
-    for (const item of school.accountOpenings.filter((candidate) => openingNeedsAttention(candidate.status))) {
+    for (const item of (school.accountOpenings ?? []).filter((candidate) => openingNeedsAttention(candidate.status))) {
       add(
         school,
         'Abertura de conta',
@@ -300,8 +300,8 @@ function buildUnits(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioVie
   ]));
   for (const school of view.schools) {
     const position = latestSchoolPosition(school);
-    const pending = school.suspensions.length
-      + school.accountOpenings.filter((item) => !/SEM PENDENCIA|REGULAR|CONCLUID|ABERTA|ATIVA/i.test(item.status)).length
+    const pending = (school.suspensions ?? []).length
+      + (school.accountOpenings ?? []).filter((item) => !/SEM PENDENCIA|REGULAR|CONCLUID|ABERTA|ATIVA/i.test(item.status)).length
       + school.followUp.length
       + school.accounting.filter((item) => item.paymentSuspended).length;
     sheet.addRow([
@@ -346,7 +346,7 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
         const account = installment.account
           ? 'Banco ' + installment.account.bank + ' · Ag. ' + installment.account.agency + ' · Conta ' + installment.account.number
           : '';
-        const b = installment.breakdown;
+        const b = installment.breakdown ?? null;
         sheet.addRow([
           safeText(school.school.sme), safeText(school.school.name), safeText(program.name),
           safeText(installment.installment ?? 'Sem divisão'),
@@ -547,7 +547,7 @@ function buildCoverage(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolio
   subtitle(sheet, 'Distingue “sem registro” de “fonte indisponível” e permite auditar o que foi realmente consultado.', 6);
   header(sheet.addRow(['SME', 'Unidade escolar', 'INEP', 'Fonte / conjunto', 'Cobertura', 'Detalhe']));
   for (const school of view.schools) {
-    for (const item of school.sourceCoverage) {
+    for (const item of (school.sourceCoverage ?? [])) {
       const label = item.status === 'AVAILABLE'
         ? 'Disponível'
         : item.status === 'EMPTY'
