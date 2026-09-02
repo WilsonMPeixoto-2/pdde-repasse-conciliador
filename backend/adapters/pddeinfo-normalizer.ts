@@ -235,11 +235,24 @@ function validateFinancialComponents(finance: RawFinance, school: RawSchool) {
   if (dueTotal < 0 || finalDueTotal < 0 || paidTotal < 0) {
     throw new Error(`${school.sme}: total financeiro negativo em ${finance.destinacao}.`);
   }
+  const finalDueCusteio = dueCusteio + adjustmentCusteio;
+  const finalDueCapital = dueCapital + adjustmentCapital;
+  if (finalDueCusteio + finalDueCapital !== finalDueTotal) {
+    throw new Error(`${school.sme}: composição final de custeio/capital diverge do total em ${finance.destinacao}.`);
+  }
   return {
     amountOriginalDueCents: dueTotal,
+    amountOriginalDueCusteioCents: dueCusteio,
+    amountOriginalDueCapitalCents: dueCapital,
     adjustmentCents: finalDueTotal - dueTotal,
+    adjustmentCusteioCents: adjustmentCusteio,
+    adjustmentCapitalCents: adjustmentCapital,
     amountFinalDueCents: finalDueTotal,
+    amountFinalDueCusteioCents: finalDueCusteio,
+    amountFinalDueCapitalCents: finalDueCapital,
     amountPaidCents: paidTotal,
+    amountPaidCusteioCents: paidCusteio,
+    amountPaidCapitalCents: paidCapital,
   };
 }
 
