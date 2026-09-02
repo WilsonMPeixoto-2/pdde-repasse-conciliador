@@ -4,7 +4,7 @@
 
 **Decisão:** o produto deixa de organizar apenas o núcleo financeiro e passa a incorporar, no mesmo read model humano, cadastro/mandato, composição custeio-capital, abertura e ocorrência de conta, suspensões/motivos, prestação de contas e cobertura das fontes.
 
-A navegação global permanece curta: **Início, Escolas, Repasses, Saldos e contas, Pendências e Prestação**. O prontuário aprofunda em **Resumo, Cadastro, Repasses, Contas e saldos, Movimentações, Pendências e Prestação de contas**. O Excel usa dez abas equivalentes para permitir filtro e auditoria sem replicar a arquitetura técnica do backend.
+A navegação global passa a refletir as dez dimensões operacionais também usadas no Excel: **Visão geral, Escolas, Repasses, Contas e saldos, Evolução mensal, Movimentações, Cadastro e habilitação, Pendências e suspensões, Prestação de contas e Cobertura das fontes**. O prontuário continua oferecendo a leitura integrada por escola. Site e Excel compartilham os mesmos domínios; diferem na densidade e na forma de interação, não no universo de informação acessível.
 
 **Decisão:** fato estruturado não é duplicado como mensagem genérica de acompanhamento. Ausência de registro permanece distinta de fonte indisponível.
 
