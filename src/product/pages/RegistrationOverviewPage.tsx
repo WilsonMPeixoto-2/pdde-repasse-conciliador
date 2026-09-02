@@ -36,7 +36,7 @@ export function RegistrationOverviewPage() {
               {filtered.map((school) => (
                 <tr key={school.school.inep}>
                   <td><Link to={`/unidades/${school.school.inep}#cadastro`}><strong>{school.school.name}</strong></Link><small>SME {school.school.sme} · INEP {school.school.inep}</small></td>
-                  <td><strong>{school.registration?.uexName ?? school.school.uex || 'Não informada'}</strong><small>{formatCnpj(school.registration?.uexCnpj ?? school.school.cnpj)}</small></td>
+                  <td><strong>{school.registration?.uexName ?? school.school.uex ?? 'Não informada'}</strong><small>{formatCnpj(school.registration?.uexCnpj ?? school.school.cnpj)}</small></td>
                   <td>{school.registration?.studentCount ?? '—'}</td>
                   <td>{school.registration?.location ?? '—'}</td>
                   <td>{school.registration?.network ?? '—'}</td>
