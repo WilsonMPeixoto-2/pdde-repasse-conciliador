@@ -12,6 +12,7 @@ import {
   loadHumanPortfolio,
   loadHumanSchool,
 } from './api';
+import { downloadCurrentWorkbook } from './export-workbook';
 import {
   runLivePortfolioQuery,
   type LivePortfolioProgress,
@@ -31,6 +32,7 @@ type PortfolioState =
 type PortfolioActions = {
   loadSchool: (inep: string, signal?: AbortSignal) => Promise<HumanSchool>;
   refreshLive: () => Promise<void>;
+  downloadWorkbook: () => Promise<void>;
 };
 
 type PortfolioContextValue = PortfolioState & PortfolioActions & {
@@ -38,6 +40,8 @@ type PortfolioContextValue = PortfolioState & PortfolioActions & {
   refreshError: string | null;
   refreshProgress: LivePortfolioProgress | null;
   liveGeneratedAt: string | null;
+  exportingWorkbook: boolean;
+  exportError: string | null;
 };
 
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
@@ -48,6 +52,8 @@ export function PortfolioProvider(props: { children: ReactNode }) {
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [refreshProgress, setRefreshProgress] = useState<LivePortfolioProgress | null>(null);
   const [liveGeneratedAt, setLiveGeneratedAt] = useState<string | null>(null);
+  const [exportingWorkbook, setExportingWorkbook] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const liveSchoolsRef = useRef<Record<string, HumanSchool> | null>(null);
 
   useEffect(() => {
@@ -95,22 +101,49 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     return loadHumanSchool(inep, signal);
   }, []);
 
+  const downloadWorkbook = useCallback(async (): Promise<void> => {
+    if (exportingWorkbook || state.status !== 'ready') return;
+    setExportingWorkbook(true);
+    setExportError(null);
+
+    try {
+      const schools = state.source === 'live' && liveSchoolsRef.current
+        ? state.data.schools.map((summary) => {
+            const school = liveSchoolsRef.current?.[summary.inep];
+            if (!school) throw new Error(`A unidade ${summary.inep} não está disponível para exportação.`);
+            return school;
+          })
+        : await Promise.all(state.data.schools.map((summary) => loadHumanSchool(summary.inep)));
+      await downloadCurrentWorkbook(state.data, schools, state.source === 'live' ? liveGeneratedAt : null);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Não foi possível gerar a planilha agora.');
+    } finally {
+      setExportingWorkbook(false);
+    }
+  }, [exportingWorkbook, liveGeneratedAt, state]);
+
   const value = useMemo<PortfolioContextValue>(() => ({
     ...state,
     refreshing,
     refreshError,
     refreshProgress,
     liveGeneratedAt,
+    exportingWorkbook,
+    exportError,
     refreshLive,
     loadSchool,
+    downloadWorkbook,
   }), [
     state,
     refreshing,
     refreshError,
     refreshProgress,
     liveGeneratedAt,
+    exportingWorkbook,
+    exportError,
     refreshLive,
     loadSchool,
+    downloadWorkbook,
   ]);
 
   return <PortfolioContext.Provider value={value}>{props.children}</PortfolioContext.Provider>;
