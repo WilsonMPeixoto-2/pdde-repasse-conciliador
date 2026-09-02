@@ -12,6 +12,7 @@ export interface PddeInfoAttendanceObservation {
   schoolName: string;
   programName: string;
   destination: string;
+  studentCount: number | null;
   costCents: number;
   capitalCents: number;
   totalCents: number;
@@ -167,6 +168,12 @@ export function normalizeAttendanceRow(row: Record<string, string>): PddeInfoAtt
     schoolName: required(row, 'Nome Escola'),
     programName: required(row, 'Programa'),
     destination: required(row, 'Destinação'),
+    studentCount: (() => {
+      const raw = valueByHeader(row, ['Quantidade Alunos']);
+      if (!raw) return null;
+      const value = Number(raw.replace(/\D/g, ''));
+      return Number.isSafeInteger(value) && value >= 0 ? value : null;
+    })(),
     costCents,
     capitalCents,
     totalCents,
