@@ -12,6 +12,16 @@ const TASKS = [
     description: 'Saldo conhecido, referência e cobertura das contas.',
   },
   {
+    to: '/pendencias',
+    title: 'Ver pendências',
+    description: 'Cadastro, mandato, suspensão, abertura de conta e outros pontos de acompanhamento.',
+  },
+  {
+    to: '/prestacao-contas',
+    title: 'Ver prestação de contas',
+    description: 'Situação informada e suspensões de pagamento por escola.',
+  },
+  {
     to: '/unidades',
     title: 'Ver todas as escolas',
     description: 'Abra a carteira completa e compare as 163 unidades.',
