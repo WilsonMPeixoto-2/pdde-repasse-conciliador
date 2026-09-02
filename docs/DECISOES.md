@@ -1,5 +1,16 @@
 # Decisões consolidadas
 
+## 2026-09-02 — Site e Excel compartilham uma arquitetura operacional ampliada
+
+**Decisão:** o produto deixa de organizar apenas o núcleo financeiro e passa a incorporar, no mesmo read model humano, cadastro/mandato, composição custeio-capital, abertura e ocorrência de conta, suspensões/motivos, prestação de contas e cobertura das fontes.
+
+A navegação global permanece curta: **Início, Escolas, Repasses, Saldos e contas, Pendências e Prestação**. O prontuário aprofunda em **Resumo, Cadastro, Repasses, Contas e saldos, Movimentações, Pendências e Prestação de contas**. O Excel usa dez abas equivalentes para permitir filtro e auditoria sem replicar a arquitetura técnica do backend.
+
+**Decisão:** fato estruturado não é duplicado como mensagem genérica de acompanhamento. Ausência de registro permanece distinta de fonte indisponível.
+
+**Motivo:** o PDDEInfo e relatórios FNDE já publicam um universo maior de informações do que a interface antiga aproveitava. A ampliação deve aumentar capacidade explicativa sem transformar a experiência em navegação por fonte nem contar a mesma ocorrência duas vezes.
+
+
 ## 2026-08-30 — Manutenção de dependências é isolada de mudanças financeiras
 
 **Decisão:** atualizações de toolchain, CI e infraestrutura de testes são promovidas em PR próprio sobre a `main`, sem transportar mudanças de completude financeira ou segurança semântica.
