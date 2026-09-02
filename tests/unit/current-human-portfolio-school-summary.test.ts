@@ -119,6 +119,12 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
       followUpCount: 1,
       paymentSuspended: true,
       repasseAccountMissing: false,
+      pendingCount: 2,
+      registrationAttention: false,
+      mandateStatus: null,
+      suspensionCount: 0,
+      accountOpeningIssueCount: 0,
+      accountingAttentionCount: 1,
     });
   });
 
