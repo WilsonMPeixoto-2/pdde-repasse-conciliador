@@ -45,12 +45,12 @@ export const humanPortfolioSchoolSchema = humanUnitSchema.extend({
   followUpCount: z.number().int().nonnegative(),
   paymentSuspended: z.boolean(),
   repasseAccountMissing: z.boolean(),
-  pendingCount: z.number().int().nonnegative().default(0),
-  registrationAttention: z.boolean().default(false),
-  mandateStatus: z.string().nullable().default(null),
-  suspensionCount: z.number().int().nonnegative().default(0),
-  accountOpeningIssueCount: z.number().int().nonnegative().default(0),
-  accountingAttentionCount: z.number().int().nonnegative().default(0),
+  pendingCount: z.number().int().nonnegative().optional(),
+  registrationAttention: z.boolean().optional(),
+  mandateStatus: z.string().nullable().optional(),
+  suspensionCount: z.number().int().nonnegative().optional(),
+  accountOpeningIssueCount: z.number().int().nonnegative().optional(),
+  accountingAttentionCount: z.number().int().nonnegative().optional(),
 }).strict().refine((value) => value.accountsWithReferencePosition <= value.accountsTotal, {
   message: 'Cobertura de contas da unidade não pode exceder o total.',
 });
