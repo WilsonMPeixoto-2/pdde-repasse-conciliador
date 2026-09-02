@@ -39,6 +39,7 @@ O frontend React/Vite está publicado no Vercel e possui:
 - composição do saldo e série mensal;
 - extrato de movimentações;
 - consulta ao vivo da carteira com progresso por unidade;
+- download do Excel humano diretamente da Home, sempre derivado do mesmo retrato financeiro que está sendo exibido;
 - preservação do retrato anterior quando a atualização falha ou termina parcial;
 - deep links da SPA no ambiente Vercel.
 
@@ -161,3 +162,16 @@ Homologação pública após a promoção:
 O bloqueio por quota registrado em 30/08 permanece apenas como histórico. O refresh de dependências e gates está, a partir de 31/08/2026, **integrado à `main`, validado e publicado em produção**.
 
 Os PRs #41 e #42 permanecem Draft e continuam fora desta publicação. O antigo PR #43 não deve ser promovido.
+
+
+## Exportação do retrato exibido — 02/09/2026
+
+O produto web passa a expor a ação **Baixar planilha Excel** ao lado de **Fazer nova consulta**. A exportação reutiliza o gerador canônico da planilha humana e não dispara uma segunda coleta:
+
+- no estado inicial, o arquivo é derivado do snapshot publicado;
+- após uma consulta ao vivo completa, o arquivo é derivado dos mesmos 163 prontuários mantidos na sessão e usados pela interface;
+- cobertura escolar incompleta bloqueia a exportação;
+- nome do arquivo: `inteligencia-financeira-pdde-4cre-2026.xlsx`;
+- ExcelJS é carregado sob demanda apenas quando a exportação é solicitada.
+
+A limitação de persistência permanece a mesma: enquanto não houver publicação durável do novo retrato, recarregar a página retorna ao snapshot estável publicado.
