@@ -2,6 +2,7 @@ import type {
   HumanFinancialIndicator,
   HumanFinancialPortfolioView,
 } from '../application/build-human-financial-view';
+import { derivePddeBasicPortfolio } from '../../shared/pdde-basic-monitoring';
 
 export interface HumanFinancialOverviewMetric {
   label: string;
@@ -30,6 +31,7 @@ export function buildOverviewMetrics(
       accountTotal + account.movements.length
     ), 0)
   ), 0);
+  const pddeBasic = derivePddeBasicPortfolio(view.schools);
 
   return [
     {
@@ -74,6 +76,18 @@ export function buildOverviewMetrics(
       targetSheet: 'Contas e Saldos',
       value: reais(view.metrics.reportedBalanceCents),
       monetary: true,
+    },
+    {
+      label: '1ª parcela PDDE informada',
+      targetSheet: 'PDDE Básico',
+      value: pddeBasic.firstPaidCount,
+      monetary: false,
+    },
+    {
+      label: '2ª parcela PDDE informada',
+      targetSheet: 'PDDE Básico',
+      value: pddeBasic.secondPaidCount,
+      monetary: false,
     },
   ];
 }
