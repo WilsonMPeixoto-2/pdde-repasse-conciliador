@@ -14,6 +14,10 @@ import {
 } from './api';
 import { downloadCurrentWorkbook } from './export-workbook';
 import {
+  buildRefreshComparison,
+  type RefreshComparison,
+} from './refresh-comparison';
+import {
   runLivePortfolioQuery,
   type LivePortfolioProgress,
 } from './live-portfolio';
@@ -42,6 +46,7 @@ type PortfolioContextValue = PortfolioState & PortfolioActions & {
   liveGeneratedAt: string | null;
   exportingWorkbook: boolean;
   exportError: string | null;
+  refreshComparison: RefreshComparison | null;
 };
 
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
@@ -54,6 +59,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
   const [liveGeneratedAt, setLiveGeneratedAt] = useState<string | null>(null);
   const [exportingWorkbook, setExportingWorkbook] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [refreshComparison, setRefreshComparison] = useState<RefreshComparison | null>(null);
   const liveSchoolsRef = useRef<Record<string, HumanSchool> | null>(null);
 
   useEffect(() => {
@@ -77,14 +83,36 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     const ineps = state.data.schools.map((school) => school.inep);
     setRefreshing(true);
     setRefreshError(null);
+    setRefreshComparison(null);
     setRefreshProgress({ completed: 0, total: ineps.length, succeeded: 0, failed: 0 });
 
     try {
+      const beforePortfolio = state.data;
+      const beforeSchools = state.source === 'live' && liveSchoolsRef.current
+        ? ineps.map((inep) => {
+            const school = liveSchoolsRef.current?.[inep];
+            if (!school) throw new Error(`A unidade ${inep} não está disponível no retrato atual.`);
+            return school;
+          })
+        : await Promise.all(ineps.map((inep) => loadHumanSchool(inep)));
+
       const result = await runLivePortfolioQuery(ineps, {
         concurrency: 3,
         attempts: 2,
         onProgress: setRefreshProgress,
       });
+      const afterSchools = ineps.map((inep) => {
+        const school = result.schools[inep];
+        if (!school) throw new Error(`A unidade ${inep} não está disponível na nova consulta.`);
+        return school;
+      });
+      setRefreshComparison(buildRefreshComparison({
+        beforePortfolio,
+        beforeSchools,
+        afterPortfolio: result.portfolio,
+        afterSchools,
+        generatedAt: result.generatedAt,
+      }));
       liveSchoolsRef.current = result.schools;
       setLiveGeneratedAt(result.generatedAt);
       setState({ status: 'ready', data: result.portfolio, error: null, source: 'live' });
@@ -130,6 +158,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     liveGeneratedAt,
     exportingWorkbook,
     exportError,
+    refreshComparison,
     refreshLive,
     loadSchool,
     downloadWorkbook,
@@ -141,6 +170,7 @@ export function PortfolioProvider(props: { children: ReactNode }) {
     liveGeneratedAt,
     exportingWorkbook,
     exportError,
+    refreshComparison,
     refreshLive,
     loadSchool,
     downloadWorkbook,
