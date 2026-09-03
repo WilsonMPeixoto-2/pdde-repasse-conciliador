@@ -246,3 +246,19 @@ Cadastro, abertura de conta e suspensão são conjuntos complementares. Falha t�
 - SIGPC Ágil: lançado em 31/08/2026, mas UEx não integram a fase inicial informada pelo FNDE.
 
 Essas fontes não são apresentadas como integradas antes de piloto/contrato real.
+
+
+## Comparação antes × depois da consulta ao vivo — 03/09/2026
+
+A ação `Fazer nova consulta` passa a gerar uma comparação explícita entre o retrato exibido antes da execução e os 163 prontuários produzidos pela consulta nova.
+
+O quadro informa:
+- programado, pagamento informado, crédito compatível, saldo e aplicações: antes, agora e diferença;
+- referência de saldo anterior e atual;
+- variação de registros de repasse, prestação de contas, movimentações, cadastro, abertura de conta e suspensões;
+- número de escolas com alteração financeira e complementar;
+- fontes indisponíveis agrupadas pelo nome do conjunto.
+
+A comparação é calculada apenas após promoção integral da carteira. Resultado parcial continua sem substituir o retrato anterior.
+
+As requisições HTTP às fontes PDDEInfo, SIGEF e Portal da Transparência também passam a solicitar `no-cache/no-store`, além do `no-store` já aplicado à resposta de `/api/live`.
