@@ -32,6 +32,12 @@ export interface RefreshComparisonCount {
   changed: boolean;
 }
 
+export interface RefreshUnavailableSource {
+  dataset: string;
+  observations: number;
+  schoolCount: number;
+}
+
 export interface RefreshChangedSchool {
   inep: string;
   sme: string;
@@ -52,6 +58,7 @@ export interface RefreshComparison {
   supplementalChangedSchoolCount: number;
   unavailableSourceObservations: number;
   unavailableSourceSchoolCount: number;
+  unavailableSources: RefreshUnavailableSource[];
   hasFinancialChange: boolean;
   hasAnyChange: boolean;
 }
@@ -120,6 +127,30 @@ function unavailableSourceSchoolCount(schools: readonly HumanSchool[]): number {
   return schools.filter((school) => (
     (school.sourceCoverage ?? []).some((item) => item.status === 'UNAVAILABLE')
   )).length;
+}
+
+
+function unavailableSources(schools: readonly HumanSchool[]): RefreshUnavailableSource[] {
+  const byDataset = new Map<string, { observations: number; schools: Set<string> }>();
+  for (const school of schools) {
+    for (const item of (school.sourceCoverage ?? [])) {
+      if (item.status !== 'UNAVAILABLE') continue;
+      const current = byDataset.get(item.dataset) ?? { observations: 0, schools: new Set<string>() };
+      current.observations += 1;
+      current.schools.add(school.school.inep);
+      byDataset.set(item.dataset, current);
+    }
+  }
+  return [...byDataset.entries()]
+    .map(([dataset, value]) => ({
+      dataset,
+      observations: value.observations,
+      schoolCount: value.schools.size,
+    }))
+    .sort((left, right) => (
+      right.schoolCount - left.schoolCount
+      || left.dataset.localeCompare(right.dataset, 'pt-BR')
+    ));
 }
 
 function count(
@@ -230,6 +261,7 @@ export function buildRefreshComparison(input: {
     supplementalChangedSchoolCount: changedSchools.filter((item) => item.supplemental).length,
     unavailableSourceObservations: unavailableSourceCount(input.afterSchools),
     unavailableSourceSchoolCount: unavailableSourceSchoolCount(input.afterSchools),
+    unavailableSources: unavailableSources(input.afterSchools),
     hasFinancialChange,
     hasAnyChange,
   };
