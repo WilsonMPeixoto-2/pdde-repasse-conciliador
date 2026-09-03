@@ -275,10 +275,12 @@ Nenhuma chave deve ser incluída em código, frontend, planilha ou documentaçã
 ### Já publicado / operacional para validação
 
 - frontend fiscal React/Vite integrado à `main` e publicado automaticamente no Vercel;
-- navegação global pelas mesmas dez dimensões do Excel humano: visão geral, escolas, repasses, contas e saldos, evolução mensal, movimentações, cadastro e habilitação, pendências e suspensões, prestação de contas e cobertura das fontes;
+- navegação global pelas dimensões do Excel humano: visão geral, escolas, repasses, **PDDE Básico**, contas e saldos, evolução mensal, movimentações, cadastro e habilitação, pendências e suspensões, prestação de contas e cobertura das fontes;
 - retrato financeiro 2026 previamente publicado como base estável da experiência;
 - ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela e, ao concluir, mostra comparação explícita entre o retrato anterior e o novo;
 - ação **Baixar planilha Excel**, que gera o Excel humano a partir do mesmo retrato financeiro exibido na interface, sem disparar uma segunda coleta;
+- visão **PDDE Básico** que reúne, por escola, o primeiro ciclo de pagamento (`1ª Parcela` ou `Primeira Infância · P1`), o segundo ciclo (`2ª Parcela` ou `P2`) e a posição do saldo separada entre conta corrente, aplicações e total;
+- aba **PDDE Básico** no Excel com a mesma leitura, destaque visual para valores positivos e alerta para parcela programada ainda sem pagamento informado;
 - endpoint server-side `/api/live` para executar a coleta de uma unidade com o pipeline financeiro real;
 - atualização do retrato no navegador somente quando todas as unidades solicitadas terminam sem falha e sem cobertura parcial;
 - smoke automatizado desktop/mobile e CI com testes, TypeScript e build.
