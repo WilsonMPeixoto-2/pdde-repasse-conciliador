@@ -47,6 +47,8 @@ async function fetchReleasePage(url: string, signal?: AbortSignal): Promise<{
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36 PDDE-4CRE/0.6',
           Accept: 'text/html,application/xhtml+xml',
           'Accept-Language': 'pt-BR,pt;q=0.9',
+          'Cache-Control': 'no-cache, no-store, max-age=0',
+          Pragma: 'no-cache',
         },
       });
       const rawBytes = Buffer.from(await response.arrayBuffer());

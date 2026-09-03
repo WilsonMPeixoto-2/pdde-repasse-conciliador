@@ -8,6 +8,11 @@ import {
   buildOverviewMetrics,
   formatGeneratedAt,
 } from './human-financial-workbook-model';
+import {
+  derivePddeBasicPortfolio,
+  pddeBasicBalanceLocationLabel,
+  pddeBasicInstallmentStateLabel,
+} from '../../shared/pdde-basic-monitoring';
 
 const NAVY = '183B56';
 const BLUE = '2F6F91';
@@ -285,7 +290,8 @@ function buildOverview(
     row.alignment = { vertical: 'top', wrapText: true };
   }
   sheet.columns = [
-    { width: 27 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 21 }, { width: 24 }, { width: 24 },
+    { width: 27 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 21 },
+    { width: 24 }, { width: 24 }, { width: 22 }, { width: 22 },
   ];
 }
 
@@ -379,6 +385,124 @@ function buildTransfers(workbook: ExcelJS.Workbook, view: HumanFinancialPortfoli
   sheet.autoFilter = { from: 'A3', to: 'Y3' };
 }
 
+function highlightPositiveMoney(
+  cell: ExcelJS.Cell,
+  cents: number | null,
+  kind: 'checking' | 'application' | 'total' | 'payment',
+  expectedPositive = false,
+): void {
+  if (cents !== null && cents > 0) {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: kind === 'application' ? PALE : PALE_GREEN },
+    };
+    cell.font = {
+      bold: true,
+      color: { argb: kind === 'application' ? BLUE : PAID_GREEN },
+      size: 10,
+    };
+    return;
+  }
+  if (cents === 0 && expectedPositive) {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_YELLOW } };
+    cell.font = { bold: true, color: { argb: '8A5A00' }, size: 10 };
+  }
+}
+
+function buildPddeBasic(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
+  const monitoring = derivePddeBasicPortfolio(view.schools);
+  const sheet = workbook.addWorksheet('PDDE Básico', { views: [{ state: 'frozen', ySplit: 3 }] });
+  title(sheet, 'PDDE Básico · 1ª e 2ª parcelas · posição do saldo', 19);
+  subtitle(
+    sheet,
+    `1ª parcela com pagamento informado: ${monitoring.firstPaidCount}/${monitoring.schoolCount} · 2ª parcela: ${monitoring.secondPaidCount}/${monitoring.schoolCount} · Saldo positivo: ${monitoring.balancePositiveCount}/${monitoring.schoolCount}. Valores positivos recebem destaque visual.`,
+    19,
+  );
+  header(sheet.addRow([
+    'SME', 'Unidade escolar', 'INEP',
+    'Modalidade 1ª', 'Programado 1ª', 'Pagamento informado 1ª', 'Data 1ª', 'Situação 1ª',
+    'Modalidade 2ª', 'Programado 2ª', 'Pagamento informado 2ª', 'Data 2ª', 'Situação 2ª',
+    'Contas PDDE', 'Saldo em conta', 'Aplicações', 'Saldo total PDDE', 'Referência', 'Onde está o saldo',
+  ]));
+
+  for (const item of monitoring.rows) {
+    const row = sheet.addRow([
+      safeText(item.sme),
+      safeText(item.name),
+      safeText(item.inep),
+      safeText(item.first.track),
+      reais(item.first.programmedCents),
+      reais(item.first.paymentInformedCents),
+      brDate(item.first.paymentInformedDate),
+      safeText(pddeBasicInstallmentStateLabel(item.first.state)),
+      safeText(item.second.track),
+      reais(item.second.programmedCents),
+      reais(item.second.paymentInformedCents),
+      brDate(item.second.paymentInformedDate),
+      safeText(pddeBasicInstallmentStateLabel(item.second.state)),
+      item.balance.accountCount,
+      reais(item.balance.checkingCents),
+      reais(item.balance.applicationsCents),
+      reais(item.balance.totalCents),
+      brDate(item.balance.referenceDate),
+      safeText(pddeBasicBalanceLocationLabel(item.balance.location)),
+    ]);
+
+    highlightPositiveMoney(
+      row.getCell(6),
+      item.first.paymentInformedCents,
+      'payment',
+      item.first.programmedCents > 0,
+    );
+    highlightPositiveMoney(
+      row.getCell(11),
+      item.second.paymentInformedCents,
+      'payment',
+      item.second.programmedCents > 0,
+    );
+    highlightPositiveMoney(row.getCell(15), item.balance.checkingCents, 'checking');
+    highlightPositiveMoney(row.getCell(16), item.balance.applicationsCents, 'application');
+    highlightPositiveMoney(row.getCell(17), item.balance.totalCents, 'total');
+
+    if (item.first.state === 'PAID_INFORMED') {
+      row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+      row.getCell(8).font = { bold: true, color: { argb: PAID_GREEN }, size: 10 };
+    } else {
+      row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_YELLOW } };
+    }
+    if (item.second.state === 'PAID_INFORMED') {
+      row.getCell(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+      row.getCell(13).font = { bold: true, color: { argb: PAID_GREEN }, size: 10 };
+    } else if (item.second.state === 'PROGRAMMED') {
+      row.getCell(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_YELLOW } };
+      row.getCell(13).font = { bold: true, color: { argb: '8A5A00' }, size: 10 };
+    }
+
+    if (item.balance.location === 'APPLICATION') {
+      row.getCell(19).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE } };
+      row.getCell(19).font = { bold: true, color: { argb: BLUE }, size: 10 };
+    } else if (
+      item.balance.location === 'CHECKING'
+      || item.balance.location === 'CHECKING_AND_APPLICATION'
+    ) {
+      row.getCell(19).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
+      row.getCell(19).font = { bold: true, color: { argb: PAID_GREEN }, size: 10 };
+    }
+  }
+
+  moneyColumns(sheet, [5, 6, 10, 11, 15, 16, 17]);
+  formatData(sheet);
+  for (const index of [1, 3]) sheet.getColumn(index).numFmt = '@';
+  sheet.columns = [
+    { width: 12 }, { width: 38 }, { width: 13 },
+    { width: 20 }, { width: 18 }, { width: 22 }, { width: 14 }, { width: 31 },
+    { width: 20 }, { width: 18 }, { width: 22 }, { width: 14 }, { width: 31 },
+    { width: 12 }, { width: 18 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 28 },
+  ];
+  sheet.autoFilter = { from: 'A3', to: 'S3' };
+}
+
 function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolioView): void {
   const sheet = workbook.addWorksheet('Contas e Saldos', { views: [{ state: 'frozen', ySplit: 3 }] });
   title(sheet, 'Contas, saldos, aplicações e abertura · PDDE 2026', 19);
@@ -396,7 +520,7 @@ function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolio
         .filter((item) => !item.program || account.program.toUpperCase().includes(item.program.toUpperCase()) || item.program.toUpperCase().includes(account.program.toUpperCase()))
         .map((item) => item.status)
         .join(' · ');
-      sheet.addRow([
+      const row = sheet.addRow([
         safeText(school.school.sme), safeText(school.school.name), safeText(school.school.inep),
         safeText(school.school.uex), safeText(school.school.cnpj), safeText(account.program),
         safeText(account.bank), safeText(account.agency), safeText(account.account),
@@ -406,6 +530,18 @@ function buildBalances(workbook: ExcelJS.Workbook, view: HumanFinancialPortfolio
         reais(position?.applications.totalCents ?? null), reais(position?.totalReportedBalanceCents ?? null),
         brDate(position?.referenceDate ?? null), safeText(account.note ?? ''),
       ]);
+      highlightPositiveMoney(row.getCell(12), position?.checkingBalanceCents ?? null, 'checking');
+      for (const column of [13, 14, 15, 16]) {
+        const value = column === 13
+          ? position?.applications.fundsCents ?? null
+          : column === 14
+            ? position?.applications.savingsCents ?? null
+            : column === 15
+              ? position?.applications.rdbCdbCents ?? null
+              : position?.applications.totalCents ?? null;
+        highlightPositiveMoney(row.getCell(column), value, 'application');
+      }
+      highlightPositiveMoney(row.getCell(17), position?.totalReportedBalanceCents ?? null, 'total');
     }
   }
   moneyColumns(sheet, [12, 13, 14, 15, 16, 17]);
@@ -595,6 +731,7 @@ export function buildHumanFinancialWorkbook(
   const overviewSheet = workbook.addWorksheet('Visão Geral', { views: [{ state: 'frozen', ySplit: 2 }] });
   buildUnits(workbook, view);
   buildTransfers(workbook, view);
+  buildPddeBasic(workbook, view);
   buildBalances(workbook, view);
   buildMonthlyHistory(workbook, view);
   buildMovements(workbook, view);

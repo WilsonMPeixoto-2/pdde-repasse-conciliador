@@ -21,8 +21,9 @@ Pesquisas futuras: [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
 | **BB Gestão Ágil / transição SIGPC Ágil** | potencial camada bancária institucional e documentos | **NÃO INTEGRADO** | O FNDE iniciou a transição gradual ao SIGPC Ágil em 31/08/2026; as UEx não integram a fase inicial. Não fazer scraping de interface autenticada. |
 | **Plataforma Antonieta de Barros** | produtos estruturados/datasets | **POTENCIAL; CONEXÃO NÃO CERTIFICADA** | Exige piloto que prove ganho material para 2026. |
 | **PDDEREx** | fonte legada | **NÃO USAR COMO FONTE CORRENTE** | Foi sucedido pelo PDDEInfo; manter apenas como referência histórica quando necessário. |
-| **Dados Abertos FNDE / Olinda** | controle secundário/histórico | **CANDIDATO SECUNDÁRIO** | Frescor e cobertura precisam ser avaliados dataset a dataset. |
-| **SiGPC** | prestação de contas/regularidade | **FUTURO / PILOTO** | Autenticação e proteções devem ser respeitadas. |
+| **Dados Abertos FNDE / Olinda** | execução financeira do PDDE, escolas atendidas, saldos e regularidade de prestação | **CANDIDATO SECUNDÁRIO FORTE** | O catálogo oficial inclui execução financeira até nível de escola e consulta de prestação; metadados/recursos apresentam frescor desigual e exigem piloto antes de entrar na conclusão corrente. |
+| **SiGPC - Acesso Público** | situação de prestação de contas das UEx e EEx | **PÚBLICO; PILOTO NECESSÁRIO** | O FNDE informa acesso sem cadastro prévio e consulta específica de situação UEx. Pode servir como evidência independente de prestação, mas o acesso legado pode aplicar WAF/bloqueios e precisa de estratégia permitida/testável. |
+| **Painéis PDDE Total / Básico / Ações Integradas** | cadastro, atendimento, repasses previstos/realizados, execução e prestação | **CONTROLE SECUNDÁRIO; PILOTO NECESSÁRIO** | Painéis oficiais Power BI do FNDE. Úteis para cruzamento e descoberta, mas integração produtiva depende de exportação estável e granularidade por escola/UEx. |
 
 ## Evidência já comprovada
 
@@ -105,6 +106,35 @@ A camada humana traduz esses estados para linguagem probatória neutra. Exemplos
 - `PROGRAMADO_NAO_PAGO` → pagamento ainda não informado.
 
 Não usar “repasse ausente” como sinônimo automático de pagamento ainda não informado.
+
+## Leitura operacional das parcelas do PDDE Básico — 03/09/2026
+
+Para a visualização gerencial da carteira, o produto mantém os nomes originais das destinações, mas agrega os dois caminhos de atendimento do PDDE Básico em ciclos equivalentes de acompanhamento:
+
+- **1º ciclo:** `PDDE Básico · 1ª Parcela` ou `PDDE Básico — Primeira Infância · P1`;
+- **2º ciclo:** `PDDE Básico · 2ª Parcela` ou `PDDE Básico — Primeira Infância · P2`.
+
+Essa agregação é **somente de leitura operacional**. Ela não renomeia nem funde os registros de origem.
+
+No retrato público de 31/07/2026 usado para validação desta regra:
+
+- 111 unidades tinham pagamento informado na `1ª Parcela` regular;
+- 52 unidades tinham pagamento informado em `Primeira Infância · P1`;
+- os dois conjuntos eram complementares e cobriam as 163 unidades;
+- as 52 unidades de Primeira Infância possuíam saldo positivo em conta PDDE na referência, sendo 33 com valor em conta corrente e 19 com valor em aplicações;
+- saldo em conta corrente igual a zero **não** pode ser apresentado como ausência de recurso quando aplicações ou saldo total forem positivos.
+
+A visualização deve sempre distinguir:
+
+1. valor programado;
+2. pagamento informado;
+3. crédito compatível localizado;
+4. saldo em conta corrente;
+5. aplicações;
+6. saldo total;
+7. data de referência.
+
+O estado da 2ª parcela é calculado pelo pagamento informado da fonte e deve se atualizar automaticamente em novas coletas. Existência de programação para a 2ª parcela não equivale a pagamento.
 
 ## Saldos e aplicações
 
@@ -212,3 +242,52 @@ A revisão de completude identificou informação oficial que já existia nas fo
 - cobertura nominal de cada conjunto consultado.
 
 As fontes complementares de cadastro, abertura e suspensão **não são tratadas como prova negativa quando retornam sem cobertura**. Falha dessas fontes fica exposta como cobertura indisponível e não apaga um retrato financeiro completo obtido pelas fontes nucleares.
+
+
+## Verificação de frescor e fontes complementares — 03/09/2026
+
+A rodada integral concluída em 02/09/2026 confirmou que a consulta ao vivo realmente volta às fontes e pode detectar mudanças: o total programado passou de **R$ 2.182.050,00** para **R$ 2.238.502,00**, concentrado em 17 novos registros de Educação Conectada. No mesmo intervalo, pagamento informado (**R$ 827.615,00**), crédito compatível SIGEF (**R$ 409.010,00**), saldo (**R$ 1.644.171,85**) e aplicações (**R$ 1.368.045,22**) permaneceram iguais, com referência de saldo ainda em **31/07/2026**.
+
+A mesma execução registrou:
+- 537 registros de repasse/parcela;
+- 325 registros de prestação de contas;
+- 408 movimentações SIGEF de 2026;
+- 163 cadastros de UEx;
+- 0 registros de abertura de conta;
+- 163 falhas do relatório de abertura de conta;
+- erro da própria fonte FNDE na abertura de conta: `ORA-00904: "REPASSE"."NU_SEQ_UNIDADE_EXECUTORA": invalid identifier`.
+
+Consequência: uma nova consulta pode ser tecnicamente fresca e, ainda assim, manter os mesmos números centrais quando as fontes oficiais não publicaram fatos financeiros novos.
+
+### Fontes adicionais verificadas em 03/09
+
+1. **SiGPC - Acesso Público**
+   - acesso oficialmente descrito pelo FNDE como público e sem cadastro prévio;
+   - permite consultar situação das prestações e situação das UEx;
+   - prioridade: **P1**, como segunda evidência de prestação/regularidade;
+   - restrição prática: o sistema legado pode rejeitar acessos automatizados por WAF; qualquer integração deve respeitar esse limite.
+
+2. **API do Portal da Transparência / CGU**
+   - API REST oficial ativa;
+   - endpoint de recursos recebidos por favorecido e documentos por favorecido;
+   - cliente já existe no repositório;
+   - token oficial é obtido por autenticação Gov.br e fica apenas no backend;
+   - prioridade: **P1**, como evidência independente de recursos federais/documentos SIAFI por CNPJ.
+
+3. **Dados Abertos do FNDE**
+   - catálogo oficial do PDDE declara execução financeira até nível de escola, saldos e situação da prestação de contas;
+   - há recursos de execução financeira, consulta de prestação e saldos de UEx;
+   - prioridade: **P2/P1 para backfill**, condicionado a teste de atualização efetiva de 2026.
+
+4. **Painéis PDDE Total / PDDE Básico / Ações Integradas**
+   - o próprio FNDE declara que permitem consultas sobre cadastro, atendimento, repasses previstos e realizados, execução e prestação;
+   - prioridade: **P2**, como controle cruzado e detecção de divergências;
+   - não usar como fonte nuclear enquanto não houver mecanismo de exportação estável e auditável por escola/UEx.
+
+5. **SIGPC Ágil**
+   - lançado em 31/08/2026;
+   - recebe movimentações bancárias diretamente do Banco do Brasil e prevê extratos/transações;
+   - nesta fase do PDDE, atende EEx e EM; **UEx ainda não migram**;
+   - portanto: **não aplicável como fonte operacional das 163 UEx neste momento**.
+
+A ordem de próxima integração permanece: **SiGPC Acesso Público (prestação) → Portal da Transparência (recursos/documentos, após token) → piloto Dados Abertos → painéis PDDE como controle secundário**.

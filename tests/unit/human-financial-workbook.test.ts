@@ -112,6 +112,7 @@ describe('Excel humano da inteligência financeira', () => {
       'Visão Geral',
       'Escolas',
       'Repasses',
+      'PDDE Básico',
       'Contas e Saldos',
       'Evolução Mensal',
       'Movimentações',

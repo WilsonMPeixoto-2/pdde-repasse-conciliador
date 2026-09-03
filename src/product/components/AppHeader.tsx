@@ -4,6 +4,7 @@ const DATA_TABS = [
   { to: '/', label: 'Visão geral', end: true },
   { to: '/unidades', label: 'Escolas' },
   { to: '/repasses', label: 'Repasses' },
+  { to: '/pdde-basico', label: 'PDDE Básico' },
   { to: '/saldos', label: 'Contas e saldos' },
   { to: '/evolucao', label: 'Evolução mensal' },
   { to: '/movimentacoes', label: 'Movimentações' },

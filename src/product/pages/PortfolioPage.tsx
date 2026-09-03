@@ -3,6 +3,7 @@ import { GlobalSchoolFinder } from '../components/GlobalSchoolFinder';
 import { IndicatorLink } from '../components/IndicatorLink';
 import { MetricValue } from '../components/MetricValue';
 import { PortfolioExecutiveOverview } from '../components/PortfolioExecutiveOverview';
+import { RefreshComparisonPanel } from '../components/RefreshComparisonPanel';
 import { SourceInfo } from '../components/SourceInfo';
 import { usePortfolio } from '../PortfolioContext';
 
@@ -123,6 +124,8 @@ export function PortfolioPage() {
           </div>
         </div>
       </section>
+
+      {state.refreshComparison ? <RefreshComparisonPanel comparison={state.refreshComparison} /> : null}
 
       <section className="section financial-entry" aria-labelledby="financial-entry-title">
         <div className="section-heading financial-entry__heading">
