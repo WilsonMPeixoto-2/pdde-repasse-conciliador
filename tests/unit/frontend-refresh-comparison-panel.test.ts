@@ -30,6 +30,11 @@ const comparison: RefreshComparison = {
   supplementalChangedSchoolCount: 1,
   unavailableSourceObservations: 163,
   unavailableSourceSchoolCount: 163,
+  unavailableSources: [{
+    dataset: 'PDDEInfo · Abertura de Conta',
+    observations: 163,
+    schoolCount: 163,
+  }],
   hasFinancialChange: true,
   hasAnyChange: true,
 };
@@ -43,5 +48,6 @@ describe('quadro de comparação da consulta', () => {
     expect(html).toContain('Sem nova referência publicada');
     expect(html).toContain('17');
     expect(html).toContain('163 ocorrência(s) de fonte indisponível');
+    expect(html).toContain('PDDEInfo · Abertura de Conta: 163 escola(s)');
   });
 });
