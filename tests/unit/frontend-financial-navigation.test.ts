@@ -127,18 +127,20 @@ import { AppHeader } from '../../src/product/components/AppHeader';
 import { PortfolioSchoolList } from '../../src/product/components/PortfolioSchoolList';
 import { BalancesOverviewPage } from '../../src/product/pages/BalancesOverviewPage';
 import { RepasseOverviewPage } from '../../src/product/pages/RepasseOverviewPage';
+import { PddeBasicOverviewPage } from '../../src/product/pages/PddeBasicOverviewPage';
 
 function renderWithRouter(node: ReturnType<typeof createElement>) {
   return renderToStaticMarkup(createElement(MemoryRouter, null, node));
 }
 
 describe('navegação financeira direta', () => {
-  test('cabeçalho expõe as dez dimensões do produto', () => {
+  test('cabeçalho expõe as dimensões do produto', () => {
     const html = renderWithRouter(createElement(AppHeader));
     for (const label of [
       'Visão geral',
       'Escolas',
       'Repasses',
+      'PDDE Básico',
       'Contas e saldos',
       'Evolução mensal',
       'Movimentações',
@@ -149,7 +151,7 @@ describe('navegação financeira direta', () => {
     ]) expect(html).toContain(label);
 
     for (const href of [
-      '/unidades', '/repasses', '/saldos', '/evolucao', '/movimentacoes',
+      '/unidades', '/repasses', '/pdde-basico', '/saldos', '/evolucao', '/movimentacoes',
       '/cadastro', '/pendencias', '/prestacao-contas', '/cobertura',
     ]) expect(html).toContain(`href="${href}"`);
   });
@@ -162,6 +164,15 @@ describe('navegação financeira direta', () => {
     expect(html).toContain('Ordem FNDE');
     expect(html).toContain('Crédito localizado');
     expect(html).toContain('EM Escola Teste');
+  });
+
+  test('PDDE Básico mostra primeira e segunda parcela junto da localização do saldo', () => {
+    const html = renderWithRouter(createElement(PddeBasicOverviewPage));
+    expect(html).toContain('1ª e 2ª parcelas + localização do saldo');
+    expect(html).toContain('1ª parcela com pagamento informado');
+    expect(html).toContain('2ª parcela com pagamento informado');
+    expect(html).toContain('Em conta corrente');
+    expect(html).toContain('Em aplicação');
   });
 
   test('contas e saldos mostra identidade bancária, abertura, ocorrência e aplicações', () => {
