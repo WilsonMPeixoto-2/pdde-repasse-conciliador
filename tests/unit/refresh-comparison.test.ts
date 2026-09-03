@@ -116,6 +116,11 @@ describe('comparação da nova consulta', () => {
     expect(comparison.financialChangedSchoolCount).toBe(1);
     expect(comparison.unavailableSourceObservations).toBe(1);
     expect(comparison.unavailableSourceSchoolCount).toBe(1);
+    expect(comparison.unavailableSources).toEqual([{
+      dataset: 'PDDEInfo · Abertura de Conta',
+      observations: 1,
+      schoolCount: 1,
+    }]);
     expect(comparison.hasFinancialChange).toBe(true);
   });
 
