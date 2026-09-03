@@ -274,6 +274,8 @@ export async function fetchPddeInfoPublicReport(
             'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Public-Reports/0.5)',
             Accept: 'text/html,application/xhtml+xml',
             'Accept-Language': 'pt-BR,pt;q=0.9',
+          'Cache-Control': 'no-cache, no-store, max-age=0',
+          Pragma: 'no-cache',
           },
           signal,
         });
