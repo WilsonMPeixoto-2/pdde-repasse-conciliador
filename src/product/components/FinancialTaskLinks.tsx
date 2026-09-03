@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 const TASKS = [
   { to: '/unidades', title: 'Escolas', description: 'Carteira completa das 163 unidades e leitura resumida por escola.' },
   { to: '/repasses', title: 'Repasses', description: 'Custeio, capital, ajustes, pagamentos, ordens e evidência de crédito por parcela.' },
+  { to: '/pdde-basico', title: 'PDDE Básico', description: '1ª e 2ª parcelas por escola, com saldo separado entre conta corrente e aplicações.' },
   { to: '/saldos', title: 'Contas e saldos', description: 'Banco, agência, conta, abertura, ocorrência, saldos e aplicações.' },
   { to: '/evolucao', title: 'Evolução mensal', description: 'Série das posições públicas de saldo e aplicações por referência.' },
   { to: '/movimentacoes', title: 'Movimentações', description: 'Lançamentos do extrato, documento, contraparte, crédito e débito.' },
