@@ -56,6 +56,8 @@ describe('acompanhamento do PDDE Básico', () => {
     expect(monitoring.schoolCount).toBe(2);
     expect(monitoring.firstPaidCount).toBe(2);
     expect(monitoring.firstPendingCount).toBe(0);
+    expect(monitoring.firstRegularCount).toBe(1);
+    expect(monitoring.firstInfancyCount).toBe(1);
     expect(monitoring.secondPaidCount).toBe(0);
     expect(monitoring.secondPendingCount).toBe(2);
   });
