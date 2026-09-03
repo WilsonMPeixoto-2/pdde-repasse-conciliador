@@ -290,7 +290,8 @@ function buildOverview(
     row.alignment = { vertical: 'top', wrapText: true };
   }
   sheet.columns = [
-    { width: 27 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 21 }, { width: 24 }, { width: 24 },
+    { width: 27 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 21 },
+    { width: 24 }, { width: 24 }, { width: 22 }, { width: 22 },
   ];
 }
 
