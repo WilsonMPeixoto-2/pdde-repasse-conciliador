@@ -67,6 +67,12 @@ export function BalanceComposition(props: { position: HumanPosition }) {
         </div>
       )}
 
+      {model.checkingCents === 0 && (model.applicationsCents ?? 0) > 0 ? (
+        <p className="balance-composition__location-note">
+          O saldo desta conta está concentrado em aplicações financeiras; saldo em conta corrente igual a zero não significa ausência de recurso.
+        </p>
+      ) : null}
+
       {model.applicationBreakdown.length > 0 ? (
         <div className="balance-composition__breakdown" aria-label="Detalhamento das aplicações publicado pela fonte">
           <span className="balance-composition__breakdown-title">Detalhamento das aplicações</span>
