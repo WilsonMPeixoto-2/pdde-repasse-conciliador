@@ -80,12 +80,18 @@ export function PddeBasicOverviewPage() {
           <article data-tone={monitoring.firstPendingCount === 0 ? 'positive' : 'attention'}>
             <span>1ª parcela com pagamento informado</span>
             <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{monitoring.firstPendingCount === 0 ? 'Todas as escolas cobertas' : `${monitoring.firstPendingCount} ainda sem pagamento informado`}</small>
+            <small>
+              {monitoring.firstPendingCount === 0 ? 'Todas as escolas cobertas' : `${monitoring.firstPendingCount} ainda sem pagamento informado`}
+              {' · '}{monitoring.firstRegularCount} PDDE Básico + {monitoring.firstInfancyCount} Primeira Infância
+            </small>
           </article>
           <article data-tone={monitoring.secondPaidCount > 0 ? 'positive' : 'waiting'}>
             <span>2ª parcela com pagamento informado</span>
             <strong>{monitoring.secondPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{monitoring.secondPendingCount} ainda sem pagamento informado</small>
+            <small>
+              {monitoring.secondPendingCount} ainda sem pagamento informado
+              {' · '}{monitoring.secondRegularCount} PDDE Básico + {monitoring.secondInfancyCount} Primeira Infância
+            </small>
           </article>
           <article data-tone="positive">
             <span>Saldo positivo do PDDE</span>
