@@ -42,8 +42,9 @@ const comparison: RefreshComparison = {
 describe('quadro de comparação da consulta', () => {
   test('mostra mudanças e permanências sem esconder fonte indisponível', () => {
     const html = renderToStaticMarkup(createElement(RefreshComparisonPanel, { comparison }));
+    const normalized = html.replace(/\u00a0/g, ' ');
     expect(html).toContain('O que mudou nesta consulta');
-    expect(html).toContain('+ R$&nbsp;56.452,00');
+    expect(normalized).toContain('+ R$ 56.452,00');
     expect(html).toContain('Sem alteração');
     expect(html).toContain('Sem nova referência publicada');
     expect(html).toContain('17');
