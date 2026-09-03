@@ -107,6 +107,35 @@ A camada humana traduz esses estados para linguagem probatória neutra. Exemplos
 
 Não usar “repasse ausente” como sinônimo automático de pagamento ainda não informado.
 
+## Leitura operacional das parcelas do PDDE Básico — 03/09/2026
+
+Para a visualização gerencial da carteira, o produto mantém os nomes originais das destinações, mas agrega os dois caminhos de atendimento do PDDE Básico em ciclos equivalentes de acompanhamento:
+
+- **1º ciclo:** `PDDE Básico · 1ª Parcela` ou `PDDE Básico — Primeira Infância · P1`;
+- **2º ciclo:** `PDDE Básico · 2ª Parcela` ou `PDDE Básico — Primeira Infância · P2`.
+
+Essa agregação é **somente de leitura operacional**. Ela não renomeia nem funde os registros de origem.
+
+No retrato público de 31/07/2026 usado para validação desta regra:
+
+- 111 unidades tinham pagamento informado na `1ª Parcela` regular;
+- 52 unidades tinham pagamento informado em `Primeira Infância · P1`;
+- os dois conjuntos eram complementares e cobriam as 163 unidades;
+- as 52 unidades de Primeira Infância possuíam saldo positivo em conta PDDE na referência, sendo 33 com valor em conta corrente e 19 com valor em aplicações;
+- saldo em conta corrente igual a zero **não** pode ser apresentado como ausência de recurso quando aplicações ou saldo total forem positivos.
+
+A visualização deve sempre distinguir:
+
+1. valor programado;
+2. pagamento informado;
+3. crédito compatível localizado;
+4. saldo em conta corrente;
+5. aplicações;
+6. saldo total;
+7. data de referência.
+
+O estado da 2ª parcela é calculado pelo pagamento informado da fonte e deve se atualizar automaticamente em novas coletas. Existência de programação para a 2ª parcela não equivale a pagamento.
+
 ## Saldos e aplicações
 
 Posição de saldo é um **fato datado**.
