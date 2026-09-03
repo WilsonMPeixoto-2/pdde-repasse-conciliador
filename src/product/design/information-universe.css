@@ -462,3 +462,151 @@
     display: grid;
   }
 }
+
+
+.pdde-basic-summary {
+  margin-top: clamp(2rem, 4vw, 3.5rem);
+}
+.pdde-basic-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.pdde-basic-summary__grid article {
+  min-height: 122px;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.pdde-basic-summary__grid article span,
+.pdde-basic-summary__grid article strong,
+.pdde-basic-summary__grid article small {
+  display: block;
+}
+.pdde-basic-summary__grid article span {
+  color: var(--ink-600);
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+.pdde-basic-summary__grid article strong {
+  margin-top: 0.35rem;
+  color: var(--ink-950);
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  font-variant-numeric: tabular-nums;
+}
+.pdde-basic-summary__grid article small {
+  margin-top: 0.25rem;
+  line-height: 1.35;
+}
+.pdde-basic-summary__grid article[data-tone='positive'] {
+  border-color: color-mix(in srgb, var(--paid-600) 28%, var(--ink-200));
+  background: color-mix(in srgb, var(--paid-100) 70%, white);
+}
+.pdde-basic-summary__grid article[data-tone='checking'] {
+  border-color: color-mix(in srgb, var(--confirmed-700) 24%, var(--ink-200));
+  background: color-mix(in srgb, var(--confirmed-100) 72%, white);
+}
+.pdde-basic-summary__grid article[data-tone='application'] {
+  border-color: color-mix(in srgb, var(--credit-700) 24%, var(--ink-200));
+  background: color-mix(in srgb, var(--credit-100) 78%, white);
+}
+.pdde-basic-summary__grid article[data-tone='attention'],
+.pdde-basic-summary__grid article[data-tone='waiting'] {
+  border-color: color-mix(in srgb, var(--attention-700) 30%, var(--ink-200));
+  background: color-mix(in srgb, var(--attention-100) 78%, white);
+}
+.pdde-basic-filter-bar {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.data-table--pdde-basic {
+  min-width: 1460px;
+}
+.data-table td[data-money-state='positive'] {
+  color: var(--confirmed-800);
+  background: color-mix(in srgb, var(--confirmed-100) 72%, white);
+}
+.data-table td[data-money-state='positive'][data-money-kind='application'] {
+  color: var(--credit-700);
+  background: color-mix(in srgb, var(--credit-100) 76%, white);
+}
+.data-table td[data-money-state='zero'] {
+  color: var(--ink-500);
+}
+.data-table td[data-money-state='negative'] {
+  color: var(--danger-800);
+  background: color-mix(in srgb, var(--danger-100) 78%, white);
+}
+.data-table td[data-expected-positive='true'] {
+  color: var(--attention-800);
+  background: color-mix(in srgb, var(--attention-100) 86%, white);
+}
+.pdde-basic-status,
+.pdde-basic-location {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 790;
+  line-height: 1.2;
+}
+.pdde-basic-status[data-tone='paid'] {
+  color: var(--confirmed-800);
+  background: var(--confirmed-100);
+}
+.pdde-basic-status[data-tone='waiting'] {
+  color: var(--attention-800);
+  background: var(--attention-100);
+}
+.pdde-basic-status[data-tone='missing'] {
+  color: var(--danger-800);
+  background: var(--danger-100);
+}
+.pdde-basic-location[data-location='checking'],
+.pdde-basic-location[data-location='checking_and_application'] {
+  color: var(--confirmed-800);
+  background: var(--confirmed-100);
+}
+.pdde-basic-location[data-location='application'] {
+  color: var(--credit-700);
+  background: var(--credit-100);
+}
+.pdde-basic-location[data-location='zero'],
+.pdde-basic-location[data-location='no_position'] {
+  color: var(--ink-600);
+  background: var(--ink-100);
+}
+.pdde-basic-location[data-location='positive_uncomposed'] {
+  color: var(--attention-800);
+  background: var(--attention-100);
+}
+.balance-composition__location-note {
+  margin-top: 0.8rem;
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--credit-700);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink-800);
+  background: var(--credit-100);
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+@media (max-width: 900px) {
+  .pdde-basic-summary__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .pdde-basic-summary__grid {
+    grid-template-columns: 1fr;
+  }
+  .pdde-basic-filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+  }
+}
