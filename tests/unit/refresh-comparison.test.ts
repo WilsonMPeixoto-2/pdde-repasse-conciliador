@@ -124,6 +124,29 @@ describe('comparação da nova consulta', () => {
     expect(comparison.hasFinancialChange).toBe(true);
   });
 
+  test('não classifica mudança apenas de prestação como alteração financeira', () => {
+    const beforeSchool = school(100_000, 80_000, 1);
+    const afterSchool = school(100_000, 80_000, 2);
+    const comparison = buildRefreshComparison({
+      beforePortfolio: portfolio(100_000, 80_000),
+      beforeSchools: [beforeSchool],
+      afterPortfolio: portfolio(100_000, 80_000),
+      afterSchools: [afterSchool],
+      generatedAt: '2026-09-03T13:00:00Z',
+    });
+
+    expect(comparison.financialChangedSchoolCount).toBe(0);
+    expect(comparison.supplementalChangedSchoolCount).toBe(1);
+    expect(comparison.hasFinancialChange).toBe(false);
+    expect(comparison.hasAnyChange).toBe(true);
+    expect(comparison.counts.find((item) => item.key === 'accounting')).toMatchObject({
+      before: 1,
+      after: 2,
+      delta: 1,
+      changed: true,
+    });
+  });
+
   test('distingue consulta concluída sem alteração financeira', () => {
     const currentSchool = school(100_000, 80_000, 1);
     const comparison = buildRefreshComparison({
