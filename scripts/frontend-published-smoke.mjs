@@ -101,6 +101,7 @@ async function assertCoreNavigation(page) {
     'Visão geral',
     'Escolas',
     'Repasses',
+    'PDDE Básico',
     'Contas e saldos',
     'Evolução mensal',
     'Movimentações',
@@ -150,6 +151,7 @@ async function smoke(viewport, suffix) {
 
   const pages = [
     ['/repasses', 'Repasses', 'repasses'],
+    ['/pdde-basico', '1ª e 2ª parcelas + localização do saldo', 'pdde-basico'],
     ['/saldos', 'Contas e Saldos', 'saldos'],
     ['/evolucao', 'Evolução Mensal', 'evolucao'],
     ['/movimentacoes', 'Movimentações', 'movimentacoes'],
@@ -182,7 +184,7 @@ async function smoke(viewport, suffix) {
 try {
   await smoke({ width: 1440, height: 1000 }, 'desktop');
   await smoke({ width: 390, height: 844 }, 'mobile');
-  console.log('Frontend financeiro aprovado em desktop/mobile: home, escolas, dez dimensões de dados e âncoras do prontuário.');
+  console.log('Frontend financeiro aprovado em desktop/mobile: home, escolas, dimensões de dados, PDDE Básico e âncoras do prontuário.');
 } finally {
   await browser.close();
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
