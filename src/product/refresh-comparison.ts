@@ -175,12 +175,12 @@ function normalizedFinancialFingerprint(school: HumanSchool): string {
       latestPosition: account.latestPosition,
       movements: account.movements,
     })),
-    accounting: school.accounting,
   });
 }
 
 function normalizedSupplementalFingerprint(school: HumanSchool): string {
   return JSON.stringify({
+    accounting: school.accounting,
     registration: school.registration ?? null,
     accountOpenings: school.accountOpenings ?? [],
     suspensions: school.suspensions ?? [],
