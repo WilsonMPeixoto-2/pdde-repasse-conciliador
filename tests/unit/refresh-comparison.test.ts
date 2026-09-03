@@ -65,7 +65,7 @@ function portfolio(programmedCents: number, paymentInformedCents: number, refere
       reportedBalanceCents: null,
       applicationsCents: null,
     },
-    sources: [],
+    sources: [{ name: 'PDDEInfo', information: 'Fonte de teste.' }],
     indicators: [],
     schools: [{
       inep: '33069247',
