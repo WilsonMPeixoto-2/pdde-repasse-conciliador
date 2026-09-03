@@ -5,7 +5,7 @@ import {
   pddeBasicBalanceLocationLabel,
   pddeBasicInstallmentStateLabel,
   type PddeBasicSchoolReading,
-} from '../../shared/pdde-basic-monitoring';
+} from '../../../shared/pdde-basic-monitoring';
 import { SchoolSearch } from '../components/SchoolSearch';
 import { schoolMatchesSearch } from '../derive';
 import { formatDate, formatMoney } from '../format';
