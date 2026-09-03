@@ -5,6 +5,13 @@ import { schoolMatchesSearch } from '../derive';
 import { formatDate, formatMoney } from '../format';
 import { usePortfolioSchoolDetails } from '../usePortfolioSchoolDetails';
 
+function moneyState(value: number | null | undefined): 'positive' | 'zero' | 'unknown' | 'negative' {
+  if (value === null || value === undefined) return 'unknown';
+  if (value > 0) return 'positive';
+  if (value < 0) return 'negative';
+  return 'zero';
+}
+
 function matchingOpeningStatus(program: string, openings: Array<{ program: string | null; status: string }>): string {
   const normalized = program.toLocaleUpperCase('pt-BR');
   return openings
@@ -42,7 +49,13 @@ export function BalancesOverviewPage() {
                 <td><Link to={`/unidades/${school.school.inep}#contas-saldos`}><strong>{school.school.name}</strong></Link><small>SME {school.school.sme} · INEP {school.school.inep}</small></td>
                 <td>{account.program}</td><td>{account.bank || '—'}</td><td>{account.agency || '—'}</td><td>{account.account || '—'}</td>
                 <td>{matchingOpeningStatus(account.program, school.accountOpenings) || '—'}</td><td>{account.occurrence ?? '—'}</td>
-                <td>{formatMoney(p?.checkingBalanceCents ?? null)}</td><td>{formatMoney(p?.applications.fundsCents ?? null)}</td><td>{formatMoney(p?.applications.savingsCents ?? null)}</td><td>{formatMoney(p?.applications.rdbCdbCents ?? null)}</td><td>{formatMoney(p?.applications.totalCents ?? null)}</td><td>{formatMoney(p?.totalReportedBalanceCents ?? null)}</td><td>{formatDate(p?.referenceDate ?? null)}</td>
+                <td data-money-state={moneyState(p?.checkingBalanceCents)}>{formatMoney(p?.checkingBalanceCents ?? null)}</td>
+                <td data-money-state={moneyState(p?.applications.fundsCents)} data-money-kind="application">{formatMoney(p?.applications.fundsCents ?? null)}</td>
+                <td data-money-state={moneyState(p?.applications.savingsCents)} data-money-kind="application">{formatMoney(p?.applications.savingsCents ?? null)}</td>
+                <td data-money-state={moneyState(p?.applications.rdbCdbCents)} data-money-kind="application">{formatMoney(p?.applications.rdbCdbCents ?? null)}</td>
+                <td data-money-state={moneyState(p?.applications.totalCents)} data-money-kind="application"><strong>{formatMoney(p?.applications.totalCents ?? null)}</strong></td>
+                <td data-money-state={moneyState(p?.totalReportedBalanceCents)}><strong>{formatMoney(p?.totalReportedBalanceCents ?? null)}</strong></td>
+                <td>{formatDate(p?.referenceDate ?? null)}</td>
               </tr>;
             })}</tbody>
           </table>
