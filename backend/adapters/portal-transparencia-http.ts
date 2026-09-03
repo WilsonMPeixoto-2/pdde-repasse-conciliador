@@ -136,6 +136,8 @@ export class PortalTransparenciaClient {
               Accept: 'application/json',
               'chave-api-dados': this.apiKey,
               'User-Agent': '4CRE-PDDE-Conciliador/0.5',
+              'Cache-Control': 'no-cache, no-store, max-age=0',
+              Pragma: 'no-cache',
             },
             signal: requestSignal,
           });
