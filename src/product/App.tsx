@@ -10,6 +10,7 @@ import { IssuesOverviewPage } from './pages/IssuesOverviewPage';
 import { MonthlyEvolutionPage } from './pages/MonthlyEvolutionPage';
 import { MovementsOverviewPage } from './pages/MovementsOverviewPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PddeBasicOverviewPage } from './pages/PddeBasicOverviewPage';
 import { PortfolioPage } from './pages/PortfolioPage';
 import { RegistrationOverviewPage } from './pages/RegistrationOverviewPage';
 import { RepasseOverviewPage } from './pages/RepasseOverviewPage';
@@ -41,6 +42,7 @@ export function App() {
               <Route path="/unidades" element={<SchoolsPage />} />
               <Route path="/unidades/:inep" element={<SchoolPage />} />
               <Route path="/repasses" element={<RepasseOverviewPage />} />
+              <Route path="/pdde-basico" element={<PddeBasicOverviewPage />} />
               <Route path="/saldos" element={<BalancesOverviewPage />} />
               <Route path="/evolucao" element={<MonthlyEvolutionPage />} />
               <Route path="/movimentacoes" element={<MovementsOverviewPage />} />
