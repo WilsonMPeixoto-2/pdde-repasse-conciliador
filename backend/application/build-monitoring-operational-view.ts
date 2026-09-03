@@ -63,7 +63,13 @@ const repasseSchema = z.object({
   action: z.string(),
   installment: z.string().nullable(),
   programadoCents: z.number().int().nonnegative(),
+  programadoCusteioCents: z.number().int().nonnegative().nullable().optional(),
+  programadoCapitalCents: z.number().int().nonnegative().nullable().optional(),
+  ajusteCusteioCents: z.number().int().nullable().optional(),
+  ajusteCapitalCents: z.number().int().nullable().optional(),
   pagoInformadoCents: z.number().int().nonnegative(),
+  pagoCusteioCents: z.number().int().nonnegative().nullable().optional(),
+  pagoCapitalCents: z.number().int().nonnegative().nullable().optional(),
   dataOrdem: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   account: accountSchema.nullable().optional(),
 }).strict();
@@ -125,6 +131,14 @@ export interface OperationalRepasse {
   installment: string | null;
   amountProgrammedCents: number;
   amountPaidInformedCents: number;
+  breakdown?: {
+    programmedCusteioCents: number | null;
+    programmedCapitalCents: number | null;
+    adjustmentCusteioCents: number | null;
+    adjustmentCapitalCents: number | null;
+    paidCusteioCents: number | null;
+    paidCapitalCents: number | null;
+  };
   orderDate: string | null;
   account: BankAccount | null;
   bankCreditStatus: OperationalRepasseStatus;
@@ -216,6 +230,27 @@ function makeCreditIndex(movements: OperationalMovement[]): Map<string, Operatio
   return result;
 }
 
+
+function repasseBreakdown(repasse: z.infer<typeof repasseSchema>): OperationalRepasse['breakdown'] {
+  const values = [
+    repasse.programadoCusteioCents,
+    repasse.programadoCapitalCents,
+    repasse.ajusteCusteioCents,
+    repasse.ajusteCapitalCents,
+    repasse.pagoCusteioCents,
+    repasse.pagoCapitalCents,
+  ];
+  if (values.every((value) => value === undefined)) return undefined;
+  return {
+    programmedCusteioCents: repasse.programadoCusteioCents ?? null,
+    programmedCapitalCents: repasse.programadoCapitalCents ?? null,
+    adjustmentCusteioCents: repasse.ajusteCusteioCents ?? null,
+    adjustmentCapitalCents: repasse.ajusteCapitalCents ?? null,
+    paidCusteioCents: repasse.pagoCusteioCents ?? null,
+    paidCapitalCents: repasse.pagoCapitalCents ?? null,
+  };
+}
+
 function reconcileRepasse(
   school: z.infer<typeof schoolSchema>,
   repasse: z.infer<typeof repasseSchema>,
@@ -238,6 +273,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: 0,
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'PROGRAMADO_NAO_PAGO',
@@ -256,6 +292,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account: null,
       bankCreditStatus: 'PAGO_SEM_CONTA_ATUAL',
@@ -278,6 +315,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'CONSULTA_INCONCLUSIVA',
@@ -305,6 +343,7 @@ function reconcileRepasse(
       installment: repasse.installment,
       amountProgrammedCents: repasse.programadoCents,
       amountPaidInformedCents: repasse.pagoInformadoCents,
+      ...(repasseBreakdown(repasse) ? { breakdown: repasseBreakdown(repasse) } : {}),
       orderDate: repasse.dataOrdem,
       account,
       bankCreditStatus: 'CREDITO_CONFIRMADO',

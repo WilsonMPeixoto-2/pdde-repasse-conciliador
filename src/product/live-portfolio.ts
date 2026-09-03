@@ -50,6 +50,41 @@ function latestReference(schools: readonly HumanSchool[]): string | null {
     .at(-1) ?? null;
 }
 
+
+function normalizedStatus(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+function registrationNeedsAttention(school: HumanSchool): boolean {
+  const status = normalizedStatus(school.registration?.mandateStatus);
+  const note = normalizedStatus(school.registration?.registrationNote);
+  return status.includes('VENCID')
+    || status.includes('VENCER')
+    || note.includes('PENDENCIA')
+    || note.includes('DESATUALIZ');
+}
+
+function openingNeedsAttention(status: string): boolean {
+  const normalized = normalizedStatus(status);
+  return Boolean(normalized) && !(
+    normalized.includes('SEM PENDENCIA')
+    || normalized.includes('REGULAR')
+    || normalized.includes('CONCLUID')
+    || normalized.includes('ABERTA')
+    || normalized.includes('ATIVA')
+  );
+}
+
+function accountingNeedsAttention(item: HumanSchool['accounting'][number]): boolean {
+  const status = normalizedStatus(item.status);
+  return item.paymentSuspended
+    || status.includes('INADIMPL')
+    || status.includes('PENDENCIA');
+}
+
 function schoolSummary(school: HumanSchool, referenceDate: string | null): HumanPortfolioSchool {
   let programmedCents = 0;
   let paymentInformedCents = 0;
@@ -78,6 +113,15 @@ function schoolSummary(school: HumanSchool, referenceDate: string | null): Human
   const knownBalances = alignedAccounts
     .map((account) => account.latestPosition?.totalReportedBalanceCents ?? null)
     .filter((value): value is number => value !== null);
+  const registrationAttention = registrationNeedsAttention(school);
+  const suspensionCount = school.suspensions.length;
+  const accountOpeningIssueCount = school.accountOpenings.filter((item) => openingNeedsAttention(item.status)).length;
+  const accountingAttentionCount = school.accounting.filter(accountingNeedsAttention).length;
+  const pendingCount = school.followUp.length
+    + (registrationAttention ? 1 : 0)
+    + suspensionCount
+    + accountOpeningIssueCount
+    + accountingAttentionCount;
 
   return {
     sme: school.school.sme,
@@ -95,6 +139,12 @@ function schoolSummary(school: HumanSchool, referenceDate: string | null): Human
     followUpCount: school.followUp.length,
     paymentSuspended: school.accounting.some((item) => item.paymentSuspended),
     repasseAccountMissing,
+    pendingCount,
+    registrationAttention,
+    mandateStatus: school.registration?.mandateStatus ?? null,
+    suspensionCount,
+    accountOpeningIssueCount,
+    accountingAttentionCount,
   };
 }
 

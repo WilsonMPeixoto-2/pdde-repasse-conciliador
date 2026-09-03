@@ -8,11 +8,17 @@ import {
 } from '../adapters/pddeinfo-public-reports';
 import {
   normalizeAccountingRow,
+  normalizeAccountOpeningRow,
   normalizeAttendanceRow,
   normalizeBalanceRow,
+  normalizeRegistrationRow,
+  normalizeSuspensionRow,
   type PddeInfoAccountingObservation,
+  type PddeInfoAccountOpeningObservation,
   type PddeInfoAttendanceObservation,
   type PddeInfoBalanceObservation,
+  type PddeInfoRegistrationObservation,
+  type PddeInfoSuspensionObservation,
 } from '../adapters/pddeinfo-public-report-normalizer';
 import { assertCurrentFiscalYear } from '../core/fiscal-scope';
 import { runRateLimited } from '../runtime/rate-limited-queue';
@@ -37,7 +43,7 @@ export type DiscoverBalanceMonths = (signal?: AbortSignal) => Promise<string[]>;
 export type BalanceCollectionMode = 'LATEST' | 'ALL_AVAILABLE_2026';
 
 export interface PublicPortfolioFailure {
-  kind: 'ATTENDANCE' | 'ACCOUNTING' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
+  kind: 'ATTENDANCE' | 'ACCOUNTING' | 'REGISTRATION' | 'ACCOUNT_OPENING' | 'SUSPENSION' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
   schoolInep?: string;
   cnpj?: string;
   month?: string;
@@ -61,6 +67,9 @@ export interface PortfolioBalanceObservation extends PddeInfoBalanceObservation 
 export interface PddeInfoPublicPortfolioResult {
   attendance: PddeInfoAttendanceObservation[];
   accounting: PddeInfoAccountingObservation[];
+  registrations: PddeInfoRegistrationObservation[];
+  accountOpenings: PddeInfoAccountOpeningObservation[];
+  suspensions: PddeInfoSuspensionObservation[];
   balances: PortfolioBalanceObservation[];
   failures: PublicPortfolioFailure[];
   artifacts: PublicPortfolioArtifact[];
@@ -127,6 +136,9 @@ export async function collectPddeInfoPublicPortfolio(
   const balanceMode = options.balanceMode ?? 'LATEST';
   const attendance: PddeInfoAttendanceObservation[] = [];
   const accounting: PddeInfoAccountingObservation[] = [];
+  const registrations: PddeInfoRegistrationObservation[] = [];
+  const accountOpenings: PddeInfoAccountOpeningObservation[] = [];
+  const suspensions: PddeInfoSuspensionObservation[] = [];
   const balances: PortfolioBalanceObservation[] = [];
   const failures: PublicPortfolioFailure[] = [];
   const artifacts: PublicPortfolioArtifact[] = [];
@@ -155,6 +167,43 @@ export async function collectPddeInfoPublicPortfolio(
       for (const row of report.rows) accounting.push(normalizeAccountingRow(row));
     } catch (cause) {
       failures.push({ kind: 'ACCOUNTING', schoolInep: school.inep, error: errorText(cause) });
+    }
+
+
+    try {
+      const report = await fetchReport({
+        filter: { kind: 'REGISTRATION', fiscalYear: 2026, inep: school.inep },
+        browserFallback,
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
+      artifacts.push(artifact(report, { schoolInep: school.inep }));
+      for (const row of report.rows) registrations.push(normalizeRegistrationRow(row));
+    } catch (cause) {
+      failures.push({ kind: 'REGISTRATION', schoolInep: school.inep, error: errorText(cause) });
+    }
+
+    try {
+      const report = await fetchReport({
+        filter: { kind: 'ACCOUNT_OPENING', fiscalYear: 2026, inep: school.inep },
+        browserFallback,
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
+      artifacts.push(artifact(report, { schoolInep: school.inep }));
+      for (const row of report.rows) accountOpenings.push(normalizeAccountOpeningRow(row));
+    } catch (cause) {
+      failures.push({ kind: 'ACCOUNT_OPENING', schoolInep: school.inep, error: errorText(cause) });
+    }
+
+    try {
+      const report = await fetchReport({
+        filter: { kind: 'SUSPENSION', fiscalYear: 2026, inep: school.inep },
+        browserFallback,
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
+      artifacts.push(artifact(report, { schoolInep: school.inep }));
+      for (const row of report.rows) suspensions.push(normalizeSuspensionRow(row));
+    } catch (cause) {
+      failures.push({ kind: 'SUSPENSION', schoolInep: school.inep, error: errorText(cause) });
     }
   }, {
     concurrency: 3,
@@ -233,6 +282,17 @@ export async function collectPddeInfoPublicPortfolio(
     left.schoolInep.localeCompare(right.schoolInep)
     || left.programName.localeCompare(right.programName, 'pt-BR')
   ));
+  registrations.sort((left, right) => left.schoolInep.localeCompare(right.schoolInep));
+  accountOpenings.sort((left, right) => (
+    left.schoolInep.localeCompare(right.schoolInep)
+    || (left.programName ?? '').localeCompare(right.programName ?? '', 'pt-BR')
+    || left.status.localeCompare(right.status, 'pt-BR')
+  ));
+  suspensions.sort((left, right) => (
+    left.schoolInep.localeCompare(right.schoolInep)
+    || (left.programName ?? '').localeCompare(right.programName ?? '', 'pt-BR')
+    || left.suspensionType.localeCompare(right.suspensionType, 'pt-BR')
+  ));
   balances.sort((left, right) => (
     (left.schoolIneps[0] ?? '').localeCompare(right.schoolIneps[0] ?? '')
     || left.coverageThrough.localeCompare(right.coverageThrough)
@@ -248,6 +308,9 @@ export async function collectPddeInfoPublicPortfolio(
   return {
     attendance,
     accounting,
+    registrations,
+    accountOpenings,
+    suspensions,
     balances,
     failures,
     artifacts,

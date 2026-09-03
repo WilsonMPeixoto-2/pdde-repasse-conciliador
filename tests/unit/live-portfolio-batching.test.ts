@@ -68,6 +68,10 @@ function school(input: {
       movements: [],
       note: null,
     }],
+    registration: null,
+    accountOpenings: [],
+    suspensions: [],
+    sourceCoverage: [],
     accounting: [],
     followUp: [],
   };

@@ -42,7 +42,7 @@ Uma fonte não sobrescreve silenciosamente outra. Ausência continua sendo ausê
 A versão de código **v0.5.0** já contém:
 
 - coleta do PDDEInfo principal por INEP para a lista institucional das 163 UEs;
-- relatórios públicos complementares do FNDE para atendimento/repasses, prestação de contas e saldos;
+- relatórios públicos complementares do FNDE para atendimento/repasses, cadastro e mandato, abertura de conta, suspensões, prestação de contas e saldos;
 - descoberta automática do mês de saldo mais recente publicado pela fonte;
 - backfill dos meses disponíveis de 2026 para construir série histórica;
 - consulta do extrato público SIGEF para as contas elegíveis já identificadas;
@@ -107,11 +107,15 @@ MONITORING · exercício 2026
         │
         ├── PDDEInfo principal
         │     ├── UEx / CNPJ
-        │     ├── contas exibidas
-        │     └── repasses / parcelas
+        │     ├── cadastro / mandato
+        │     ├── contas / ocorrência
+        │     └── repasses / parcelas com custeio e capital
         │
         ├── Relatórios públicos FNDE
-        │     ├── atendimento / ordem de pagamento
+        │     ├── atendimento / ordem / quantidade de alunos
+        │     ├── cadastro / mandato
+        │     ├── abertura de conta
+        │     ├── suspensões e seus motivos
         │     ├── prestação de contas
         │     └── saldos / aplicações por data de referência
         │
@@ -159,7 +163,7 @@ O read model humano implementa cada indicador como:
 rótulo + quantidade + lista nominal das unidades
 ```
 
-No site, os indicadores funcionam como entrada para filtro/drill-down da carteira. No Excel, os números apontam para uma lista nominal na aba `Acompanhamento`.
+No site, os indicadores funcionam como entrada para filtro/drill-down da carteira. No Excel, os números apontam para registros nominais na aba `Pendências e Suspensões`.
 
 ### Cor tem função semântica
 
@@ -181,15 +185,20 @@ Este é o único comando canônico da planilha destinada ao usuário humano.
 
 No produto web, o botão **Baixar planilha Excel** reutiliza esse mesmo gerador canônico. Se a tela estiver mostrando o snapshot publicado, o arquivo corresponde ao snapshot publicado; após uma nova consulta completa, o arquivo corresponde aos 163 prontuários atualizados mantidos naquela sessão. A exportação não executa uma nova coleta.
 
-O workbook possui sete recortes curtos:
+O workbook humano possui dez recortes alinhados à navegação do produto:
 
 1. `Visão Geral`;
-2. `Acompanhamento`;
-3. `Unidades`;
-4. `Repasses`;
-5. `Contas e Saldos`;
+2. `Escolas`;
+3. `Repasses`;
+4. `Contas e Saldos`;
+5. `Evolução Mensal`;
 6. `Movimentações`;
-7. `Prestação de Contas`.
+7. `Cadastro e Habilitação`;
+8. `Pendências e Suspensões`;
+9. `Prestação de Contas`;
+10. `Cobertura das Fontes`.
+
+As dez dimensões também estão disponíveis como abas do site. A aba `Repasses` preserva custeio, capital, ajustes, pagamento, ordem e evidência de crédito separadamente; `Contas e Saldos` preserva abertura, ocorrência e composição das aplicações; `Movimentações` mantém documento e contraparte; e `Cobertura das Fontes` distingue dado disponível, consulta sem registro, cobertura parcial e fonte indisponível.
 
 Nenhuma dessas abas padrão replica uma “mega tabela” do backend.
 
@@ -229,7 +238,7 @@ O monitoramento rotineiro consulta apenas o mês de saldo mais recente publicado
 
 A camada de apresentação descreve fontes pelo que elas acrescentam à análise:
 
-- **PDDEInfo:** repasses informados, contas vinculadas, saldos e situação da prestação de contas;
+- **PDDEInfo:** programação e pagamento por custeio/capital, cadastro e mandato da UEx, situação de abertura e ocorrência de contas, suspensões, saldos e prestação de contas;
 - **SIGEF:** movimentações das contas e créditos compatíveis localizados no extrato;
 - **Portal da Transparência:** documentos e transferências federais, quando a credencial oficial estiver configurada.
 
@@ -266,7 +275,7 @@ Nenhuma chave deve ser incluída em código, frontend, planilha ou documentaçã
 ### Já publicado / operacional para validação
 
 - frontend fiscal React/Vite integrado à `main` e publicado automaticamente no Vercel;
-- navegação da visão da carteira para indicadores, unidades, programas, contas e séries financeiras;
+- navegação global pelas mesmas dez dimensões do Excel humano: visão geral, escolas, repasses, contas e saldos, evolução mensal, movimentações, cadastro e habilitação, pendências e suspensões, prestação de contas e cobertura das fontes;
 - retrato financeiro 2026 previamente publicado como base estável da experiência;
 - ação **Fazer nova consulta**, que consulta as unidades em lotes controlados sem retirar o retrato atual da tela;
 - ação **Baixar planilha Excel**, que gera o Excel humano a partir do mesmo retrato financeiro exibido na interface, sem disparar uma segunda coleta;

@@ -12,6 +12,7 @@ export interface PddeInfoAttendanceObservation {
   schoolName: string;
   programName: string;
   destination: string;
+  studentCount: number | null;
   costCents: number;
   capitalCents: number;
   totalCents: number;
@@ -41,6 +42,86 @@ export interface PddeInfoAccountingObservation {
   accountingStatus: string;
   paymentSuspended: boolean;
   expectedTotalCents: number;
+}
+
+export interface PddeInfoRegistrationObservation {
+  fiscalYear: 2026;
+  schoolInep: string;
+  schoolName: string;
+  location: string | null;
+  uexCnpj: string | null;
+  uexName: string | null;
+  network: string | null;
+  mandateStatus: string | null;
+  mandateEndDate: string | null;
+  updatedDate: string | null;
+  updatedTime: string | null;
+  phone: string | null;
+}
+
+export interface PddeInfoAccountOpeningObservation {
+  fiscalYear: 2026;
+  schoolInep: string;
+  uexCnpj: string | null;
+  programName: string | null;
+  bank: string | null;
+  agency: string | null;
+  account: string | null;
+  status: string;
+}
+
+export interface PddeInfoSuspensionObservation {
+  fiscalYear: 2026;
+  schoolInep: string;
+  uexCnpj: string | null;
+  programName: string | null;
+  destination: string | null;
+  suspensionType: string;
+  detail: string | null;
+}
+
+
+function canonicalHeader(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+}
+
+function valueByHeader(
+  row: Record<string, string>,
+  candidates: readonly string[],
+): string | null {
+  const wanted = candidates.map(canonicalHeader);
+  for (const [key, value] of Object.entries(row)) {
+    const normalized = canonicalHeader(key);
+    if (wanted.some((candidate) => normalized === candidate || normalized.includes(candidate))) {
+      const cleaned = value.trim();
+      return cleaned || null;
+    }
+  }
+  return null;
+}
+
+function digitsOrNull(value: string | null, length: number): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  return digits.length === length ? digits : null;
+}
+
+function optionalBrazilianDate(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  return isoDateSchema.parse(`${match[3]}-${match[2]}-${match[1]}`);
+}
+
+function rowFiscalYear(row: Record<string, string>): 2026 {
+  const raw = valueByHeader(row, ['Ano']);
+  if (raw && Number(raw) !== 2026) throw new Error(`Relatório público fora do exercício 2026: ${raw}.`);
+  return 2026;
 }
 
 function required(row: Record<string, string>, key: string): string {
@@ -87,6 +168,12 @@ export function normalizeAttendanceRow(row: Record<string, string>): PddeInfoAtt
     schoolName: required(row, 'Nome Escola'),
     programName: required(row, 'Programa'),
     destination: required(row, 'Destinação'),
+    studentCount: (() => {
+      const raw = valueByHeader(row, ['Quantidade Alunos']);
+      if (!raw) return null;
+      const value = Number(raw.replace(/\D/g, ''));
+      return Number.isSafeInteger(value) && value >= 0 ? value : null;
+    })(),
     costCents,
     capitalCents,
     totalCents,
@@ -140,5 +227,65 @@ export function normalizeAccountingRow(row: Record<string, string>): PddeInfoAcc
     accountingStatus: required(row, 'Situação Prestação de Contas UEx'),
     paymentSuspended: suspension === 'SIM',
     expectedTotalCents: parseBrazilianMoneyCents(required(row, 'Valor Total Previsto')),
+  };
+}
+
+
+export function normalizeRegistrationRow(row: Record<string, string>): PddeInfoRegistrationObservation {
+  rowFiscalYear(row);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  if (!schoolInep) throw new Error('Relatório cadastral sem Código Escola válido.');
+  return {
+    fiscalYear: 2026,
+    schoolInep,
+    schoolName: valueByHeader(row, ['Escola', 'Nome Escola']) ?? schoolInep,
+    location: valueByHeader(row, ['Localização']),
+    uexCnpj: digitsOrNull(valueByHeader(row, ['CNPJ UEX', 'CNPJ Executora']), 14),
+    uexName: valueByHeader(row, ['Razão Social', 'Nome Executora']),
+    network: valueByHeader(row, ['Rede de Atendimento']),
+    mandateStatus: valueByHeader(row, ['Mandato Dirigente']),
+    mandateEndDate: optionalBrazilianDate(valueByHeader(row, ['Data Fim do Mandato'])),
+    updatedDate: optionalBrazilianDate(valueByHeader(row, ['Data Atualização'])),
+    updatedTime: valueByHeader(row, ['Hora Atualização']),
+    phone: (() => {
+      const ddd = valueByHeader(row, ['DDD']);
+      const phone = valueByHeader(row, ['Telefone']);
+      return phone ? [ddd, phone].filter(Boolean).join(' ') : null;
+    })(),
+  };
+}
+
+export function normalizeAccountOpeningRow(row: Record<string, string>): PddeInfoAccountOpeningObservation {
+  rowFiscalYear(row);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  if (!schoolInep) throw new Error('Relatório de abertura de conta sem Código Escola válido.');
+  const status = valueByHeader(row, ['Situação']);
+  if (!status) throw new Error('Relatório de abertura de conta sem coluna Situação.');
+  return {
+    fiscalYear: 2026,
+    schoolInep,
+    uexCnpj: digitsOrNull(valueByHeader(row, ['CNPJ UEX', 'CNPJ Executora', 'CNPJ']), 14),
+    programName: valueByHeader(row, ['Programa']),
+    bank: valueByHeader(row, ['Banco']),
+    agency: valueByHeader(row, ['Agência']),
+    account: valueByHeader(row, ['Conta']),
+    status,
+  };
+}
+
+export function normalizeSuspensionRow(row: Record<string, string>): PddeInfoSuspensionObservation {
+  rowFiscalYear(row);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  if (!schoolInep) throw new Error('Relatório de suspensão sem Código Escola válido.');
+  const suspensionType = valueByHeader(row, ['Tipo de Suspensão', 'Suspensão', 'Motivo Suspensão', 'Motivo']);
+  if (!suspensionType) throw new Error('Relatório de suspensão sem motivo/tipo identificável.');
+  return {
+    fiscalYear: 2026,
+    schoolInep,
+    uexCnpj: digitsOrNull(valueByHeader(row, ['CNPJ UEX', 'CNPJ Executora', 'CNPJ']), 14),
+    programName: valueByHeader(row, ['Programa']),
+    destination: valueByHeader(row, ['Destinação']),
+    suspensionType,
+    detail: valueByHeader(row, ['Descrição', 'Detalhe', 'Orientação']),
   };
 }

@@ -155,6 +155,15 @@ describe('parsePddeInfoSchoolHtml', () => {
           data: '',
         },
       ],
+      status: {
+        uexRegistration: '',
+        mandate: '',
+        mandateStartDate: '',
+        mandateEndDate: '',
+        uexAccounting: '',
+        eexAdhesion: '',
+        eexAccounting: '',
+      },
       source: sourceUrl,
       sourceIdentity: {
         inep: '33069247',

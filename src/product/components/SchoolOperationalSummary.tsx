@@ -7,8 +7,10 @@ import {
 } from '../visual/school-operational-reading';
 
 function actionLabel(target: SchoolAttentionTarget): string {
+  if (target === '#cadastro') return 'Ver cadastro';
   if (target === '#repasses') return 'Ver repasses';
   if (target === '#contas-saldos') return 'Ver contas e saldos';
+  if (target === '#pendencias') return 'Ver pendências';
   return 'Ver prestação de contas';
 }
 

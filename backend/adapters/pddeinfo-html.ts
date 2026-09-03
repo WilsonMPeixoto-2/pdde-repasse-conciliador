@@ -18,6 +18,16 @@ export interface PddeInfoRawAccount {
   ocorrencia: string;
 }
 
+export interface PddeInfoRawSchoolStatus {
+  uexRegistration: string;
+  mandate: string;
+  mandateStartDate: string;
+  mandateEndDate: string;
+  uexAccounting: string;
+  eexAdhesion: string;
+  eexAccounting: string;
+}
+
 export interface PddeInfoRawFinance {
   destinacao: string;
   devidoCusteio: string;
@@ -42,6 +52,7 @@ export interface PddeInfoRawSchool {
   cnpj: string;
   accounts: PddeInfoRawAccount[];
   finance: PddeInfoRawFinance[];
+  status: PddeInfoRawSchoolStatus;
   source: string;
   sourceIdentity: {
     inep: string;
@@ -110,6 +121,47 @@ function column(headers: string[], matcher: (header: string) => boolean, label: 
   const index = headers.findIndex(matcher);
   if (index < 0) throw new Error(`PDDEInfo: coluna financeira/bancária ausente: ${label}.`);
   return index;
+}
+
+
+function optionalLabelValue(
+  $: CheerioAPI,
+  table: Parameters<CheerioAPI>[0] | null,
+  label: string,
+): string {
+  if (!table) return '';
+  return labelValue($, table, label) ?? '';
+}
+
+function parseMandateDates(value: string): { start: string; end: string } {
+  const dates = value.match(/\b\d{2}\/\d{2}\/\d{4}\b/g) ?? [];
+  return {
+    start: dates[0] ?? '',
+    end: dates[1] ?? '',
+  };
+}
+
+function parseInstitutionalStatus($: CheerioAPI): PddeInfoRawSchoolStatus {
+  const uexStatusTable = findTable($, (_headers, text) => (
+    text.includes('DADOS CADASTRAIS')
+    && text.includes('MANDATO DO DIRIGENTE')
+    && text.includes('PRESTACAO DE CONTAS')
+  ));
+  const eexStatusTable = findTable($, (_headers, text) => (
+    text.includes('ADESAO AO PDDE')
+    && text.includes('PRESTACAO DE CONTAS')
+  ));
+  const mandate = optionalLabelValue($, uexStatusTable, 'Mandato do dirigente');
+  const mandateDates = parseMandateDates(mandate);
+  return {
+    uexRegistration: optionalLabelValue($, uexStatusTable, 'Dados Cadastrais'),
+    mandate,
+    mandateStartDate: mandateDates.start,
+    mandateEndDate: mandateDates.end,
+    uexAccounting: optionalLabelValue($, uexStatusTable, 'Prestação de Contas'),
+    eexAdhesion: optionalLabelValue($, eexStatusTable, 'Adesão ao PDDE'),
+    eexAccounting: optionalLabelValue($, eexStatusTable, 'Prestação de Contas'),
+  };
 }
 
 function parseAccounts($: CheerioAPI): PddeInfoRawAccount[] {
@@ -236,6 +288,7 @@ export function parsePddeInfoSchoolHtml(
 
   const accounts = parseAccounts($);
   const finance = parseFinance($);
+  const status = parseInstitutionalStatus($);
 
   return {
     inep: rawInep,
@@ -246,6 +299,7 @@ export function parsePddeInfoSchoolHtml(
     cnpj,
     accounts,
     finance,
+    status,
     source: options.sourceUrl,
     sourceIdentity: {
       inep: rawInep,

@@ -15,8 +15,18 @@ function isReal2026Date(value: string): boolean {
 }
 
 export const humanIsoDateSchema = z.string().refine(isReal2026Date, {
-  message: 'Data humana deve ser uma data calendário válida de 2026.',
+  message: 'Data financeira humana deve ser uma data calendário válida de 2026.',
 });
+
+export const humanCalendarDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return year >= 1900
+    && year <= 2100
+    && date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}, 'data cadastral inválida');
 
 export const humanUnitSchema = z.object({
   sme: z.string().regex(/^\d{7}$/),
@@ -35,6 +45,12 @@ export const humanPortfolioSchoolSchema = humanUnitSchema.extend({
   followUpCount: z.number().int().nonnegative(),
   paymentSuspended: z.boolean(),
   repasseAccountMissing: z.boolean(),
+  pendingCount: z.number().int().nonnegative().optional(),
+  registrationAttention: z.boolean().optional(),
+  mandateStatus: z.string().nullable().optional(),
+  suspensionCount: z.number().int().nonnegative().optional(),
+  accountOpeningIssueCount: z.number().int().nonnegative().optional(),
+  accountingAttentionCount: z.number().int().nonnegative().optional(),
 }).strict().refine((value) => value.accountsWithReferencePosition <= value.accountsTotal, {
   message: 'Cobertura de contas da unidade não pode exceder o total.',
 });
@@ -90,6 +106,14 @@ export const humanInstallmentSchema = z.object({
   installment: z.string().nullable(),
   programmedCents: humanNonNegativeMoneySchema,
   paymentInformedCents: humanNonNegativeMoneySchema,
+  breakdown: z.object({
+    programmedCusteioCents: humanNonNegativeMoneySchema.nullable(),
+    programmedCapitalCents: humanNonNegativeMoneySchema.nullable(),
+    adjustmentCusteioCents: humanMoneySchema.nullable(),
+    adjustmentCapitalCents: humanMoneySchema.nullable(),
+    paidCusteioCents: humanNonNegativeMoneySchema.nullable(),
+    paidCapitalCents: humanNonNegativeMoneySchema.nullable(),
+  }).strict().nullable().optional(),
   paymentInformedDate: humanIsoDateSchema.nullable(),
   paymentOrderDate: humanIsoDateSchema.nullable(),
   account: humanAccountRefSchema.nullable(),
@@ -137,10 +161,51 @@ export const humanAccountSchema = z.object({
   bank: z.string(),
   agency: z.string(),
   account: z.string(),
+  occurrence: z.string().nullable().optional(),
   positions: z.array(humanPositionSchema),
   latestPosition: humanPositionSchema.nullable(),
   movements: z.array(humanMovementSchema),
   note: z.string().nullable(),
+}).strict();
+
+
+export const humanRegistrationSchema = z.object({
+  studentCount: z.number().int().nonnegative().nullable(),
+  location: z.string().nullable(),
+  uexName: z.string().nullable(),
+  uexCnpj: z.string().nullable(),
+  network: z.string().nullable(),
+  mandateStatus: z.string().nullable(),
+  mandateStartDate: humanCalendarDateSchema.nullable(),
+  mandateEndDate: humanCalendarDateSchema.nullable(),
+  updatedDate: humanCalendarDateSchema.nullable(),
+  updatedTime: z.string().nullable(),
+  phone: z.string().nullable(),
+  registrationNote: z.string().nullable(),
+  uexAccountingNote: z.string().nullable(),
+  eexAdhesionNote: z.string().nullable(),
+  eexAccountingNote: z.string().nullable(),
+}).strict();
+
+export const humanAccountOpeningSchema = z.object({
+  program: z.string().nullable(),
+  status: z.string().min(1),
+  bank: z.string().nullable(),
+  agency: z.string().nullable(),
+  account: z.string().nullable(),
+}).strict();
+
+export const humanSuspensionSchema = z.object({
+  program: z.string().nullable(),
+  destination: z.string().nullable(),
+  type: z.string().min(1),
+  detail: z.string().nullable(),
+}).strict();
+
+export const humanSourceCoverageSchema = z.object({
+  dataset: z.string().min(1),
+  status: z.enum(['AVAILABLE', 'EMPTY', 'PARTIAL', 'UNAVAILABLE']),
+  detail: z.string().nullable(),
 }).strict();
 
 export const humanAccountingSchema = z.object({
@@ -154,6 +219,10 @@ export const humanSchoolContentSchema = z.object({
   school: humanSchoolIdentitySchema,
   programs: z.array(humanProgramSchema),
   accounts: z.array(humanAccountSchema),
+  registration: humanRegistrationSchema.nullable().default(null),
+  accountOpenings: z.array(humanAccountOpeningSchema).default([]),
+  suspensions: z.array(humanSuspensionSchema).default([]),
+  sourceCoverage: z.array(humanSourceCoverageSchema).default([]),
   accounting: z.array(humanAccountingSchema),
   followUp: z.array(z.string()),
 }).strict();

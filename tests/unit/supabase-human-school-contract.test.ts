@@ -44,7 +44,13 @@ const validSnapshot = {
 describe('contrato do prontuário humano persistido no Supabase', () => {
   test('aceita um prontuário completo válido', async () => {
     const repository = new SupabaseInstitutionalReadRepository(client(validSnapshot));
-    await expect(repository.getCurrentHumanSchool('33069247')).resolves.toEqual(validSnapshot);
+    await expect(repository.getCurrentHumanSchool('33069247')).resolves.toEqual({
+      ...validSnapshot,
+      registration: null,
+      accountOpenings: [],
+      suspensions: [],
+      sourceCoverage: [],
+    });
   });
 
   test('rejeita conteúdo interno malformado em vez de atravessar arrays unknown', async () => {

@@ -1,0 +1,334 @@
+.school-data-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--ink-200);
+  background: var(--ink-200);
+}
+.school-data-grid > div {
+  min-height: 92px;
+  padding: 1rem 1.1rem;
+  background: var(--paper);
+}
+.school-data-grid span,
+.school-data-grid strong,
+.repasse-breakdown small,
+.repasse-breakdown strong,
+.school-source-notes strong,
+.account-opening-row strong,
+.account-opening-row small,
+.source-coverage-row strong,
+.source-coverage-row small {
+  display: block;
+}
+.school-data-grid span,
+.repasse-breakdown small,
+.account-opening-row small,
+.source-coverage-row small {
+  color: var(--ink-500);
+  font-size: 0.72rem;
+}
+.school-data-grid strong {
+  margin-top: 0.35rem;
+  color: var(--ink-950);
+  font-size: 0.92rem;
+}
+.school-source-notes {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.school-source-notes p {
+  margin: 0;
+  color: var(--ink-700);
+  line-height: 1.55;
+}
+.repasse-breakdown {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 0.55rem 1rem;
+}
+.repasse-breakdown strong {
+  margin-top: 0.12rem;
+  color: var(--ink-800);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.account-opening-list {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--ink-200);
+}
+.account-opening-row,
+.source-coverage-row {
+  min-height: 68px;
+  padding: 0.8rem 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: center;
+  border-bottom: 1px solid var(--ink-100);
+}
+.account-opening-row[data-attention='true'] {
+  background: var(--warning-50, #fff8e8);
+}
+.account-occurrence {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--ink-300);
+  background: rgb(255 255 255 / 0.55);
+}
+.school-issues-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.school-issue-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.school-issue-card strong {
+  color: var(--ink-950);
+}
+.school-issue-card p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-600);
+  line-height: 1.5;
+}
+.school-issue-card--neutral {
+  background: rgb(255 255 255 / 0.45);
+}
+.source-coverage {
+  margin-top: 2rem;
+}
+.source-coverage h3 {
+  margin-bottom: 0.75rem;
+}
+.source-coverage-row > span:last-child {
+  flex: 0 0 auto;
+  color: var(--ink-700);
+  font-size: 0.78rem;
+  font-weight: 760;
+}
+.source-coverage-row[data-status='unavailable'] > span:last-child,
+.source-coverage-row[data-status='partial'] > span:last-child {
+  color: var(--warning-700, #8a5a00);
+}
+.financial-overview-list--issues .financial-overview-list__head,
+.financial-overview-row--issues {
+  grid-template-columns: minmax(220px, 1.4fr) 70px minmax(150px, 1fr) 95px 95px 95px 20px;
+}
+.financial-overview-list--accounting .financial-overview-list__head,
+.financial-overview-row--accounting {
+  grid-template-columns: minmax(260px, 1.5fr) minmax(160px, 0.9fr) minmax(150px, 0.8fr) minmax(100px, 0.6fr) 20px;
+}
+.financial-overview-list--issues .financial-overview-list__head span:last-child,
+.financial-overview-list--accounting .financial-overview-list__head span:last-child {
+  grid-column: auto;
+}
+@media (max-width: 1040px) {
+  .financial-overview-row--issues,
+  .financial-overview-row--accounting {
+    grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(110px, 0.8fr)) 20px;
+  }
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(5),
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(6) {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .school-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .repasse-breakdown { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .school-issues-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .financial-overview-row--issues,
+  .financial-overview-row--accounting {
+    grid-template-columns: 1fr 18px;
+  }
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(5),
+  .financial-overview-row--issues .financial-overview-row__metric:nth-of-type(6) {
+    display: grid;
+  }
+}
+@media (max-width: 460px) {
+  .school-data-grid { grid-template-columns: 1fr; }
+  .repasse-breakdown { grid-template-columns: 1fr; }
+  .account-opening-row,
+  .source-coverage-row { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
+}
+
+
+.app-header__inner--data-tabs {
+  min-height: 64px;
+  gap: var(--space-4);
+}
+.main-nav--data-tabs {
+  width: 100%;
+  border-top: 1px solid rgb(9 45 69 / 0.06);
+}
+.main-nav__scroll {
+  width: min(calc(100% - 2rem), var(--content-max));
+  margin: 0 auto;
+  padding: 0.45rem 0 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+.main-nav--data-tabs a {
+  flex: 0 0 auto;
+  padding: 0.48rem 0.7rem;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+.main-nav--data-tabs a[aria-current='page'] {
+  box-shadow: inset 0 -2px 0 var(--paid-600);
+}
+.data-overview-page > .lead {
+  max-width: 64rem;
+}
+.data-table-shell {
+  width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--ink-200);
+  border-bottom: 1px solid var(--ink-200);
+  background: rgb(255 255 255 / 0.3);
+  scrollbar-width: thin;
+}
+.data-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  color: var(--ink-800);
+  font-size: 0.8rem;
+}
+.data-table--compact {
+  min-width: 760px;
+}
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid var(--ink-200);
+  color: var(--ink-500);
+  background: rgb(247 250 251 / 0.98);
+  text-align: left;
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.data-table td {
+  max-width: 27rem;
+  padding: 0.9rem 0.75rem;
+  border-bottom: 1px solid var(--ink-100);
+  vertical-align: top;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-table tbody tr:hover td {
+  background: rgb(255 255 255 / 0.52);
+}
+.data-table td:first-child,
+.data-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 220px;
+  background: var(--canvas);
+}
+.data-table th:first-child {
+  z-index: 3;
+  background: rgb(247 250 251 / 0.99);
+}
+.data-table td:first-child strong,
+.data-table td:first-child small,
+.data-table td small {
+  display: block;
+}
+.data-table td:first-child a {
+  color: var(--ink-950);
+  text-decoration: none;
+}
+.data-table td:first-child a:hover,
+.data-table td:first-child a:focus-visible {
+  color: var(--paid-700);
+}
+.data-table td small {
+  margin-top: 0.2rem;
+  color: var(--ink-500);
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+.data-table tr[data-attention='true'] td {
+  background: var(--warning-50, #fff8e8);
+}
+.data-table tr[data-coverage='partial'] td,
+.data-table tr[data-coverage='unavailable'] td {
+  background: var(--warning-50, #fff8e8);
+}
+.coverage-filter-bar {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.school-section-nav-shell {
+  top: 118px;
+}
+.school-section-target,
+.movement-ledger[id='movimentacoes'] {
+  scroll-margin-top: 194px;
+}
+
+@media (max-width: 820px) {
+  .app-header__inner--data-tabs {
+    min-height: 58px;
+    flex-direction: row;
+    align-items: center;
+    padding: var(--space-2) 0;
+  }
+  .main-nav--data-tabs {
+    width: 100%;
+  }
+  .main-nav__scroll {
+    width: min(calc(100% - 1.25rem), var(--content-max));
+    padding-block: 0.35rem 0.45rem;
+  }
+  .school-section-nav-shell {
+    top: 111px;
+  }
+  .school-section-target,
+  .movement-ledger[id='movimentacoes'] {
+    scroll-margin-top: 187px;
+  }
+}
+@media (max-width: 700px) {
+  .main-nav--data-tabs a {
+    padding: 0.44rem 0.62rem;
+    font-size: 0.74rem;
+  }
+  .data-table {
+    min-width: 920px;
+    font-size: 0.77rem;
+  }
+  .data-table td:first-child,
+  .data-table th:first-child {
+    min-width: 190px;
+  }
+  .coverage-filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+  }
+}

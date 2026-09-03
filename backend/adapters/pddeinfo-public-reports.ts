@@ -12,7 +12,9 @@ export type PddeInfoPublicReportKind =
   | 'ATTENDANCE'
   | 'ACCOUNTING'
   | 'BALANCE'
-  | 'ACCOUNT_OPENING';
+  | 'ACCOUNT_OPENING'
+  | 'REGISTRATION'
+  | 'SUSPENSION';
 
 const yearSchoolFilterSchema = z.object({
   fiscalYear: z.literal(2026),
@@ -25,6 +27,8 @@ const yearSchoolFilterSchema = z.object({
 const attendanceFilterSchema = yearSchoolFilterSchema.extend({ kind: z.literal('ATTENDANCE') }).strict();
 const accountingFilterSchema = yearSchoolFilterSchema.extend({ kind: z.literal('ACCOUNTING') }).strict();
 const accountOpeningFilterSchema = yearSchoolFilterSchema.extend({ kind: z.literal('ACCOUNT_OPENING') }).strict();
+const registrationFilterSchema = yearSchoolFilterSchema.extend({ kind: z.literal('REGISTRATION') }).strict();
+const suspensionFilterSchema = yearSchoolFilterSchema.extend({ kind: z.literal('SUSPENSION') }).strict();
 const balanceFilterSchema = z.object({
   kind: z.literal('BALANCE'),
   month: z.string().regex(/^(0[1-9]|1[0-2])-2026$/),
@@ -39,6 +43,8 @@ const reportFilterSchema = z.discriminatedUnion('kind', [
   accountingFilterSchema,
   balanceFilterSchema,
   accountOpeningFilterSchema,
+  registrationFilterSchema,
+  suspensionFilterSchema,
 ]);
 
 export type PddeInfoPublicReportFilter = z.input<typeof reportFilterSchema>;
@@ -48,6 +54,8 @@ const BASE_URLS: Record<PddeInfoPublicReportKind, string> = {
   ACCOUNTING: 'https://www.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta',
   BALANCE: 'https://www.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
   ACCOUNT_OPENING: 'https://www.fnde.gov.br/pddeinfo/staberturacontaentidade/staberturacontaentidade/staberturacontaentidade',
+  REGISTRATION: 'https://www.fnde.gov.br/pddeinfo/situacaocadastroentidade/situacaocadastroentidade/situacaocadastroentidade',
+  SUSPENSION: 'https://www.fnde.gov.br/pddeinfo/relatoriosuspensao/relatoriosuspensao/relatoriosuspensao',
 };
 
 export class PddeInfoPublicReportSourceError extends Error {
@@ -122,6 +130,14 @@ export function buildPddeInfoPublicReportUrl(rawFilter: PddeInfoPublicReportFilt
     } else if (filter.kind === 'ACCOUNTING') {
       url.searchParams.set('co_programa_fnde', filter.programCode ?? '');
       url.searchParams.set('tpRelatorio', '1');
+    } else if (filter.kind === 'REGISTRATION') {
+      url.searchParams.set('tp_relatorio', '1');
+      url.searchParams.set('st_cadstral', '');
+      url.searchParams.set('ds_localizacao', '');
+      url.searchParams.set('fimMandato', '');
+    } else if (filter.kind === 'SUSPENSION') {
+      url.searchParams.set('programa', filter.programCode ?? '');
+      url.searchParams.append('tp_suspensao[]', '0');
     } else if (filter.programCode) {
       url.searchParams.append('co_programa_fnde[]', filter.programCode);
     }

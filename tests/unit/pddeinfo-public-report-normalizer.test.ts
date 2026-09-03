@@ -22,6 +22,7 @@ describe('normalização dos relatórios públicos PDDEInfo', () => {
       'Nome Escola': '0410001 EM EMA NEGRAO DE LIMA',
       Programa: 'PDDE',
       'Destinação': 'PDDE Básico - 1ª Parcela',
+      'Quantidade Alunos': '625',
       'Valor Custeio': '837,00',
       'Valor Capital': '3.348,00',
       'Valor Total': '4.185,00',
@@ -31,6 +32,7 @@ describe('normalização dos relatórios públicos PDDEInfo', () => {
       fiscalYear: 2026,
       schoolInep: '33069247',
       uexCnpj: '04500463000173',
+      studentCount: 625,
       costCents: 83_700,
       capitalCents: 334_800,
       totalCents: 418_500,
@@ -83,6 +85,60 @@ describe('normalização dos relatórios públicos PDDEInfo', () => {
       accountingStatus: 'Adimplente',
       paymentSuspended: false,
       expectedTotalCents: 332_800,
+    });
+  });
+
+  test('normaliza cadastro, abertura de conta e motivo de suspensão sem misturar fontes', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    expect(mod.normalizeRegistrationRow({
+      Ano: '2026',
+      'Código Escola': '33069247',
+      Escola: 'EM EMA NEGRAO DE LIMA',
+      Localização: 'Urbana',
+      'CNPJ UEX': '04.500.463/0001-73',
+      'Razão Social': 'CONSELHO ESCOLA COMUNIDADE',
+      'Rede de Atendimento': 'PARTICULAR',
+      'Mandato Dirigente': 'VIGENTE',
+      'Data Fim do Mandato': '25/02/2028',
+      'Data Atualização': '31/08/2026',
+      'Hora Atualização': '10:15:00',
+      DDD: '21',
+      Telefone: '999999999',
+    })).toMatchObject({
+      schoolInep: '33069247',
+      uexCnpj: '04500463000173',
+      location: 'Urbana',
+      mandateStatus: 'VIGENTE',
+      mandateEndDate: '2028-02-25',
+      updatedDate: '2026-08-31',
+    });
+
+    expect(mod.normalizeAccountOpeningRow({
+      Ano: '2026',
+      'Código Escola': '33069247',
+      Programa: 'PDDE QUALIDADE',
+      Banco: '001',
+      Agência: '0249',
+      Conta: '0000546402',
+      Situação: 'Conta aberta',
+    })).toMatchObject({
+      schoolInep: '33069247',
+      programName: 'PDDE QUALIDADE',
+      status: 'Conta aberta',
+    });
+
+    expect(mod.normalizeSuspensionRow({
+      Ano: '2026',
+      'Código Escola': '33069247',
+      Programa: 'PDDE',
+      Destinação: 'PDDE Básico',
+      'Tipo de Suspensão': 'UEx sem dirigente ativo',
+    })).toMatchObject({
+      schoolInep: '33069247',
+      suspensionType: 'UEx sem dirigente ativo',
     });
   });
 });

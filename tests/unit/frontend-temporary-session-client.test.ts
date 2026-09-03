@@ -84,8 +84,14 @@ describe('cliente web do Modo Sessão', () => {
     await expect(loadTemporarySessionStatus(key, 'web-session-abc')).resolves.toMatchObject({
       state: 'COMPLETE', ready: true, temporary: true,
     });
-    await expect(loadTemporaryPortfolio(key, 'web-session-abc')).resolves.toEqual(portfolio);
-    await expect(loadTemporarySchool(key, 'web-session-abc', '33069247')).resolves.toEqual(school);
+    await expect(loadTemporaryPortfolio(key, 'web-session-abc')).resolves.toMatchObject(portfolio);
+    await expect(loadTemporarySchool(key, 'web-session-abc', '33069247')).resolves.toEqual({
+      ...school,
+      registration: null,
+      accountOpenings: [],
+      suspensions: [],
+      sourceCoverage: [],
+    });
   });
 
   test('classifica sessão expirada ou inexistente como falha terminal recuperável pela interface', async () => {

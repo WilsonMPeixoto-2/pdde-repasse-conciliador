@@ -65,6 +65,10 @@ export interface CurrentHumanFinancialSchoolSnapshot {
   school: z.infer<typeof humanSchoolIdentitySchema>;
   programs: z.infer<typeof humanSchoolContentSchema>['programs'];
   accounts: z.infer<typeof humanSchoolContentSchema>['accounts'];
+  registration: z.infer<typeof humanSchoolContentSchema>['registration'];
+  accountOpenings: z.infer<typeof humanSchoolContentSchema>['accountOpenings'];
+  suspensions: z.infer<typeof humanSchoolContentSchema>['suspensions'];
+  sourceCoverage: z.infer<typeof humanSchoolContentSchema>['sourceCoverage'];
   accounting: z.infer<typeof humanSchoolContentSchema>['accounting'];
   followUp: string[];
 }
@@ -94,6 +98,49 @@ function latestPortfolioReferenceDate(
     .filter((date): date is string => date !== null)
     .sort()
     .at(-1) ?? null;
+}
+
+
+function normalizedHumanStatus(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+function portfolioRegistrationAttention(
+  school: z.infer<typeof humanSchoolContentSchema>,
+): boolean {
+  const status = normalizedHumanStatus(school.registration?.mandateStatus);
+  const note = normalizedHumanStatus(school.registration?.registrationNote);
+  return status.includes('VENCID')
+    || status.includes('VENCER')
+    || note.includes('PENDENCIA')
+    || note.includes('DESATUALIZ');
+}
+
+function portfolioOpeningIssueCount(
+  school: z.infer<typeof humanSchoolContentSchema>,
+): number {
+  return (school.accountOpenings ?? []).filter((item) => {
+    const status = normalizedHumanStatus(item.status);
+    return status && !(
+      status.includes('SEM PENDENCIA')
+      || status.includes('REGULAR')
+      || status.includes('CONCLUID')
+      || status.includes('ABERTA')
+      || status.includes('ATIVA')
+    );
+  }).length;
+}
+
+function portfolioAccountingAttentionCount(
+  school: z.infer<typeof humanSchoolContentSchema>,
+): number {
+  return (school.accounting ?? []).filter((item) => {
+    const status = normalizedHumanStatus(item.status);
+    return item.paymentSuspended || status.includes('INADIMPL') || status.includes('PENDENCIA');
+  }).length;
 }
 
 export function buildCurrentPortfolioSchoolSummary(
@@ -128,6 +175,16 @@ export function buildCurrentPortfolioSchoolSummary(
     .map((account) => account.latestPosition?.totalReportedBalanceCents ?? null)
     .filter((value): value is number => value !== null);
 
+  const registrationAttention = portfolioRegistrationAttention(school);
+  const accountOpeningIssueCount = portfolioOpeningIssueCount(school);
+  const accountingAttentionCount = portfolioAccountingAttentionCount(school);
+  const suspensionCount = (school.suspensions ?? []).length;
+  const pendingCount = school.followUp.length
+    + (registrationAttention ? 1 : 0)
+    + accountOpeningIssueCount
+    + accountingAttentionCount
+    + suspensionCount;
+
   return humanPortfolioSchoolSchema.parse({
     sme: school.school.sme,
     name: school.school.name,
@@ -144,6 +201,12 @@ export function buildCurrentPortfolioSchoolSummary(
     followUpCount: school.followUp.length,
     paymentSuspended: school.accounting.some((item) => item.paymentSuspended),
     repasseAccountMissing,
+    pendingCount,
+    registrationAttention,
+    mandateStatus: school.registration?.mandateStatus ?? null,
+    suspensionCount,
+    accountOpeningIssueCount,
+    accountingAttentionCount,
   });
 }
 
@@ -188,6 +251,10 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
       school: item.school,
       programs: item.programs,
       accounts: item.accounts,
+      registration: item.registration,
+      accountOpenings: item.accountOpenings,
+      suspensions: item.suspensions,
+      sourceCoverage: item.sourceCoverage,
       accounting: item.accounting,
       followUp: item.followUp,
     },

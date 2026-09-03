@@ -42,6 +42,15 @@ const rawSchoolSchema = z.object({
   cnpj: z.string().min(1),
   accounts: z.array(rawAccountSchema),
   finance: z.array(rawFinanceSchema),
+  status: z.object({
+    uexRegistration: z.string(),
+    mandate: z.string(),
+    mandateStartDate: z.string(),
+    mandateEndDate: z.string(),
+    uexAccounting: z.string(),
+    eexAdhesion: z.string(),
+    eexAccounting: z.string(),
+  }).strict().optional(),
   source: z.string().url(),
   sourceIdentity: z.object({
     inep: z.string(),
@@ -235,11 +244,24 @@ function validateFinancialComponents(finance: RawFinance, school: RawSchool) {
   if (dueTotal < 0 || finalDueTotal < 0 || paidTotal < 0) {
     throw new Error(`${school.sme}: total financeiro negativo em ${finance.destinacao}.`);
   }
+  const finalDueCusteio = dueCusteio + adjustmentCusteio;
+  const finalDueCapital = dueCapital + adjustmentCapital;
+  if (finalDueCusteio + finalDueCapital !== finalDueTotal) {
+    throw new Error(`${school.sme}: composição final de custeio/capital diverge do total em ${finance.destinacao}.`);
+  }
   return {
     amountOriginalDueCents: dueTotal,
+    amountOriginalDueCusteioCents: dueCusteio,
+    amountOriginalDueCapitalCents: dueCapital,
     adjustmentCents: finalDueTotal - dueTotal,
+    adjustmentCusteioCents: adjustmentCusteio,
+    adjustmentCapitalCents: adjustmentCapital,
     amountFinalDueCents: finalDueTotal,
+    amountFinalDueCusteioCents: finalDueCusteio,
+    amountFinalDueCapitalCents: finalDueCapital,
     amountPaidCents: paidTotal,
+    amountPaidCusteioCents: paidCusteio,
+    amountPaidCapitalCents: paidCapital,
   };
 }
 

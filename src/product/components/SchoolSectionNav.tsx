@@ -102,6 +102,9 @@ export function SchoolSectionNav({
         <a href="#resumo" aria-current={currentSection === '#resumo' ? 'location' : undefined}>
           Resumo
         </a>
+        <a href="#cadastro" aria-current={currentSection === '#cadastro' ? 'location' : undefined}>
+          Cadastro
+        </a>
         <a href="#repasses" aria-current={currentSection === '#repasses' ? 'location' : undefined}>
           Repasses
         </a>
@@ -116,6 +119,9 @@ export function SchoolSectionNav({
             Movimentações
           </a>
         ) : null}
+        <a href="#pendencias" aria-current={currentSection === '#pendencias' ? 'location' : undefined}>
+          Pendências
+        </a>
         {hasAccounting ? (
           <a
             href="#prestacao-contas"

@@ -1,6 +1,6 @@
 import type { HumanSchool } from '../types';
 
-export type SchoolAttentionTarget = '#repasses' | '#contas-saldos' | '#prestacao-contas';
+export type SchoolAttentionTarget = '#cadastro' | '#repasses' | '#contas-saldos' | '#pendencias' | '#prestacao-contas';
 
 export interface SchoolAttentionItem {
   key: string;
@@ -19,9 +19,66 @@ const SOURCE_UNAVAILABLE = 'Há informação de fonte ainda não disponível par
 const MISSING_POSITION = 'Há conta sem posição pública de saldo disponível na data desta consulta.';
 const MISSING_CREDIT = 'Há pagamento informado no PDDEInfo sem crédito compatível localizado nesta coleta.';
 
+
+function normalizedStatus(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
+function registrationNeedsAttention(school: HumanSchool): boolean {
+  const status = normalizedStatus(school.registration?.mandateStatus);
+  const note = normalizedStatus(school.registration?.registrationNote);
+  return status.includes('VENCID')
+    || status.includes('VENCER')
+    || note.includes('PENDENCIA')
+    || note.includes('DESATUALIZ');
+}
+
+function openingNeedsAttention(status: string): boolean {
+  const normalized = normalizedStatus(status);
+  return Boolean(normalized) && !(
+    normalized.includes('SEM PENDENCIA')
+    || normalized.includes('REGULAR')
+    || normalized.includes('CONCLUID')
+    || normalized.includes('ABERTA')
+    || normalized.includes('ATIVA')
+  );
+}
+
 export function deriveSchoolOperationalReading(school: HumanSchool): SchoolOperationalReading {
   const attentionItems: SchoolAttentionItem[] = [];
   const installments = school.programs.flatMap((program) => program.installments);
+
+  if (registrationNeedsAttention(school)) {
+    attentionItems.push({
+      key: 'registration-attention',
+      title: 'Cadastro ou mandato requer acompanhamento',
+      description: school.registration?.registrationNote
+        ?? school.registration?.mandateStatus
+        ?? 'Há informação cadastral que merece conferência.',
+      target: '#cadastro',
+    });
+  }
+
+  if (school.suspensions.length > 0) {
+    attentionItems.push({
+      key: 'suspension-reported',
+      title: 'Suspensão informada pelo FNDE',
+      description: school.suspensions.map((item) => item.type).join(' · '),
+      target: '#pendencias',
+    });
+  }
+
+  if (school.accountOpenings.some((item) => openingNeedsAttention(item.status))) {
+    attentionItems.push({
+      key: 'account-opening-attention',
+      title: 'Abertura de conta requer acompanhamento',
+      description: 'Há situação publicada de abertura de conta que merece conferência.',
+      target: '#pendencias',
+    });
+  }
 
   if (school.accounting.some((item) => item.paymentSuspended)) {
     attentionItems.push({

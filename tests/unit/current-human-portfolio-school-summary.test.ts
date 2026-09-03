@@ -88,6 +88,10 @@ const school = {
       note: null,
     },
   ],
+  registration: null,
+  accountOpenings: [],
+  suspensions: [],
+  sourceCoverage: [],
   accounting: [
     {
       program: 'PDDE',
@@ -119,6 +123,12 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
       followUpCount: 1,
       paymentSuspended: true,
       repasseAccountMissing: false,
+      pendingCount: 2,
+      registrationAttention: false,
+      mandateStatus: null,
+      suspensionCount: 0,
+      accountOpeningIssueCount: 0,
+      accountingAttentionCount: 1,
     });
   });
 
@@ -155,6 +165,10 @@ describe('buildCurrentPortfolioSchoolSummary', () => {
           totalReportedBalanceCents: 0,
         },
       }],
+      registration: null,
+      accountOpenings: [],
+      suspensions: [],
+      sourceCoverage: [],
       accounting: [],
       followUp: [],
       programs: [],

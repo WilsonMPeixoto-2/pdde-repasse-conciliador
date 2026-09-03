@@ -25,8 +25,10 @@ describe('navegação local do prontuário', () => {
   test('sempre oferece resumo, repasses e contas e saldos', () => {
     const html = render(false, false);
     expect(html).toContain('href="#resumo"');
+    expect(html).toContain('href="#cadastro"');
     expect(html).toContain('href="#repasses"');
     expect(html).toContain('href="#contas-saldos"');
+    expect(html).toContain('href="#pendencias"');
     expect(html).not.toContain('href="#movimentacoes"');
     expect(html).not.toContain('href="#prestacao-contas"');
   });
@@ -83,9 +85,11 @@ describe('navegação local do prontuário', () => {
     const pageSource = readFileSync('src/product/pages/SchoolPage.tsx', 'utf8');
     const summarySource = readFileSync('src/product/components/SchoolOperationalSummary.tsx', 'utf8');
     expect(summarySource).toContain('id="resumo"');
+    expect(pageSource).toContain('id="cadastro"');
     expect(pageSource).toContain('id="repasses"');
     expect(pageSource).toContain('id="contas-saldos"');
     expect(pageSource).toContain("? 'movimentacoes' : undefined");
+    expect(pageSource).toContain('id="pendencias"');
     expect(pageSource).toContain('id="prestacao-contas"');
     expect(pageSource).toContain("hash === '#movimentacoes'");
     expect(pageSource).toContain('accountIndex === firstMovementAccountIndex');

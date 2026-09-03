@@ -310,7 +310,13 @@ export async function runFinancialIntelligenceMonitoring(
       publicReports: reports,
     });
     annotateRecoveredAccounts(human, base.raw.accountRecoveries);
-    const status: 'COMPLETE' | 'PARTIAL' = base.status === 'COMPLETE' && reports.failures.length === 0
+    const blockingReportFailures = reports.failures.filter((failure) => (
+      failure.kind === 'ATTENDANCE'
+      || failure.kind === 'ACCOUNTING'
+      || failure.kind === 'BALANCE'
+      || failure.kind === 'BALANCE_MONTH_DISCOVERY'
+    ));
+    const status: 'COMPLETE' | 'PARTIAL' = base.status === 'COMPLETE' && blockingReportFailures.length === 0
       ? 'COMPLETE'
       : 'PARTIAL';
 
@@ -354,7 +360,8 @@ export async function runFinancialIntelligenceMonitoring(
         payload: {
           status,
           succeeded: options.schools.length,
-          failed: reports.failures.length,
+          failed: blockingReportFailures.length,
+          supplementalFailures: reports.failures.length - blockingReportFailures.length,
         },
       });
     }

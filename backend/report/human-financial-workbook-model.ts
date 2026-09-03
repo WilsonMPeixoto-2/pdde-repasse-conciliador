@@ -33,8 +33,8 @@ export function buildOverviewMetrics(
 
   return [
     {
-      label: 'Unidades',
-      targetSheet: 'Unidades',
+      label: 'Escolas',
+      targetSheet: 'Escolas',
       value: view.metrics.schoolCount,
       monetary: false,
     },
