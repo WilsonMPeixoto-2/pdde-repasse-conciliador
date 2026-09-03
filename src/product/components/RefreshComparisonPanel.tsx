@@ -85,10 +85,17 @@ export function RefreshComparisonPanel({ comparison }: { comparison: RefreshComp
           {comparison.supplementalChangedSchoolCount} com mudança complementar.
         </span>
         {comparison.unavailableSourceObservations > 0 ? (
-          <strong>
-            {comparison.unavailableSourceObservations} ocorrência(s) de fonte indisponível em {' '}
-            {comparison.unavailableSourceSchoolCount} escola(s). Ausência de fonte não foi tratada como zero nem como regularidade.
-          </strong>
+          <div className="refresh-comparison__unavailable">
+            <strong>
+              {comparison.unavailableSourceObservations} ocorrência(s) de fonte indisponível em {' '}
+              {comparison.unavailableSourceSchoolCount} escola(s). Ausência de fonte não foi tratada como zero nem como regularidade.
+            </strong>
+            {comparison.unavailableSources.map((item) => (
+              <small key={item.dataset}>
+                {item.dataset}: {item.schoolCount} escola(s)
+              </small>
+            ))}
+          </div>
         ) : (
           <strong>Nenhuma fonte foi marcada como indisponível na consulta concluída.</strong>
         )}
