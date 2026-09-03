@@ -12,6 +12,7 @@ describe('roteamento SPA na Vercel', () => {
       { source: '/unidades', destination: '/index.html' },
       { source: '/unidades/:path*', destination: '/index.html' },
       { source: '/repasses', destination: '/index.html' },
+      { source: '/pdde-basico', destination: '/index.html' },
       { source: '/saldos', destination: '/index.html' },
       { source: '/indicadores/:path*', destination: '/index.html' },
     ]));
