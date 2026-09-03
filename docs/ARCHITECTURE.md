@@ -103,6 +103,7 @@ Rotas principais:
 - `/` — Início / posição consolidada;
 - `/unidades` — carteira e filtros;
 - `/repasses` — visão consolidada de repasses;
+- `/pdde-basico` — leitura operacional da 1ª/2ª parcela do PDDE Básico e localização do saldo em conta/aplicações;
 - `/saldos` — visão consolidada de saldos e contas;
 - `/unidades/:inep` — prontuário financeiro;
 - `/indicadores/:slug` — relação nominal de um indicador.
