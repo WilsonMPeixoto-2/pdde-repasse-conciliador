@@ -46,6 +46,37 @@ describe('evidência do 1º ciclo do PDDE Básico', () => {
     expect(pddeBasicReleaseEvidenceLabel(reading)).toContain('extrato SIGEF defasado');
   });
 
+  test('detecta a mesma defasagem usando somente nota da liberação e movimentos da visão humana real', () => {
+    const withoutStructuredRelease = {
+      programs: [{
+        name: 'PDDE Básico',
+        installments: [{
+          installment: '1ª Parcela',
+          paymentInformedCents: 418_500,
+          paymentInformedDate: '2026-08-05',
+          creditEvidence: { status: 'Crédito não localizado', amountCents: null },
+          note: 'SIGEF Liberações localizou a liberação pela OB 019072 para a mesma conta informada; isso confirma a ordem/destino, mas não substitui a localização do crédito no extrato.',
+          account: { bank: '001', agency: '0249', number: '0000549789' },
+        }],
+      }],
+      accounts: [{
+        bank: '001',
+        agency: '0249',
+        account: '0000549789',
+        movements: [
+          { date: '2025-11-30' },
+          { date: '2025-12-31' },
+        ],
+      }],
+    };
+
+    const reading = derivePddeBasicFirstCycleReleaseEvidence(withoutStructuredRelease);
+    expect(reading.state).toBe('RELEASE_CONFIRMED');
+    expect(reading.orderBank).toBe('019072');
+    expect(reading.statementCoverageThrough).toBe('2025-12-31');
+    expect(reading.extractFreshness).toBe('STALE_BEFORE_RELEASE');
+  });
+
   test('não chama de defasado o extrato que cobre data igual ou posterior à liberação', () => {
     const reading = derivePddeBasicFirstCycleReleaseEvidence({
       ...baseSchool,
