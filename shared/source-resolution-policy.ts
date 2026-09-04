@@ -10,6 +10,7 @@ export type ResolutionSource =
   | 'PDDEINFO'
   | 'SIGEF_EXTRATO'
   | 'SIGEF_LIBERACOES'
+  | 'BB_GESTAO_AGIL'
   | 'PORTAL_TRANSPARENCIA'
   | 'SIGPC_PUBLICO'
   | 'FNDE_DADOS_ABERTOS'
@@ -43,6 +44,12 @@ const ACTIVE_SIGEF: ResolutionStep[] = [
   },
 ];
 
+const CURRENT_BANK_POSITION: ResolutionStep = {
+  source: 'BB_GESTAO_AGIL',
+  state: 'CREDENTIAL_REQUIRED',
+  purpose: 'Obter extrato bancário corrente e saldo das aplicações diretamente da solução oficial do Banco do Brasil usada pelo FNDE, quando houver credencial institucional autorizada.',
+};
+
 const INDEPENDENT_PAYMENT_CHECKS: ResolutionStep[] = [
   {
     source: 'PORTAL_TRANSPARENCIA',
@@ -62,7 +69,7 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
       gap,
       contradiction: false,
       primaryAction: 'Buscar evidência bancária independente do pagamento informado.',
-      steps: [...ACTIVE_SIGEF, ...INDEPENDENT_PAYMENT_CHECKS],
+      steps: [...ACTIVE_SIGEF, CURRENT_BANK_POSITION, ...INDEPENDENT_PAYMENT_CHECKS],
     };
   }
 
@@ -70,13 +77,15 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: false,
-      primaryAction: 'Obter posição de saldo posterior ao pagamento e, enquanto isso, procurar o crédito no extrato.',
+      primaryAction: 'Obter posição bancária posterior ao pagamento em fonte corrente; não usar saldo mensal antigo como localização atual.',
       steps: [
+        CURRENT_BANK_POSITION,
         ACTIVE_SIGEF[0],
+        ACTIVE_SIGEF[1],
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
-          purpose: 'Reconsultar o relatório de saldos até surgir referência posterior ao pagamento.',
+          purpose: 'Preservar e reconsultar a série mensal oficial de saldos, sem tratá-la como corrente quando a referência for anterior ao pagamento.',
         },
         ...INDEPENDENT_PAYMENT_CHECKS,
       ],
@@ -89,6 +98,7 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
       contradiction: true,
       primaryAction: 'Reconstruir a linha do tempo da conta para explicar crédito, aplicação, gasto, resgate, estorno ou ausência de evidência.',
       steps: [
+        CURRENT_BANK_POSITION,
         ...ACTIVE_SIGEF,
         ...INDEPENDENT_PAYMENT_CHECKS,
         {
@@ -104,8 +114,9 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: false,
-      primaryAction: 'Tentar localizar posição de saldo e movimentações sem converter ausência de publicação em saldo zero.',
+      primaryAction: 'Tentar localizar posição bancária corrente e movimentações sem converter ausência de publicação em saldo zero.',
       steps: [
+        CURRENT_BANK_POSITION,
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
@@ -128,6 +139,7 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
       primaryAction: 'Recuperar a conta destinatária do repasse sem inferir conta histórica.',
       steps: [
         ACTIVE_SIGEF[1],
+        CURRENT_BANK_POSITION,
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
