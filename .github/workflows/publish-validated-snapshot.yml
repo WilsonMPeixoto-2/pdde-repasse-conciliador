@@ -1,0 +1,220 @@
+name: Publicar snapshot financeiro validado
+
+on:
+  workflow_run:
+    workflows:
+      - SIGEF Full 163 Validation
+    types:
+      - completed
+
+concurrency:
+  group: publish-financial-snapshot-main
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obter main atual
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Localizar artefato integral da execução validada
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name == "sigef-full-163-2026" and .expired == false) | .id' \
+            | head -n 1)"
+          if [ -z "$artifact_id" ]; then
+            echo "Artefato sigef-full-163-2026 não localizado na execução ${RUN_ID}." >&2
+            exit 2
+          fi
+          echo "RUN_ID=${RUN_ID}" >> "$GITHUB_ENV"
+          echo "ARTIFACT_ID=${artifact_id}" >> "$GITHUB_ENV"
+
+      - name: Baixar evidência integral validada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > snapshot-artifact.zip
+          rm -rf snapshot-artifact
+          mkdir -p snapshot-artifact
+          unzip -q snapshot-artifact.zip -d snapshot-artifact
+
+      - name: Materializar snapshot público a partir da mesma execução 163/163
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import gzip
+          import json
+          import os
+          from pathlib import Path
+
+          run_id = int(os.environ['RUN_ID'])
+          artifact_id = int(os.environ['ARTIFACT_ID'])
+          base = Path('snapshot-artifact/artifacts/full-163-session')
+          session_path = base / 'session.json'
+          portfolio_path = base / 'portfolio.json'
+          schools_dir = base / 'schools'
+
+          if not session_path.is_file() or not portfolio_path.is_file() or not schools_dir.is_dir():
+              raise SystemExit('O artefato validado não contém a estrutura esperada da sessão 163/163.')
+
+          session = json.loads(session_path.read_text(encoding='utf-8'))
+          portfolio = json.loads(portfolio_path.read_text(encoding='utf-8'))
+          schools = {}
+          for path in sorted(schools_dir.glob('*.json')):
+              school = json.loads(path.read_text(encoding='utf-8'))
+              inep = school.get('school', {}).get('inep')
+              if not isinstance(inep, str) or not inep:
+                  raise SystemExit(f'Prontuário sem INEP válido: {path}')
+              if inep in schools:
+                  raise SystemExit(f'INEP duplicado no artefato: {inep}')
+              schools[inep] = school
+
+          if session.get('status') != 'COMPLETE' or session.get('schoolCount') != 163:
+              raise SystemExit(f'Sessão não está COMPLETE 163/163: {session}')
+          if portfolio.get('schoolCount') != 163 or len(schools) != 163:
+              raise SystemExit(
+                  f'Cobertura inválida: portfolio={portfolio.get("schoolCount")} prontuarios={len(schools)}'
+              )
+
+          data_dir = Path('public/data')
+          data_dir.mkdir(parents=True, exist_ok=True)
+          manifest_path = data_dir / 'pdde-2026-snapshot.json'
+
+          current_run_id = 0
+          if manifest_path.is_file():
+              try:
+                  current_manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+                  current_run_id = int(current_manifest.get('source', {}).get('workflowRunId') or 0)
+              except (ValueError, TypeError, json.JSONDecodeError):
+                  current_run_id = 0
+          if current_run_id >= run_id:
+              print(
+                  f'Snapshot publicado já é da execução {current_run_id}, '
+                  f'não anterior à execução {run_id}; nenhuma regressão será publicada.'
+              )
+              Path('.snapshot-skip').write_text('1', encoding='utf-8')
+              raise SystemExit(0)
+
+          published_at = session.get('generatedAt')
+          if not isinstance(published_at, str) or not published_at:
+              raise SystemExit('A sessão validada não informa generatedAt.')
+
+          source = {
+              'workflowRunId': run_id,
+              'artifactId': artifact_id,
+              'artifactName': 'sigef-full-163-2026',
+          }
+          snapshot = {
+              'publishedAt': published_at,
+              'source': source,
+              'portfolio': portfolio,
+              'schools': schools,
+          }
+          raw = json.dumps(snapshot, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+          compressed = gzip.compress(raw, compresslevel=9, mtime=0)
+          encoded = base64.b64encode(compressed).decode('ascii')
+
+          for pattern in ('pdde-2026-snapshot.part*.txt', 'pdde-2026-snapshot-*.part*.txt'):
+              for old_part in data_dir.glob(pattern):
+                  old_part.unlink()
+
+          parts = []
+          chunk_size = 7000
+          for offset in range(0, len(encoded), chunk_size):
+              number = offset // chunk_size + 1
+              name = f'pdde-2026-snapshot.part{number:02d}.txt'
+              (data_dir / name).write_text(encoded[offset:offset + chunk_size], encoding='utf-8')
+              parts.append(f'/data/{name}')
+
+          manifest = {
+              'encoding': 'gzip-base64-parts',
+              'parts': parts,
+              'publishedAt': published_at,
+              'source': source,
+          }
+          manifest_path.write_text(
+              json.dumps(manifest, ensure_ascii=False, separators=(',', ':')),
+              encoding='utf-8',
+          )
+          print(json.dumps({
+              'publishedAt': published_at,
+              'workflowRunId': run_id,
+              'artifactId': artifact_id,
+              'schoolCount': len(schools),
+              'parts': len(parts),
+              'rawBytes': len(raw),
+              'gzipBytes': len(compressed),
+          }))
+          PY
+
+      - name: Validar o snapshot materializado antes da publicação
+        if: ${{ hashFiles('.snapshot-skip') == '' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import gzip
+          import json
+          import os
+          from pathlib import Path
+
+          data_dir = Path('public/data')
+          manifest = json.loads((data_dir / 'pdde-2026-snapshot.json').read_text(encoding='utf-8'))
+          assert manifest['encoding'] == 'gzip-base64-parts'
+          assert manifest['source']['workflowRunId'] == int(os.environ['RUN_ID'])
+          assert manifest['source']['artifactId'] == int(os.environ['ARTIFACT_ID'])
+          encoded = ''.join(
+              (Path('public') / part.lstrip('/')).read_text(encoding='utf-8')
+              for part in manifest['parts']
+          )
+          snapshot = json.loads(gzip.decompress(base64.b64decode(encoded)).decode('utf-8'))
+          assert snapshot['portfolio']['schoolCount'] == 163
+          assert len(snapshot['schools']) == 163
+          assert snapshot['source'] == manifest['source']
+          assert snapshot['publishedAt'] == manifest['publishedAt']
+          print(json.dumps({
+              'status': 'VALID',
+              'schools': len(snapshot['schools']),
+              'publishedAt': snapshot['publishedAt'],
+              'workflowRunId': snapshot['source']['workflowRunId'],
+              'artifactId': snapshot['source']['artifactId'],
+          }))
+          PY
+
+      - name: Publicar na main sem permitir regressão de fonte
+        if: ${{ hashFiles('.snapshot-skip') == '' }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A public/data
+          if git diff --cached --quiet; then
+            echo 'Nenhuma alteração de snapshot para publicar.'
+            exit 0
+          fi
+          git commit -m "data: publica snapshot financeiro validado run ${RUN_ID}"
+          git pull --rebase origin main
+          git push origin HEAD:main
