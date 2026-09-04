@@ -1,0 +1,1 @@
+Fontes verificadas ao vivo neste ciclo: PDDEInfo Consulta de Saldo, SIGEF Extrato, SIGEF Liberações e catálogo Dados Abertos FNDE. Fontes bloqueadas ou não validadas permanecem fora de conclusões automáticas.
