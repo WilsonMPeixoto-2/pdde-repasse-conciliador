@@ -78,7 +78,7 @@ const view: HumanFinancialPortfolioView = {
 };
 
 describe('Excel gerencial', () => {
-  test('começa pelas perguntas gerenciais e explica saldo anterior ao pagamento', () => {
+  test('começa pelas perguntas gerenciais e explica saldo anterior ao pagamento sem transformar pagamento informado em recebimento comprovado', () => {
     const workbook = buildManagerialHumanFinancialWorkbook(view, {
       generatedAt: new Date('2026-09-04T03:00:00Z'),
     });
@@ -87,7 +87,8 @@ describe('Excel gerencial', () => {
     const gaps = workbook.getWorksheet('Lacunas e Exceções');
 
     expect(overview?.getCell('A1').value).toBe('Painel Gerencial · PDDE 2026 · 4ª CRE');
-    expect(overview?.getCell('A5').value).toBe('Quem recebeu a 1ª parcela / P1?');
+    expect(overview?.getCell('A5').value).toBe('Para quem o FNDE informa pagamento da 1ª parcela / P1?');
+    expect(overview?.getCell('A6').value).toBe('Para quem o FNDE informa pagamento da 2ª parcela / P2?');
     expect(overview?.getCell('B5').value).toBe('1 de 1');
 
     expect(pdde?.getCell('T3').value).toBe('Evidência do 1º ciclo');
