@@ -10,6 +10,7 @@ export interface InstitutionalSourceCatalogItem {
     | 'BB_GESTAO_AGIL'
     | 'PORTAL_TRANSPARENCIA'
     | 'SIGPC_PUBLICO'
+    | 'FNDE_OLINDA_FINANCEIRO'
     | 'FNDE_DADOS_ABERTOS'
     | 'PDDE_MONITORING_PANELS';
   label: string;
@@ -30,6 +31,7 @@ export interface InstitutionalDataProduct {
     | 'BB_GESTAO_AGIL_MOVIMENTACOES_2026'
     | 'PORTAL_TRANSPARENCIA_DOCUMENTOS_2026'
     | 'SIGPC_PUBLICO_PRESTACAO_2026'
+    | 'FNDE_OLINDA_FINANCEIRO_2026'
     | 'FNDE_DADOS_ABERTOS_CONTROLE_2026'
     | 'PDDE_MONITORING_PANELS_CONTROLE_2026';
   label: string;
@@ -171,6 +173,22 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     capabilities: ['ACCOUNTING_STATUS', 'UEX_QUERY'],
   },
   {
+    id: 'FNDE_OLINDA_FINANCEIRO',
+    label: 'Olinda/FNDE - PDDE Consulta Escola Financeiro',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'ACCESS_BLOCKED',
+    purpose: 'API oficial cujo metadado expõe banco, agência, conta, valor/data de pagamento e os campos DT_REC_DISPONIVEL_CONTA e REC_DISPONIVEL_CONTA. Em 04/09/2026 a consulta aos dados retornava ORA-00942 no servidor do FNDE; por isso a fonte é monitorada, mas não participa de conclusões enquanto o órgão não restaurar a view.',
+    capabilities: [
+      'CURRENT_ACCOUNT',
+      'PAID_INFORMED',
+      'PAYMENT_ORDER_DATE',
+      'AVAILABLE_ACCOUNT_RESOURCE_DATE',
+      'AVAILABLE_ACCOUNT_RESOURCE',
+      'SCHOOL_QUERY',
+    ],
+  },
+  {
     id: 'FNDE_DADOS_ABERTOS',
     label: 'Dados Abertos FNDE / catálogo federal',
     authority: 'FNDE',
@@ -254,6 +272,14 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     fiscalYear: 2026,
     state: 'PILOT_REQUIRED',
     purpose: 'Segunda evidência para prestação de contas, sem substituir a observação original do PDDEInfo.',
+  },
+  {
+    id: 'FNDE_OLINDA_FINANCEIRO_2026',
+    label: 'Recurso disponível em conta na API Olinda/FNDE - 2026',
+    sourceId: 'FNDE_OLINDA_FINANCEIRO',
+    fiscalYear: 2026,
+    state: 'ACCESS_BLOCKED',
+    purpose: 'Candidato oficial para data e valor de recurso disponível em conta. Não integra cálculo nem diagnóstico enquanto a consulta de dados permanecer quebrada no servidor do FNDE.',
   },
   {
     id: 'FNDE_DADOS_ABERTOS_CONTROLE_2026',
