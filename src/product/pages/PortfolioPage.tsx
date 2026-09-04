@@ -1,6 +1,7 @@
 import { FinancialTaskLinks } from '../components/FinancialTaskLinks';
 import { GlobalSchoolFinder } from '../components/GlobalSchoolFinder';
 import { IndicatorLink } from '../components/IndicatorLink';
+import { ManagerialQuestionsPanel } from '../components/ManagerialQuestionsPanel';
 import { MetricValue } from '../components/MetricValue';
 import { PortfolioExecutiveOverview } from '../components/PortfolioExecutiveOverview';
 import { RefreshComparisonPanel } from '../components/RefreshComparisonPanel';
@@ -63,7 +64,10 @@ export function PortfolioPage() {
           <div className="portfolio-hero__copy">
             <div className="eyebrow">Exercício 2026 · 4ª CRE</div>
             <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
-            <p className="lead">Consulte rapidamente repasses, contas, saldos e movimentações das escolas da 4ª CRE. A plataforma mantém separadas as diferentes evidências financeiras para não transformar indicação em comprovação.</p>
+            <p className="lead">
+              A primeira tela responde quem recebeu, qual evidência bancária já foi localizada,
+              onde o saldo está e quais aparentes inconsistências são apenas diferenças de data entre as fontes.
+            </p>
           </div>
           <div className="live-refresh-control">
             <div className="live-refresh-actions">
@@ -89,7 +93,7 @@ export function PortfolioPage() {
             {state.refreshing ? (
               <div className="live-refresh-status">
                 <div className="live-refresh-status__header">
-                  <strong>Atualizando dados financeiros</strong>
+                  <strong>Atualizando e reconciliando evidências</strong>
                   <span>{percentage}%</span>
                 </div>
                 <progress
@@ -101,7 +105,7 @@ export function PortfolioPage() {
                 />
                 <div className="live-refresh-status__meta">
                   <span aria-live="polite">{completed} de {total} unidades concluídas</span>
-                  <span>Consultando PDDEInfo e SIGEF</span>
+                  <span>PDDEInfo + SIGEF · cruzamento temporal e bancário</span>
                 </div>
                 <small>O retrato atual permanece disponível durante a atualização.</small>
               </div>
@@ -127,13 +131,15 @@ export function PortfolioPage() {
 
       {state.refreshComparison ? <RefreshComparisonPanel comparison={state.refreshComparison} /> : null}
 
+      <ManagerialQuestionsPanel />
+
       <section className="section financial-entry" aria-labelledby="financial-entry-title">
         <div className="section-heading financial-entry__heading">
           <div>
             <div className="eyebrow">Acesso rápido</div>
-            <h2 id="financial-entry-title">O que você precisa consultar?</h2>
+            <h2 id="financial-entry-title">Ir direto à escola ou à pergunta</h2>
           </div>
-          <p>Comece pela escola ou abra diretamente a visão de repasses, saldos e contas.</p>
+          <p>Os detalhes técnicos continuam disponíveis, mas deixam de disputar espaço com a leitura gerencial.</p>
         </div>
         <div className="financial-entry__grid">
           <GlobalSchoolFinder schools={portfolio.schools} />
@@ -141,47 +147,55 @@ export function PortfolioPage() {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="position-title">
-        <div className="section-heading">
-          <div>
-            <div className="eyebrow">Posição financeira</div>
-            <h2 id="position-title">2026 em números</h2>
-          </div>
-          <p>{portfolio.referenceLabel}</p>
-        </div>
-        <div className="metrics-band">
-          <MetricValue label="Previsto em 2026" valueCents={portfolio.metrics.programmedCents} meta={`${portfolio.schoolCount} unidades`} />
-          <MetricValue label="Pagamento informado" valueCents={portfolio.metrics.paymentInformedCents} tone="paid" meta="Registro no PDDEInfo" />
-          <MetricValue label="Crédito compatível localizado" valueCents={portfolio.metrics.creditLocatedCents} tone="credit" meta="Evidência localizada no extrato" />
-          <MetricValue label="Saldo informado" valueCents={portfolio.metrics.reportedBalanceCents} tone="balance" meta={portfolio.referenceLabel.replace(/^Posição financeira pública disponível /, '')} />
-        </div>
-        <div className="reference-note" aria-label={portfolio.referenceLabel}>
-          <div>
-            <span className="reference-note__eyebrow">Referência dos saldos</span>
-            <strong>{portfolio.referenceLabel}</strong>
-          </div>
-          <span className="reference-note__coverage">{portfolio.metrics.accountsWithPosition} de {portfolio.metrics.accountsTotal} contas com posição nessa referência</span>
-        </div>
-      </section>
-
-      <PortfolioExecutiveOverview portfolio={portfolio} />
-
-      {visibleIndicators.length > 0 ? (
-        <section className="section" aria-labelledby="attention-title">
-          <div className="section-heading">
-            <div>
-              <div className="eyebrow">Acompanhamento</div>
-              <h2 id="attention-title">Onde vale olhar agora</h2>
+      <details className="technical-disclosure">
+        <summary>
+          <span>Indicadores técnicos, cobertura e fontes</span>
+          <small>Abra para auditoria detalhada do retrato atual.</small>
+        </summary>
+        <div className="technical-disclosure__content">
+          <section className="section" aria-labelledby="position-title">
+            <div className="section-heading">
+              <div>
+                <div className="eyebrow">Posição financeira</div>
+                <h2 id="position-title">2026 em números</h2>
+              </div>
+              <p>{portfolio.referenceLabel}</p>
             </div>
-            <p>Cada número abre exatamente as unidades que o compõem. O destaque indica necessidade de consulta, não uma conclusão automática de irregularidade.</p>
-          </div>
-          <div className="indicator-list">
-            {visibleIndicators.map((indicator) => <IndicatorLink key={indicator.label} indicator={indicator} />)}
-          </div>
-        </section>
-      ) : null}
+            <div className="metrics-band">
+              <MetricValue label="Previsto em 2026" valueCents={portfolio.metrics.programmedCents} meta={`${portfolio.schoolCount} unidades`} />
+              <MetricValue label="Pagamento informado" valueCents={portfolio.metrics.paymentInformedCents} tone="paid" meta="Registro no PDDEInfo" />
+              <MetricValue label="Crédito compatível localizado" valueCents={portfolio.metrics.creditLocatedCents} tone="credit" meta="Evidência localizada no extrato" />
+              <MetricValue label="Saldo informado" valueCents={portfolio.metrics.reportedBalanceCents} tone="balance" meta={portfolio.referenceLabel.replace(/^Posição financeira pública disponível /, '')} />
+            </div>
+            <div className="reference-note" aria-label={portfolio.referenceLabel}>
+              <div>
+                <span className="reference-note__eyebrow">Referência dos saldos</span>
+                <strong>{portfolio.referenceLabel}</strong>
+              </div>
+              <span className="reference-note__coverage">{portfolio.metrics.accountsWithPosition} de {portfolio.metrics.accountsTotal} contas com posição nessa referência</span>
+            </div>
+          </section>
 
-      <SourceInfo sources={portfolio.sources} />
+          <PortfolioExecutiveOverview portfolio={portfolio} />
+
+          {visibleIndicators.length > 0 ? (
+            <section className="section" aria-labelledby="attention-title">
+              <div className="section-heading">
+                <div>
+                  <div className="eyebrow">Acompanhamento</div>
+                  <h2 id="attention-title">Indicadores técnicos de atenção</h2>
+                </div>
+                <p>Cada número abre exatamente as unidades que o compõem. O destaque indica necessidade de consulta, não conclusão automática de irregularidade.</p>
+              </div>
+              <div className="indicator-list">
+                {visibleIndicators.map((indicator) => <IndicatorLink key={indicator.label} indicator={indicator} />)}
+              </div>
+            </section>
+          ) : null}
+
+          <SourceInfo sources={portfolio.sources} />
+        </div>
+      </details>
     </main>
   );
 }
