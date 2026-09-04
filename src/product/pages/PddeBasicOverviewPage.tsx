@@ -67,10 +67,10 @@ export function PddeBasicOverviewPage() {
   )).length;
   const filters: Array<{ key: FilterMode; label: string; count: number }> = [
     { key: 'all', label: 'Todas', count: monitoring.schoolCount },
-    { key: 'first_pending', label: '1ª/P1 sem pagamento', count: monitoring.firstPendingCount },
-    { key: 'second_paid', label: '2ª/P2 paga', count: monitoring.secondPaidCount },
+    { key: 'first_pending', label: '1ª/P1 sem pagamento informado', count: monitoring.firstPendingCount },
+    { key: 'second_paid', label: '2ª/P2 com pagamento informado', count: monitoring.secondPaidCount },
     { key: 'credit_located', label: 'Crédito localizado', count: monitoring.firstCreditLocatedCount },
-    { key: 'temporal_gap', label: 'Saldo anterior ao pagamento', count: monitoring.balanceBeforePaymentCount },
+    { key: 'temporal_gap', label: 'Saldo anterior ao pagamento informado', count: monitoring.balanceBeforePaymentCount },
     { key: 'evidence_gap', label: 'Evidência a completar', count: monitoring.firstNeedsSourceEscalationCount },
     { key: 'coherence_alert', label: 'Inconsistência real', count: monitoring.trueInconsistencyCount },
     { key: 'checking', label: 'Valor em conta', count: monitoring.checkingPositiveCount },
@@ -83,7 +83,7 @@ export function PddeBasicOverviewPage() {
       <h1>Parcelas, evidência bancária e localização do saldo</h1>
       <p className="lead">
         A tela separa três perguntas diferentes: o FNDE informou o pagamento? o crédito foi localizado no extrato?
-        e a posição de saldo disponível é posterior ao pagamento? Só dados temporalmente comparáveis são tratados como possível inconsistência.
+        e a posição de saldo disponível é posterior ao pagamento informado? Só dados temporalmente comparáveis são tratados como possível inconsistência.
       </p>
 
       <section className="section pdde-basic-summary" aria-label="Resumo do PDDE Básico">
@@ -104,14 +104,14 @@ export function PddeBasicOverviewPage() {
             <small>Evidência bancária mais forte que o simples “pagamento informado”.</small>
           </article>
           <article data-tone={monitoring.balanceBeforePaymentCount > 0 ? 'application' : 'neutral'}>
-            <span>Saldo publicado anterior ao pagamento</span>
+            <span>Saldo publicado anterior ao pagamento informado</span>
             <strong>{monitoring.balanceBeforePaymentCount} escolas</strong>
             <small>{staleZeroCount} aparecem zeradas por essa defasagem e não devem ser tratadas como contradição.</small>
           </article>
           <article data-tone={monitoring.trueInconsistencyCount > 0 ? 'attention' : 'positive'}>
             <span>Inconsistência temporalmente comparável</span>
             <strong>{monitoring.trueInconsistencyCount}</strong>
-            <small>Pagamento anterior/igual à referência, mas saldo posterior zerado e sem crédito localizado.</small>
+            <small>Data do pagamento informado anterior/igual à referência, mas saldo posterior zerado e sem crédito localizado.</small>
           </article>
           <article data-tone="checking">
             <span>Saldo PDDE positivo</span>
@@ -153,8 +153,8 @@ export function PddeBasicOverviewPage() {
             <h2 id="pdde-basic-table-title">{visibleRows.length} unidades no recorte</h2>
           </div>
           <p>
-            Saldo positivo depois do pagamento é coerente, mas não prova sozinho o crédito específico.
-            Saldo anterior ao pagamento não é usado para negar o recebimento.
+            Saldo positivo depois do pagamento informado é coerente, mas não prova sozinho o crédito específico.
+            Saldo anterior ao pagamento informado não é usado para negar nem confirmar o recebimento.
           </p>
         </div>
 
