@@ -21,6 +21,7 @@ type FilterMode =
   | 'first_pending'
   | 'second_paid'
   | 'sigef_evidence'
+  | 'stale_extract'
   | 'current_location_unknown'
   | 'comparable_checking'
   | 'comparable_application'
@@ -69,10 +70,12 @@ function matchesFilter(
   row: PddeBasicSchoolReading,
   filter: FilterMode,
   hasSigefEvidence: boolean,
+  staleExtract: boolean,
 ): boolean {
   if (filter === 'first_pending') return row.first.state !== 'PAID_INFORMED';
   if (filter === 'second_paid') return row.second.state === 'PAID_INFORMED';
   if (filter === 'sigef_evidence') return hasSigefEvidence;
+  if (filter === 'stale_extract') return staleExtract;
   if (filter === 'current_location_unknown') return row.first.state === 'PAID_INFORMED' && !balanceIsComparable(row);
   if (filter === 'comparable_checking') return balanceIsComparable(row) && (row.balance.checkingCents ?? 0) > 0;
   if (filter === 'comparable_application') return balanceIsComparable(row) && (row.balance.applicationsCents ?? 0) > 0;
@@ -103,15 +106,22 @@ export function PddeBasicOverviewPage() {
   const sigefEvidenceCount = monitoring.rows.filter((row) => (
     releaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
   )).length;
+  const staleExtractCount = monitoring.rows.filter((row) => (
+    releaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
+  )).length;
   const sigefEvidenceGapCount = monitoring.firstPaidCount - sigefEvidenceCount;
 
   const visibleRows = useMemo(() => monitoring.rows
     .filter((row) => schoolMatchesSearch(row, query))
-    .filter((row) => matchesFilter(
-      row,
-      filter,
-      releaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true,
-    )), [filter, monitoring.rows, query, releaseEvidenceByInep]);
+    .filter((row) => {
+      const release = releaseEvidenceByInep.get(row.inep);
+      return matchesFilter(
+        row,
+        filter,
+        release?.hasIndependentSigefEvidence === true,
+        release?.extractFreshness === 'STALE_BEFORE_RELEASE',
+      );
+    }), [filter, monitoring.rows, query, releaseEvidenceByInep]);
 
   if (details.status === 'loading') return <main className="page loading"><p>Carregando acompanhamento do PDDE Básico…</p></main>;
   if (details.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir o acompanhamento do PDDE Básico.</strong><span>{details.error}</span></div></main>;
@@ -121,6 +131,7 @@ export function PddeBasicOverviewPage() {
     { key: 'first_pending', label: '1º ciclo sem pagamento informado', count: monitoring.firstPendingCount },
     { key: 'second_paid', label: '2º ciclo com pagamento informado', count: monitoring.secondPaidCount },
     { key: 'sigef_evidence', label: 'Evidência SIGEF do 1º ciclo', count: sigefEvidenceCount },
+    { key: 'stale_extract', label: 'Extrato SIGEF defasado', count: staleExtractCount },
     { key: 'current_location_unknown', label: 'Localização atual não comprovada', count: currentLocationUnknownCount },
     { key: 'comparable_checking', label: 'Posição comparável com valor em conta', count: comparableCheckingCount },
     { key: 'comparable_application', label: 'Posição comparável com valor aplicado', count: comparableApplicationCount },
@@ -148,6 +159,11 @@ export function PddeBasicOverviewPage() {
             <span>1º ciclo com evidência independente no SIGEF</span>
             <strong>{sigefEvidenceCount} de {monitoring.firstPaidCount}</strong>
             <small>{monitoring.firstCreditLocatedCount} com crédito no extrato; os demais podem ter liberação/OB localizada. {sigefEvidenceGapCount} sem essa segunda evidência.</small>
+          </article>
+          <article data-tone={staleExtractCount === 0 ? 'positive' : 'attention'}>
+            <span>Extrato SIGEF defasado em relação à liberação</span>
+            <strong>{staleExtractCount}</strong>
+            <small>Quando a cobertura do extrato termina antes da liberação, ausência de crédito não é tratada como ausência de repasse.</small>
           </article>
           <article data-tone={currentLocationUnknownCount === 0 ? 'positive' : 'attention'}>
             <span>Posição de saldo temporalmente comparável ao 1º ciclo</span>
@@ -233,6 +249,7 @@ export function PddeBasicOverviewPage() {
                     key={row.inep}
                     data-first-pending={row.first.state !== 'PAID_INFORMED' || undefined}
                     data-coherence-alert={row.firstEvidence.isContradiction || undefined}
+                    data-stale-extract={release?.extractFreshness === 'STALE_BEFORE_RELEASE' || undefined}
                   >
                     <td>
                       <Link to={`/unidades/${row.inep}#contas-saldos`}><strong>{row.name}</strong></Link>
@@ -247,8 +264,9 @@ export function PddeBasicOverviewPage() {
                     </td>
                     <td>
                       <span className="pdde-basic-evidence" data-state={(release?.state ?? 'NO_RELEASE_EVIDENCE').toLowerCase()}>
-                        {pddeBasicReleaseEvidenceLabel(release?.state ?? 'NO_RELEASE_EVIDENCE')}
+                        {pddeBasicReleaseEvidenceLabel(release ?? 'NO_RELEASE_EVIDENCE')}
                       </span>
+                      {release?.orderBank ? <small>OB {release.orderBank} · liberação {formatDate(release.releaseDate)}</small> : null}
                     </td>
                     <td>
                       <strong>{account ? `${account.bank} · ag. ${account.agency} · cc ${account.number}` : 'Não identificada'}</strong>
@@ -262,7 +280,7 @@ export function PddeBasicOverviewPage() {
                       <strong>{formatDate(row.balance.referenceDate)}</strong>
                       <small>
                         {row.balance.referenceDate
-                          ? `${pddeBasicBalanceLocationLabel(row.balance.location)} · total ${formatMoney(row.balance.totalCents)}`
+                          ? `${pddeBasicBalanceLocationLabel(row.balance.location)} · total ${formatMoney(row.balance.totalCents)}${!comparable && row.first.state === 'PAID_INFORMED' ? ' · posição histórica para este repasse' : ''}`
                           : 'Sem posição pública.'}
                       </small>
                     </td>
@@ -277,9 +295,11 @@ export function PddeBasicOverviewPage() {
                       <span className="pdde-basic-evidence" data-state={row.firstEvidence.state.toLowerCase()}>
                         {pddeBasicEvidenceStateLabel(row.firstEvidence.state)}
                       </span>
-                      {!release?.hasIndependentSigefEvidence && row.first.state === 'PAID_INFORMED'
-                        ? <small>Continuar escalonamento para fonte complementar permitida.</small>
-                        : null}
+                      {release?.extractFreshness === 'STALE_BEFORE_RELEASE'
+                        ? <small>Extrato individual defasado; procurar extrato público mais novo ou posição de saldo posterior.</small>
+                        : !release?.hasIndependentSigefEvidence && row.first.state === 'PAID_INFORMED'
+                          ? <small>Continuar escalonamento para fonte complementar permitida.</small>
+                          : null}
                     </td>
                   </tr>
                 );
