@@ -1,8 +1,11 @@
-# Estado operacional atual — 19/08/2026
+> [!IMPORTANT]
+> **DOCUMENTO HISTÓRICO.** Este arquivo registra a fotografia operacional de 19/08/2026. Foi supersedido primeiro pelo estado de 30/08 e, depois, pelo estado soberano de 04/09/2026. Para qualquer decisão presente, comece por [`LEIA_PRIMEIRO.md`](LEIA_PRIMEIRO.md) e [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md).
 
-Este documento é o **índice factual do estado corrente** da Plataforma de Inteligência Financeira PDDE | 4ª CRE. Documentos com datas anteriores continuam úteis como baseline, auditoria ou registro de decisão, mas não devem ser usados isoladamente para concluir o que está ou não implantado hoje.
+# Estado operacional — fotografia de 19/08/2026
 
-## Escopo corrente
+Este documento foi o índice factual do estado corrente **naquela data**. Ele permanece preservado para reconstrução histórica e não deve determinar próximos passos atuais.
+
+## Escopo naquele checkpoint
 
 - Carteira institucional: **163 unidades escolares da 4ª CRE / SME-Rio**.
 - Exercício operacional: **2026**.
@@ -10,72 +13,69 @@ Este documento é o **índice factual do estado corrente** da Plataforma de Inte
 - `extrator-pdde-4cre`: referência histórica/técnica.
 - `EXTRATOR-PDDE-MANUS`: projeto paralelo somente leitura para este fluxo.
 
-## O que está materializado
+## Capacidades materializadas naquele momento
 
 ### Coleta e inteligência financeira
 
 - consulta PDDEInfo por INEP;
-- coleta do extrato público SIGEF para contas elegíveis;
+- extrato público SIGEF para contas elegíveis;
 - conciliação determinística entre pagamento informado e crédito compatível;
 - recuperação complementar de conta/liberação no SIGEF quando aplicável;
 - relatórios públicos complementares do PDDEInfo/FNDE para atendimento, prestação de contas e saldos;
 - snapshots e série mensal de saldos/aplicações de 2026;
-- classificação auxiliar neutra das movimentações, preservando histórico/documento original;
-- job institucional `MONITORING` implementado em código;
-- read model fiscal/técnico e read model financeiro humano separados;
+- classificação auxiliar neutra das movimentações;
+- job institucional `MONITORING` em código;
+- read model fiscal/técnico e humano separados;
 - Excel humano e Excel técnico/auditoria.
 
-### Produto web publicado
-
-O frontend React/Vite está publicado no Vercel e possui:
+### Produto web naquele momento
 
 - Home financeira;
 - busca por escola;
 - carteira das 163 unidades;
-- visões consolidadas de **Repasses** e **Saldos e contas**;
+- visões consolidadas de Repasses e Saldos e contas;
 - indicadores acionáveis;
 - prontuário financeiro por escola;
-- navegação por `Resumo`, `Repasses`, `Contas e saldos`, `Movimentações` e `Prestação de contas` quando houver dados;
+- navegação por Resumo, Repasses, Contas e saldos, Movimentações e Prestação de contas quando havia dados;
 - composição do saldo e série mensal;
 - extrato de movimentações;
-- consulta ao vivo da carteira com progresso por unidade;
-- preservação do retrato anterior quando a atualização falha ou termina parcial;
-- deep links da SPA no ambiente Vercel.
+- consulta ao vivo com progresso por unidade;
+- proteção contra resultado parcial substituir o retrato anterior;
+- deep links da SPA no Vercel.
 
-## O que ainda não está implantado definitivamente
+## Limitações registradas naquele checkpoint
 
-- **Supabase dedicado** para esta plataforma;
-- aplicação das migrations no banco canônico definitivo;
-- persistência durável das consultas disparadas pelo site;
-- fila/worker institucional permanentemente conectado ao frontend publicado;
-- persistência durável de artefatos/evidências das consultas web em infraestrutura dedicada;
-- credencial oficial e ativação do Portal da Transparência como fonte operacional;
-- PDF executivo final.
+- Supabase dedicado ainda não implantado definitivamente;
+- migrations ainda não aplicadas no banco canônico definitivo;
+- persistência durável das consultas disparadas pelo site ainda não ligada;
+- fila/worker institucional não permanentemente conectado ao frontend;
+- persistência durável de artefatos/evidências ainda pendente;
+- Portal da Transparência sem credencial operacional;
+- PDF executivo final pendente.
 
-Enquanto o Supabase dedicado não for conectado, uma consulta ao vivo completa atualiza a sessão do navegador. Recarregar a página retorna ao retrato estável publicado.
+A frase antiga de que recarregar a página sempre retornaria ao retrato estável publicado foi **parcialmente supersedida em 04/09**, quando a promoção automática do snapshot integral validado passou a atualizar duravelmente o retrato publicado via `main`/Vercel.
 
-## Regras financeiras que continuam obrigatórias
+## Regras financeiras deste documento que continuam válidas
 
-1. `Pagamento informado` não equivale a crédito bancário.
-2. Ordem FNDE/OB e crédito observado são fatos distintos.
-3. A expressão humana preferida é `Crédito compatível localizado`, salvo evidência mais forte.
-4. Saldo sempre carrega data de referência; não é saldo bancário em tempo real.
-5. Saldo aplicado não é rendimento.
-6. Ausência de dado não é zero.
-7. Cobertura parcial não prova ausência.
-8. Dados históricos não completam silenciosamente lacunas de 2026.
-9. Fontes independentes não se sobrescrevem.
-10. Conciliação financeira é determinística e testável; IA não decide regularidade financeira.
+1. pagamento informado não equivale a crédito bancário;
+2. ordem/liberação e crédito observado são fatos distintos;
+3. preferir a expressão humana `Crédito compatível localizado` quando essa é a força real da evidência;
+4. saldo carrega data de referência;
+5. saldo aplicado não é rendimento;
+6. ausência não é zero;
+7. cobertura parcial não prova ausência;
+8. histórico não completa lacunas de 2026;
+9. fontes independentes não se sobrescrevem;
+10. conciliação financeira é determinística e testável.
 
-## Hierarquia documental
+## Hierarquia documental atual
 
-Para evitar que fotografias antigas do projeto sejam confundidas com estado corrente:
+A antiga hierarquia deste arquivo está revogada. A hierarquia vigente é a definida em:
 
-1. **README.md** — visão operacional resumida atual;
-2. **este documento** — estado corrente consolidado;
-3. `FONTES_E_REGRAS.md` — regras de evidência e maturidade das fontes;
-4. `VISUAL_PRODUCT_CONSTITUTION_2026.md` — princípios permanentes de apresentação;
-5. `DECISOES.md` — registro datado de decisões, não status operacional;
-6. `BASELINE_*.md`, auditorias e planos datados — fotografias históricas que permanecem válidas apenas no contexto de sua data.
+1. `AGENTS.md`;
+2. `docs/LEIA_PRIMEIRO.md`;
+3. `docs/ESTADO_ATUAL_2026-09-04.md` ou sucessor soberano posterior;
+4. `docs/CONTINUIDADE_WORK.md`;
+5. `docs/INDICE_DOCUMENTAL.md`.
 
-Em caso de conflito sobre **o que existe hoje**, prevalecem o código da `main`, os testes/verificações do commit corrente, o README e este estado operacional, nessa ordem.
+Para entender a evolução entre este checkpoint e 04/09, consulte `docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md`.
