@@ -1,0 +1,1 @@
+Branch pronta para PR de validação real.
