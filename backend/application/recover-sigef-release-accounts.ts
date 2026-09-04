@@ -48,7 +48,7 @@ export interface SigefReleaseAccountRecovery {
   action: string;
   installment: string | null;
   amountCents: number;
-  status: 'RECOVERED' | 'NOT_FOUND' | 'AMBIGUOUS' | 'ERROR';
+  status: 'RECOVERED' | 'CONFIRMED' | 'ACCOUNT_MISMATCH' | 'NOT_FOUND' | 'AMBIGUOUS' | 'ERROR';
   account: BankAccount | null;
   paymentDate: string | null;
   orderBank: string | null;
@@ -151,6 +151,40 @@ function uniqueRelease(repasse: RawRepasse, releases: readonly SigefRelease[]): 
 
 function accountKey(programCode: string, account: BankAccount): string {
   return `${programCode}|${canonicalAccount(account)}`;
+}
+
+function repasseKey(input: {
+  schoolInep: string;
+  programCode: string;
+  action: string;
+  installment: string | null;
+  amountCents: number;
+  orderDate: string | null;
+}): string {
+  return [
+    input.schoolInep,
+    input.programCode,
+    canonicalText(input.action),
+    canonicalText(input.installment ?? ''),
+    String(input.amountCents),
+    input.orderDate ?? '',
+  ].join('|');
+}
+
+function needsReleaseEscalation(options: RecoverSigefReleaseAccountsOptions): Set<string> {
+  return new Set(options.base.operational.repasses
+    .filter((repasse) => (
+      repasse.amountPaidInformedCents > 0
+      && repasse.bankCreditStatus !== 'CREDITO_CONFIRMADO'
+    ))
+    .map((repasse) => repasseKey({
+      schoolInep: repasse.school.inep,
+      programCode: repasse.programCode,
+      action: repasse.action,
+      installment: repasse.installment,
+      amountCents: repasse.amountPaidInformedCents,
+      orderDate: repasse.orderDate,
+    })));
 }
 
 function accountResult(input: {
@@ -269,12 +303,22 @@ export async function recoverSigefReleaseAccounts(
   const workspacePath = resolve(options.workspacePath);
   const raw = structuredClone(options.base.raw) as RawMonitoring & { accountRecoveries: SigefReleaseAccountRecovery[] };
   raw.accountRecoveries = [];
+  const escalationKeys = needsReleaseEscalation(options);
 
   const groups: Array<{ school: RawSchool; programCode: string; repasses: RawRepasse[] }> = [];
   for (const school of raw.schools) {
     const pendingByProgram = new Map<string, RawRepasse[]>();
     for (const repasse of school.repasses) {
-      if (repasse.pagoInformadoCents <= 0 || repasse.account) continue;
+      if (repasse.pagoInformadoCents <= 0) continue;
+      const key = repasseKey({
+        schoolInep: school.inep,
+        programCode: repasse.programCode,
+        action: repasse.action,
+        installment: repasse.installment,
+        amountCents: repasse.pagoInformadoCents,
+        orderDate: repasse.dataOrdem,
+      });
+      if (!escalationKeys.has(key)) continue;
       const list = pendingByProgram.get(repasse.programCode) ?? [];
       list.push(repasse);
       pendingByProgram.set(repasse.programCode, list);
@@ -310,7 +354,7 @@ export async function recoverSigefReleaseAccounts(
           installment: repasse.installment,
           amountCents: repasse.pagoInformadoCents,
           status: 'ERROR',
-          account: null,
+          account: repasse.account ? { ...repasse.account } : null,
           paymentDate: null,
           orderBank: null,
           sourceUrl: null,
@@ -331,7 +375,7 @@ export async function recoverSigefReleaseAccounts(
           installment: repasse.installment,
           amountCents: repasse.pagoInformadoCents,
           status: match.status,
-          account: null,
+          account: repasse.account ? { ...repasse.account } : null,
           paymentDate: null,
           orderBank: null,
           sourceUrl: collection.sourceUrl,
@@ -339,7 +383,18 @@ export async function recoverSigefReleaseAccounts(
         });
         continue;
       }
-      repasse.account = { ...match.release.destinationAccount };
+
+      const releasedAccount = { ...match.release.destinationAccount };
+      let status: SigefReleaseAccountRecovery['status'];
+      if (!repasse.account) {
+        repasse.account = releasedAccount;
+        status = 'RECOVERED';
+      } else if (canonicalAccount(repasse.account) === canonicalAccount(releasedAccount)) {
+        status = 'CONFIRMED';
+      } else {
+        status = 'ACCOUNT_MISMATCH';
+      }
+
       raw.accountRecoveries.push({
         schoolInep: group.school.inep,
         schoolCnpj: canonicalCnpj(group.school.cnpj),
@@ -347,8 +402,8 @@ export async function recoverSigefReleaseAccounts(
         action: repasse.action,
         installment: repasse.installment,
         amountCents: repasse.pagoInformadoCents,
-        status: 'RECOVERED',
-        account: { ...match.release.destinationAccount },
+        status,
+        account: releasedAccount,
         paymentDate: match.release.paymentDate,
         orderBank: match.release.orderBank,
         sourceUrl: collection.sourceUrl,

@@ -132,11 +132,13 @@ async function smoke(viewport, suffix) {
 
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
-  await page.getByRole('heading', { name: 'O que você precisa consultar?' }).waitFor();
+  await page.getByRole('heading', { name: 'Ir direto à escola ou à pergunta' }).waitFor();
   await page.getByText(/163 unidades/i).first().waitFor();
   await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
   await assertNoHorizontalOverflow(page);
+  await page.getByText('Indicadores técnicos, cobertura e fontes', { exact: true }).click();
+  await page.getByRole('heading', { name: '2026 em números' }).waitFor();
   await assertPrimaryMetricsFit(page);
   await assertFormattedSmeSearch(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
@@ -151,7 +153,7 @@ async function smoke(viewport, suffix) {
 
   const pages = [
     ['/repasses', 'Repasses', 'repasses'],
-    ['/pdde-basico', '1ª e 2ª parcelas + localização do saldo', 'pdde-basico'],
+    ['/pdde-basico', 'Parcelas, evidência bancária e localização do saldo', 'pdde-basico'],
     ['/saldos', 'Contas e Saldos', 'saldos'],
     ['/evolucao', 'Evolução Mensal', 'evolucao'],
     ['/movimentacoes', 'Movimentações', 'movimentacoes'],

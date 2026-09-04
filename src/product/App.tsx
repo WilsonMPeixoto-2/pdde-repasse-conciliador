@@ -28,6 +28,7 @@ import './design/coherence-fixes.css';
 import './design/school-operational.css';
 import './design/movement-ledger.css';
 import './design/information-universe.css';
+import './design/managerial-coherence.css';
 
 export function App() {
   return (

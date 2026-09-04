@@ -216,12 +216,27 @@ async function preserveJsonArtifact(input: {
   });
 }
 
+function releaseEvidenceText(recovery: SigefReleaseAccountRecovery): string | null {
+  const order = recovery.orderBank ? ` pela OB ${recovery.orderBank}` : '';
+  if (recovery.status === 'RECOVERED') {
+    return `Conta recuperada no SIGEF Liberações${order}.`;
+  }
+  if (recovery.status === 'CONFIRMED') {
+    return `SIGEF Liberações localizou a liberação${order} para a mesma conta informada; isso confirma a ordem/destino, mas não substitui a localização do crédito no extrato.`;
+  }
+  if (recovery.status === 'ACCOUNT_MISMATCH') {
+    return `SIGEF Liberações localizou a liberação${order} para conta diferente da conta corrente apresentada; requer conferência entre as fontes.`;
+  }
+  return null;
+}
+
 function annotateRecoveredAccounts(
   human: ReturnType<typeof buildHumanFinancialView>,
   recoveries: readonly SigefReleaseAccountRecovery[],
 ): void {
   for (const recovery of recoveries) {
-    if (recovery.status !== 'RECOVERED' || !recovery.account) continue;
+    const evidence = releaseEvidenceText(recovery);
+    if (!evidence) continue;
     const school = human.schools.find((item) => item.school.inep === recovery.schoolInep);
     if (!school) continue;
     const program = school.programs.find((item) => item.name === recovery.action);
@@ -231,9 +246,6 @@ function annotateRecoveredAccounts(
       && item.paymentInformedCents === recovery.amountCents
     ));
     if (!installment) continue;
-    const evidence = recovery.orderBank
-      ? `Conta recuperada no SIGEF Liberações pela OB ${recovery.orderBank}.`
-      : 'Conta recuperada no SIGEF Liberações.';
     installment.note = installment.note ? `${installment.note} ${evidence}` : evidence;
   }
 }

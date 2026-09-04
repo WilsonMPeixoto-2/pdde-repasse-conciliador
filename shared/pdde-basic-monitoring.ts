@@ -7,11 +7,28 @@ export type PddeBasicBalanceLocation =
   | 'NO_POSITION'
   | 'POSITIVE_UNCOMPOSED';
 
+export type PddeBasicEvidenceState =
+  | 'CREDIT_LOCATED'
+  | 'BALANCE_REFERENCE_BEFORE_PAYMENT'
+  | 'POSITIVE_BALANCE_AFTER_PAYMENT'
+  | 'ZERO_BALANCE_AFTER_PAYMENT'
+  | 'NO_BALANCE_POSITION'
+  | 'PAYMENT_DATE_UNAVAILABLE'
+  | 'PAYMENT_NOT_INFORMED';
+
+interface CreditEvidenceLike {
+  status: string;
+  date?: string | null;
+  amountCents?: number | null;
+  document?: string | null;
+}
+
 interface InstallmentLike {
   installment: string | null;
   programmedCents: number;
   paymentInformedCents: number;
   paymentInformedDate: string | null;
+  creditEvidence?: CreditEvidenceLike;
 }
 
 interface ProgramLike {
@@ -47,6 +64,8 @@ export interface PddeBasicInstallmentReading {
   paymentInformedCents: number;
   paymentInformedDate: string | null;
   state: PddeBasicInstallmentState;
+  creditLocated: boolean;
+  creditLocatedCents: number;
 }
 
 export interface PddeBasicBalanceReading {
@@ -58,6 +77,14 @@ export interface PddeBasicBalanceReading {
   location: PddeBasicBalanceLocation;
 }
 
+export interface PddeBasicEvidenceReading {
+  state: PddeBasicEvidenceState;
+  creditLocated: boolean;
+  needsFreshBalance: boolean;
+  needsSourceEscalation: boolean;
+  isContradiction: boolean;
+}
+
 export interface PddeBasicSchoolReading {
   inep: string;
   sme: string;
@@ -65,6 +92,8 @@ export interface PddeBasicSchoolReading {
   first: PddeBasicInstallmentReading;
   second: PddeBasicInstallmentReading;
   balance: PddeBasicBalanceReading;
+  firstEvidence: PddeBasicEvidenceReading;
+  secondEvidence: PddeBasicEvidenceReading;
 }
 
 function normalize(value: string | null | undefined): string {
@@ -76,6 +105,21 @@ function normalize(value: string | null | undefined): string {
     .toUpperCase()
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function validIso2026Date(value: string | null | undefined): value is string {
+  if (!value || !/^2026-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
+function creditLocated(evidence: CreditEvidenceLike | undefined): boolean {
+  if (!evidence) return false;
+  return normalize(evidence.status) === 'CREDITO LOCALIZADO'
+    && (evidence.amountCents ?? 0) > 0;
 }
 
 function programTrack(name: string): 'regular' | 'infancy' | null {
@@ -119,7 +163,7 @@ function installmentReading(
   const paymentInformedCents = rows.reduce((total, row) => total + row.paymentInformedCents, 0);
   const dates = rows
     .map((row) => row.paymentInformedDate)
-    .filter((value): value is string => Boolean(value))
+    .filter(validIso2026Date)
     .sort();
   const tracks = new Set(rows.map((row) => row.track));
   const track = tracks.size > 1
@@ -129,6 +173,7 @@ function installmentReading(
       : tracks.has('regular')
         ? 'PDDE Básico'
         : 'Não identificado';
+  const locatedRows = rows.filter((row) => creditLocated(row.creditEvidence));
 
   return {
     track,
@@ -140,6 +185,8 @@ function installmentReading(
       : programmedCents > 0
         ? 'PROGRAMMED'
         : 'NOT_PROGRAMMED',
+    creditLocated: locatedRows.length > 0,
+    creditLocatedCents: locatedRows.reduce((total, row) => total + (row.creditEvidence?.amountCents ?? 0), 0),
   };
 }
 
@@ -157,7 +204,7 @@ function balanceReading(school: PddeBasicSchoolLike): PddeBasicBalanceReading {
   const accounts = school.accounts.filter((account) => isPddeBasicAccount(account.program));
   const referenceDate = accounts
     .map((account) => account.latestPosition?.referenceDate ?? null)
-    .filter((value): value is string => Boolean(value))
+    .filter(validIso2026Date)
     .sort()
     .at(-1) ?? null;
 
@@ -205,14 +252,92 @@ function balanceReading(school: PddeBasicSchoolLike): PddeBasicBalanceReading {
   };
 }
 
+function evidenceReading(
+  installment: PddeBasicInstallmentReading,
+  balance: PddeBasicBalanceReading,
+): PddeBasicEvidenceReading {
+  if (installment.state !== 'PAID_INFORMED') {
+    return {
+      state: 'PAYMENT_NOT_INFORMED',
+      creditLocated: false,
+      needsFreshBalance: false,
+      needsSourceEscalation: false,
+      isContradiction: false,
+    };
+  }
+
+  if (installment.creditLocated) {
+    return {
+      state: 'CREDIT_LOCATED',
+      creditLocated: true,
+      needsFreshBalance: false,
+      needsSourceEscalation: false,
+      isContradiction: false,
+    };
+  }
+
+  if (!installment.paymentInformedDate) {
+    return {
+      state: 'PAYMENT_DATE_UNAVAILABLE',
+      creditLocated: false,
+      needsFreshBalance: balance.referenceDate === null,
+      needsSourceEscalation: true,
+      isContradiction: false,
+    };
+  }
+
+  if (!balance.referenceDate || balance.totalCents === null) {
+    return {
+      state: 'NO_BALANCE_POSITION',
+      creditLocated: false,
+      needsFreshBalance: true,
+      needsSourceEscalation: true,
+      isContradiction: false,
+    };
+  }
+
+  if (balance.referenceDate < installment.paymentInformedDate) {
+    return {
+      state: 'BALANCE_REFERENCE_BEFORE_PAYMENT',
+      creditLocated: false,
+      needsFreshBalance: true,
+      needsSourceEscalation: true,
+      isContradiction: false,
+    };
+  }
+
+  if (balance.totalCents > 0) {
+    return {
+      state: 'POSITIVE_BALANCE_AFTER_PAYMENT',
+      creditLocated: false,
+      needsFreshBalance: false,
+      needsSourceEscalation: true,
+      isContradiction: false,
+    };
+  }
+
+  return {
+    state: 'ZERO_BALANCE_AFTER_PAYMENT',
+    creditLocated: false,
+    needsFreshBalance: false,
+    needsSourceEscalation: true,
+    isContradiction: true,
+  };
+}
+
 export function derivePddeBasicSchoolReading(school: PddeBasicSchoolLike): PddeBasicSchoolReading {
+  const first = installmentReading(school, 'first');
+  const second = installmentReading(school, 'second');
+  const balance = balanceReading(school);
   return {
     inep: school.school.inep,
     sme: school.school.sme,
     name: school.school.name,
-    first: installmentReading(school, 'first'),
-    second: installmentReading(school, 'second'),
-    balance: balanceReading(school),
+    first,
+    second,
+    balance,
+    firstEvidence: evidenceReading(first, balance),
+    secondEvidence: evidenceReading(second, balance),
   };
 }
 
@@ -228,6 +353,10 @@ export function derivePddeBasicPortfolio(schools: readonly PddeBasicSchoolLike[]
     firstPendingCount: rows.filter((row) => row.first.state !== 'PAID_INFORMED').length,
     firstRegularCount: rows.filter((row) => row.first.track === 'PDDE Básico').length,
     firstInfancyCount: rows.filter((row) => row.first.track === 'Primeira Infância').length,
+    firstCreditLocatedCount: rows.filter((row) => row.firstEvidence.creditLocated).length,
+    firstNeedsSourceEscalationCount: rows.filter((row) => row.firstEvidence.needsSourceEscalation).length,
+    balanceBeforePaymentCount: rows.filter((row) => row.firstEvidence.state === 'BALANCE_REFERENCE_BEFORE_PAYMENT').length,
+    trueInconsistencyCount: rows.filter((row) => row.firstEvidence.isContradiction).length,
     secondPaidCount: rows.filter((row) => row.second.state === 'PAID_INFORMED').length,
     secondPendingCount: rows.filter((row) => row.second.state !== 'PAID_INFORMED').length,
     secondRegularCount: rows.filter((row) => row.second.track === 'PDDE Básico').length,
@@ -255,4 +384,14 @@ export function pddeBasicBalanceLocationLabel(location: PddeBasicBalanceLocation
   if (location === 'ZERO') return 'Saldo zerado';
   if (location === 'POSITIVE_UNCOMPOSED') return 'Saldo positivo sem composição completa';
   return 'Sem posição publicada';
+}
+
+export function pddeBasicEvidenceStateLabel(state: PddeBasicEvidenceState): string {
+  if (state === 'CREDIT_LOCATED') return 'Crédito compatível localizado no SIGEF';
+  if (state === 'BALANCE_REFERENCE_BEFORE_PAYMENT') return 'O saldo é anterior ao pagamento; ainda não pode confirmar este repasse';
+  if (state === 'POSITIVE_BALANCE_AFTER_PAYMENT') return 'Saldo posterior positivo; situação coerente, mas o crédito específico ainda não foi localizado';
+  if (state === 'ZERO_BALANCE_AFTER_PAYMENT') return 'Saldo posterior zerado; requer cruzamento de movimentações e outras fontes';
+  if (state === 'NO_BALANCE_POSITION') return 'Sem posição de saldo posterior disponível';
+  if (state === 'PAYMENT_DATE_UNAVAILABLE') return 'Pagamento informado sem data válida para comparação temporal';
+  return 'Pagamento ainda não informado';
 }

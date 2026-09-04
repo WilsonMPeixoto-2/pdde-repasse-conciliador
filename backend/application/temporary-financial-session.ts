@@ -10,7 +10,7 @@ import {
   type RunFinancialIntelligenceMonitoringOptions,
 } from './run-financial-intelligence-monitoring';
 import type { MonitoringSchool } from './run-monitoring';
-import { buildHumanFinancialWorkbook } from '../report/human-financial-workbook';
+import { buildManagerialHumanFinancialWorkbook } from '../report/managerial-human-financial-workbook';
 
 export type TemporaryFinancialSessionPhase =
   | 'PREPARING'
@@ -94,7 +94,7 @@ export async function materializeTemporaryFinancialSession(
     expectedSchoolCount: input.expectedSchoolCount,
     human: input.human,
   });
-  const workbook = buildHumanFinancialWorkbook(input.human);
+  const workbook = buildManagerialHumanFinancialWorkbook(input.human);
   const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
 
   return {
