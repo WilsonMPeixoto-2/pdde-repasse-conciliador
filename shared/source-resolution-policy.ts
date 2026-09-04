@@ -10,6 +10,7 @@ export type ResolutionSource =
   | 'PDDEINFO'
   | 'SIGEF_EXTRATO'
   | 'SIGEF_LIBERACOES'
+  | 'SIGEF_EXTRATOS_PUBLICOS'
   | 'BB_GESTAO_AGIL'
   | 'PORTAL_TRANSPARENCIA'
   | 'SIGPC_PUBLICO'
@@ -35,7 +36,7 @@ const ACTIVE_SIGEF: ResolutionStep[] = [
   {
     source: 'SIGEF_EXTRATO',
     state: 'ACTIVE',
-    purpose: 'Procurar crédito, aplicação, resgate e demais movimentações da conta vinculada.',
+    purpose: 'Procurar crédito, aplicação, resgate e demais movimentações da conta vinculada; se a cobertura devolvida for anterior a uma liberação conhecida, tratar o extrato como defasado e continuar a investigação.',
   },
   {
     source: 'SIGEF_LIBERACOES',
@@ -44,10 +45,22 @@ const ACTIVE_SIGEF: ResolutionStep[] = [
   },
 ];
 
+const PUBLIC_BULK_EXTRACT: ResolutionStep = {
+  source: 'SIGEF_EXTRATOS_PUBLICOS',
+  state: 'PILOT_REQUIRED',
+  purpose: 'Consultar a área pública SIGEF “Extratos > Consultas Gerais” por exercício, programa e período. O índice público oferece o programa 02/PDDE em 2026; a coleta do arquivo só pode ser automatizada se houver rota reproduzível sem contornar CAPTCHA ou outro controle de acesso.',
+};
+
+const OPEN_BALANCE_DATA: ResolutionStep = {
+  source: 'FNDE_DADOS_ABERTOS',
+  state: 'PILOT_REQUIRED',
+  purpose: 'Buscar o conjunto mensal “Saldos das Contas das UEx - PDDE Básico - Públicas” e a execução financeira pública, exigindo referência 2026 e granularidade por UEx/escola antes de incorporá-los como evidência.',
+};
+
 const CURRENT_BANK_POSITION: ResolutionStep = {
   source: 'BB_GESTAO_AGIL',
   state: 'CREDENTIAL_REQUIRED',
-  purpose: 'Obter extrato bancário corrente e saldo das aplicações diretamente da solução oficial do Banco do Brasil usada pelo FNDE, quando houver credencial institucional autorizada.',
+  purpose: 'Fallback institucional: obter extrato corrente e saldo das aplicações na solução oficial do Banco do Brasil somente quando houver credencial institucional autorizada.',
 };
 
 const INDEPENDENT_PAYMENT_CHECKS: ResolutionStep[] = [
@@ -68,8 +81,14 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: false,
-      primaryAction: 'Buscar evidência bancária independente do pagamento informado.',
-      steps: [...ACTIVE_SIGEF, CURRENT_BANK_POSITION, ...INDEPENDENT_PAYMENT_CHECKS],
+      primaryAction: 'Buscar evidência bancária independente do pagamento informado, escalando por fontes públicas antes de depender de credencial institucional.',
+      steps: [
+        ...ACTIVE_SIGEF,
+        PUBLIC_BULK_EXTRACT,
+        OPEN_BALANCE_DATA,
+        ...INDEPENDENT_PAYMENT_CHECKS,
+        CURRENT_BANK_POSITION,
+      ],
     };
   }
 
@@ -77,11 +96,13 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: false,
-      primaryAction: 'Obter posição bancária posterior ao pagamento em fonte corrente; não usar saldo mensal antigo como localização atual.',
+      primaryAction: 'Obter posição posterior ao pagamento em outra fonte pública e preservar o saldo mensal antigo apenas como histórico; recorrer à fonte bancária autenticada somente se as rotas públicas não resolverem a lacuna.',
       steps: [
-        CURRENT_BANK_POSITION,
+        PUBLIC_BULK_EXTRACT,
+        OPEN_BALANCE_DATA,
         ACTIVE_SIGEF[0],
         ACTIVE_SIGEF[1],
+        CURRENT_BANK_POSITION,
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
@@ -96,16 +117,13 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: true,
-      primaryAction: 'Reconstruir a linha do tempo da conta para explicar crédito, aplicação, gasto, resgate, estorno ou ausência de evidência.',
+      primaryAction: 'Reconstruir a linha do tempo da conta em múltiplas fontes para explicar crédito, aplicação, gasto, resgate, estorno ou ausência de evidência.',
       steps: [
-        CURRENT_BANK_POSITION,
+        PUBLIC_BULK_EXTRACT,
+        OPEN_BALANCE_DATA,
         ...ACTIVE_SIGEF,
         ...INDEPENDENT_PAYMENT_CHECKS,
-        {
-          source: 'FNDE_DADOS_ABERTOS',
-          state: 'PILOT_REQUIRED',
-          purpose: 'Usar dados abertos como backfill/controle apenas quando o recurso comprovar cobertura temporal adequada.',
-        },
+        CURRENT_BANK_POSITION,
       ],
     };
   }
@@ -114,19 +132,16 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
     return {
       gap,
       contradiction: false,
-      primaryAction: 'Tentar localizar posição bancária corrente e movimentações sem converter ausência de publicação em saldo zero.',
+      primaryAction: 'Tentar localizar posição de saldo em fontes públicas alternativas e movimentações, sem converter ausência de publicação em saldo zero.',
       steps: [
+        PUBLIC_BULK_EXTRACT,
+        OPEN_BALANCE_DATA,
+        ...ACTIVE_SIGEF,
         CURRENT_BANK_POSITION,
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
           purpose: 'Reconsultar saldos publicados e cobertura mensal.',
-        },
-        ...ACTIVE_SIGEF,
-        {
-          source: 'FNDE_DADOS_ABERTOS',
-          state: 'PILOT_REQUIRED',
-          purpose: 'Usar saldos/dados históricos apenas se o recurso tiver referência compatível com 2026.',
         },
       ],
     };
@@ -139,12 +154,13 @@ export function resolutionPlanForGap(gap: FinancialGapKind): SourceResolutionPla
       primaryAction: 'Recuperar a conta destinatária do repasse sem inferir conta histórica.',
       steps: [
         ACTIVE_SIGEF[1],
-        CURRENT_BANK_POSITION,
+        PUBLIC_BULK_EXTRACT,
         {
           source: 'PDDEINFO',
           state: 'ACTIVE',
           purpose: 'Cruzar consulta por escola e relatório público de abertura/vínculo de conta quando disponível.',
         },
+        CURRENT_BANK_POSITION,
       ],
     };
   }
