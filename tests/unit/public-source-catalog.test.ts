@@ -44,8 +44,22 @@ describe('governança das novas fontes públicas', () => {
     }));
   });
 
+  test('SIGEF Extratos Gerais é público e fica em piloto até a descarga ser reproduzível sem contornar CAPTCHA', () => {
+    expect(SOURCE_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'SIGEF_EXTRATOS_PUBLICOS',
+      integrationState: 'PILOT_REQUIRED',
+      access: 'PUBLIC',
+      capabilities: expect.arrayContaining(['DATE_RANGE_FILTER', 'PROGRAM_FILTER']),
+    }));
+    expect(DATA_PRODUCT_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'SIGEF_EXTRATOS_PUBLICOS_2026',
+      sourceId: 'SIGEF_EXTRATOS_PUBLICOS',
+      state: 'PILOT_REQUIRED',
+    }));
+  });
+
   test('não apresenta fontes de pesquisa como integração corrente', () => {
-    for (const id of ['SIGPC_PUBLICO', 'FNDE_DADOS_ABERTOS', 'PDDE_MONITORING_PANELS'] as const) {
+    for (const id of ['SIGEF_EXTRATOS_PUBLICOS', 'SIGPC_PUBLICO', 'FNDE_DADOS_ABERTOS', 'PDDE_MONITORING_PANELS'] as const) {
       expect(SOURCE_CATALOG.find((item) => item.id === id)?.integrationState).toBe('PILOT_REQUIRED');
     }
   });
