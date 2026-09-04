@@ -59,12 +59,12 @@ export function ManagerialQuestionsPanel() {
 
       <div className="managerial-questions__grid">
         <Link className="managerial-answer" data-tone={monitoring.firstPendingCount === 0 ? 'positive' : 'attention'} to="/pdde-basico">
-          <span>Quem recebeu a 1ª parcela / P1?</span>
+          <span>Para quem o FNDE informa pagamento da 1ª parcela / P1?</span>
           <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
           <small>{monitoring.firstPendingCount === 0 ? 'Todas as escolas têm pagamento informado.' : `${monitoring.firstPendingCount} ainda sem pagamento informado.`}</small>
         </Link>
         <Link className="managerial-answer" data-tone={monitoring.secondPaidCount > 0 ? 'positive' : 'neutral'} to="/pdde-basico">
-          <span>Quem já recebeu a 2ª parcela / P2?</span>
+          <span>Para quem o FNDE informa pagamento da 2ª parcela / P2?</span>
           <strong>{monitoring.secondPaidCount} de {monitoring.schoolCount}</strong>
           <small>{monitoring.secondPendingCount} ainda sem pagamento informado.</small>
         </Link>
