@@ -56,14 +56,34 @@ function styleRows(sheet: ExcelJS.Worksheet, startRow: number): void {
   }
 }
 
+function resetSheet(sheet: ExcelJS.Worksheet): void {
+  for (const merged of [...sheet.model.merges]) sheet.unMergeCells(merged);
+  const lastRow = Math.max(sheet.rowCount, sheet.actualRowCount);
+  const lastColumn = Math.max(sheet.columnCount, sheet.actualColumnCount);
+  for (let rowNumber = 1; rowNumber <= lastRow; rowNumber += 1) {
+    const row = sheet.getRow(rowNumber);
+    row.height = undefined;
+    row.alignment = {};
+    for (let column = 1; column <= lastColumn; column += 1) {
+      const cell = row.getCell(column);
+      cell.value = null;
+      cell.style = {};
+    }
+  }
+  sheet.autoFilter = undefined;
+  sheet.views = [];
+}
+
 function answerRow(
   sheet: ExcelJS.Worksheet,
+  rowNumber: number,
   question: string,
   answer: string | number,
   explanation: string,
   tone: 'positive' | 'attention' | 'neutral' = 'neutral',
 ): void {
-  const row = sheet.addRow([question, answer, explanation]);
+  const row = sheet.getRow(rowNumber);
+  row.values = [question, answer, explanation];
   row.height = 42;
   row.alignment = { vertical: 'middle', wrapText: true };
   row.getCell(1).font = { bold: true, color: { argb: NAVY }, size: 10 };
@@ -83,8 +103,7 @@ function rebuildManagerialOverview(
 ): void {
   const sheet = workbook.getWorksheet('Visão Geral');
   if (!sheet) return;
-  for (const merged of [...sheet.model.merges]) sheet.unMergeCells(merged);
-  if (sheet.rowCount > 0) sheet.spliceRows(1, sheet.rowCount);
+  resetSheet(sheet);
 
   const monitoring = derivePddeBasicPortfolio(view.schools);
   const staleZero = monitoring.rows.filter((row) => (
@@ -114,10 +133,12 @@ function rebuildManagerialOverview(
   sheet.getCell('A2').alignment = { vertical: 'middle', wrapText: true };
   sheet.getRow(2).height = 32;
 
-  sheet.addRow([]);
-  header(sheet.addRow(['Pergunta gerencial', 'Resposta atual', 'Como interpretar']));
+  const questionHeader = sheet.getRow(4);
+  questionHeader.values = ['Pergunta gerencial', 'Resposta atual', 'Como interpretar'];
+  header(questionHeader);
   answerRow(
     sheet,
+    5,
     'Quem recebeu a 1ª parcela / P1?',
     `${monitoring.firstPaidCount} de ${monitoring.schoolCount}`,
     `${monitoring.firstRegularCount} no PDDE Básico regular + ${monitoring.firstInfancyCount} em Primeira Infância/P1.`,
@@ -125,6 +146,7 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    6,
     'Quem já recebeu a 2ª parcela / P2?',
     `${monitoring.secondPaidCount} de ${monitoring.schoolCount}`,
     `${monitoring.secondPendingCount} ainda sem pagamento informado.`,
@@ -132,6 +154,7 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    7,
     'Em quantas o crédito do 1º ciclo foi localizado no SIGEF?',
     `${monitoring.firstCreditLocatedCount} de ${monitoring.firstPaidCount}`,
     'Esta é evidência bancária independente do simples registro de pagamento no PDDEInfo.',
@@ -139,6 +162,7 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    8,
     'Quantas têm saldo PDDE positivo?',
     `${monitoring.balancePositiveCount} de ${monitoring.schoolCount}`,
     `${checkingOnly} somente em conta corrente · ${applicationOnly} somente em aplicações · ${both} em ambos.`,
@@ -146,6 +170,7 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    9,
     'Quantas têm saldo publicado anterior ao pagamento?',
     monitoring.balanceBeforePaymentCount,
     `${staleZero} aparecem com saldo zero porque a posição disponível é anterior ao pagamento. Isso não é contradição.`,
@@ -153,6 +178,7 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    10,
     'Quantas têm inconsistência temporalmente comparável?',
     monitoring.trueInconsistencyCount,
     'Só conta como inconsistência quando a posição de saldo é posterior/igual ao pagamento, permanece zerada e o crédito específico não foi localizado.',
@@ -160,39 +186,42 @@ function rebuildManagerialOverview(
   );
   answerRow(
     sheet,
+    11,
     'Quantas ainda precisam de reforço de evidência?',
     monitoring.firstNeedsSourceEscalationCount,
     'O sistema deve continuar procurando crédito, saldo posterior ou fonte complementar em vez de transformar lacuna em conclusão.',
     monitoring.firstNeedsSourceEscalationCount > 0 ? 'attention' : 'positive',
   );
 
-  sheet.addRow([]);
-  const whereTitle = sheet.addRow(['Onde está o saldo do PDDE Básico']);
-  sheet.mergeCells(whereTitle.number, 1, whereTitle.number, 3);
+  const whereTitle = sheet.getRow(13);
+  whereTitle.values = ['Onde está o saldo do PDDE Básico'];
+  sheet.mergeCells('A13:C13');
   whereTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE_GREEN } };
   whereTitle.getCell(1).font = { bold: true, color: { argb: NAVY } };
-  header(sheet.addRow(['Composição', 'Escolas', 'Valor total']));
-  const checkingRow = sheet.addRow(['Conta corrente', monitoring.checkingPositiveCount, reais(monitoring.checkingCents)]);
-  const applicationsRow = sheet.addRow(['Aplicações', monitoring.applicationsPositiveCount, reais(monitoring.applicationsCents)]);
-  const totalRow = sheet.addRow(['Saldo total PDDE', monitoring.balancePositiveCount, reais(monitoring.totalBalanceCents)]);
-  for (const row of [checkingRow, applicationsRow, totalRow]) row.getCell(3).numFmt = MONEY;
-  totalRow.font = { bold: true, color: { argb: DARK } };
+  const compositionHeader = sheet.getRow(14);
+  compositionHeader.values = ['Composição', 'Escolas', 'Valor total'];
+  header(compositionHeader);
+  sheet.getRow(15).values = ['Conta corrente', monitoring.checkingPositiveCount, reais(monitoring.checkingCents)];
+  sheet.getRow(16).values = ['Aplicações', monitoring.applicationsPositiveCount, reais(monitoring.applicationsCents)];
+  sheet.getRow(17).values = ['Saldo total PDDE', monitoring.balancePositiveCount, reais(monitoring.totalBalanceCents)];
+  for (const rowNumber of [15, 16, 17]) sheet.getRow(rowNumber).getCell(3).numFmt = MONEY;
+  sheet.getRow(17).font = { bold: true, color: { argb: DARK } };
 
-  sheet.addRow([]);
-  const linksTitle = sheet.addRow(['Próximas leituras']);
-  sheet.mergeCells(linksTitle.number, 1, linksTitle.number, 3);
+  const linksTitle = sheet.getRow(19);
+  linksTitle.values = ['Próximas leituras'];
+  sheet.mergeCells('A19:C19');
   linksTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: PALE } };
   linksTitle.getCell(1).font = { bold: true, color: { argb: NAVY } };
-  sheet.addRow([
+  sheet.getRow(20).values = [
     { text: 'Abrir PDDE Básico', hyperlink: "#'PDDE Básico'!A1" },
     'Escola por escola: parcelas, saldo e leitura temporal.',
     '',
-  ]);
-  sheet.addRow([
+  ];
+  sheet.getRow(21).values = [
     { text: 'Abrir Lacunas e Exceções', hyperlink: "#'Lacunas e Exceções'!A1" },
     'Somente casos que ainda exigem fonte complementar ou nova referência.',
     '',
-  ]);
+  ];
 
   styleRows(sheet, 4);
   sheet.columns = [{ width: 42 }, { width: 25 }, { width: 72 }];
