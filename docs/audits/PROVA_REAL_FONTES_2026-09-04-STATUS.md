@@ -1,0 +1,1 @@
+Status inicial: coleta cronológica habilitada; nova validação real das 163 UEs será executada pelos gates do PR desta branch.
