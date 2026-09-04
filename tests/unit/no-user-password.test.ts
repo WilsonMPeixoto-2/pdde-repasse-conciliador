@@ -25,14 +25,14 @@ describe('experiência pública da carteira financeira', () => {
     ) as {
       encoding: string;
       parts: string[];
-      source: { workflowRunId: number; artifactId: number };
+      publishedAt?: string;
+      source: { workflowRunId: number; artifactId: number; artifactName?: string };
     };
 
     expect(manifest.encoding).toBe('gzip-base64-parts');
-    expect(manifest.source).toEqual(expect.objectContaining({
-      workflowRunId: 32164281411,
-      artifactId: 9335143477,
-    }));
+    expect(manifest.source.workflowRunId).toBeGreaterThan(0);
+    expect(manifest.source.artifactId).toBeGreaterThan(0);
+    expect(manifest.source.artifactName).toBe('sigef-full-163-2026');
 
     const encoded = (await Promise.all(manifest.parts.map((part) =>
       readFile(new URL(part.replace(/^\//, ''), publicRoot), 'utf8'),
@@ -45,5 +45,23 @@ describe('experiência pública da carteira financeira', () => {
 
     expect(snapshot.portfolio.schoolCount).toBe(163);
     expect(Object.keys(snapshot.schools)).toHaveLength(163);
+  });
+
+  test('uma validação integral verde na main promove o mesmo artefato para o snapshot público', async () => {
+    const fullValidation = await readFile(
+      new URL('../../.github/workflows/sigef-full-163-validation.yml', import.meta.url),
+      'utf8',
+    );
+    const publisher = await readFile(
+      new URL('../../.github/workflows/publish-validated-snapshot.yml', import.meta.url),
+      'utf8',
+    );
+
+    expect(fullValidation).toContain('push:');
+    expect(fullValidation).toContain('- main');
+    expect(publisher).toContain('workflow_run:');
+    expect(publisher).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(publisher).toContain('sigef-full-163-2026');
+    expect(publisher).toContain('git push origin HEAD:main');
   });
 });
