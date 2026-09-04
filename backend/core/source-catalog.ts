@@ -1,8 +1,16 @@
 export type SourceAccess = 'PUBLIC' | 'INSTITUTIONAL';
-export type SourceIntegrationState = 'ACTIVE' | 'CREDENTIAL_REQUIRED';
+export type SourceIntegrationState = 'ACTIVE' | 'CREDENTIAL_REQUIRED' | 'PILOT_REQUIRED' | 'ACCESS_BLOCKED';
 
 export interface InstitutionalSourceCatalogItem {
-  id: 'PDDEINFO' | 'SIGEF_EXTRATO' | 'BB_GESTAO_AGIL' | 'PORTAL_TRANSPARENCIA';
+  id:
+    | 'PDDEINFO'
+    | 'SIGEF_EXTRATO'
+    | 'SIGEF_LIBERACOES'
+    | 'BB_GESTAO_AGIL'
+    | 'PORTAL_TRANSPARENCIA'
+    | 'SIGPC_PUBLICO'
+    | 'FNDE_DADOS_ABERTOS'
+    | 'PDDE_MONITORING_PANELS';
   label: string;
   authority: string;
   access: SourceAccess;
@@ -16,19 +24,24 @@ export interface InstitutionalDataProduct {
     | 'PDDEINFO_REPASSES_2026'
     | 'PDDEINFO_PUBLIC_REPORTS_2026'
     | 'SIGEF_MOVIMENTACOES_2026'
+    | 'SIGEF_LIBERACOES_2026'
     | 'BB_GESTAO_AGIL_MOVIMENTACOES_2026'
-    | 'PORTAL_TRANSPARENCIA_DOCUMENTOS_2026';
+    | 'PORTAL_TRANSPARENCIA_DOCUMENTOS_2026'
+    | 'SIGPC_PUBLICO_PRESTACAO_2026'
+    | 'FNDE_DADOS_ABERTOS_CONTROLE_2026'
+    | 'PDDE_MONITORING_PANELS_CONTROLE_2026';
   label: string;
   sourceId: InstitutionalSourceCatalogItem['id'];
   fiscalYear: 2026;
-  state: 'ACTIVE' | 'CREDENTIAL_REQUIRED';
+  state: SourceIntegrationState;
   purpose: string;
 }
 
 /**
- * Catálogo de capacidades do produto. Ele descreve o que o sistema usa hoje e
- * o que já foi identificado como integração institucional possível, sem
- * confundir descoberta técnica com credencial disponível.
+ * Catálogo de capacidades do produto. Ele separa fonte descoberta de fonte
+ * efetivamente integrada. "PILOT_REQUIRED" nunca pode ser apresentado como
+ * cobertura corrente e "ACCESS_BLOCKED" nunca pode ser convertido em dado
+ * vazio ou regularidade presumida.
  */
 export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
   {
@@ -81,6 +94,22 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     ],
   },
   {
+    id: 'SIGEF_LIBERACOES',
+    label: 'SIGEF Web - Liberação de Recursos',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'ACTIVE',
+    purpose: 'Segunda evidência para ordem bancária, data e conta destinatária. A implementação existe e deve ser acionada prioritariamente quando um pagamento informado não possui evidência bancária suficiente.',
+    capabilities: [
+      'PAYMENT_ORDER',
+      'PAYMENT_ORDER_DATE',
+      'DESTINATION_ACCOUNT',
+      'TRANSFER_AMOUNT',
+      'PROGRAM_FILTER',
+      'CNPJ_FILTER',
+    ],
+  },
+  {
     id: 'BB_GESTAO_AGIL',
     label: 'BB Gestão Ágil',
     authority: 'Banco do Brasil / FNDE',
@@ -115,6 +144,33 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
       'FISCAL_YEAR_FILTER',
     ],
   },
+  {
+    id: 'SIGPC_PUBLICO',
+    label: 'SiGPC - Acesso Público',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'PILOT_REQUIRED',
+    purpose: 'Segunda evidência independente para situação de prestação de contas. O acesso público oficial existe, mas a automação deve respeitar proteções/WAF e só será ativada após piloto reproduzível sem contorno de bloqueios.',
+    capabilities: ['ACCOUNTING_STATUS', 'UEX_QUERY'],
+  },
+  {
+    id: 'FNDE_DADOS_ABERTOS',
+    label: 'Dados Abertos FNDE / Olinda',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'PILOT_REQUIRED',
+    purpose: 'Backfill e controle secundário para execução, escolas atendidas, saldos e regularidade. A ativação depende de comprovação de frescor e cobertura do recurso específico para 2026.',
+    capabilities: ['FINANCIAL_EXECUTION', 'SCHOOL_COVERAGE', 'BALANCE_HISTORY', 'ACCOUNTING_STATUS'],
+  },
+  {
+    id: 'PDDE_MONITORING_PANELS',
+    label: 'Painéis oficiais PDDE Total / Básico / Ações Integradas',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'PILOT_REQUIRED',
+    purpose: 'Controle secundário de cadastro, atendimento, repasses previstos/realizados, execução e prestação. Depende de uma rota de exportação estável e auditável antes de integrar conclusões.',
+    capabilities: ['PROGRAMMED_TRANSFERS', 'PAID_INFORMED', 'FINANCIAL_EXECUTION', 'ACCOUNTING_STATUS'],
+  },
 ];
 
 export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
@@ -143,6 +199,14 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     purpose: 'Movimentações bancárias públicas usadas para conciliação e acompanhamento do exercício.',
   },
   {
+    id: 'SIGEF_LIBERACOES_2026',
+    label: 'Liberações públicas do SIGEF - 2026',
+    sourceId: 'SIGEF_LIBERACOES',
+    fiscalYear: 2026,
+    state: 'ACTIVE',
+    purpose: 'Confirma ordem bancária e conta destinatária e serve como escalonamento quando o PDDEInfo informa pagamento sem evidência bancária suficiente.',
+  },
+  {
     id: 'BB_GESTAO_AGIL_MOVIMENTACOES_2026',
     label: 'Movimentações BB Gestão Ágil - 2026',
     sourceId: 'BB_GESTAO_AGIL',
@@ -157,5 +221,29 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     fiscalYear: 2026,
     state: 'CREDENTIAL_REQUIRED',
     purpose: 'Validação independente por CNPJ da UEx de pagamentos/documentos SIAFI e recursos federais recebidos.',
+  },
+  {
+    id: 'SIGPC_PUBLICO_PRESTACAO_2026',
+    label: 'Situação pública de prestação no SiGPC - 2026',
+    sourceId: 'SIGPC_PUBLICO',
+    fiscalYear: 2026,
+    state: 'PILOT_REQUIRED',
+    purpose: 'Segunda evidência para prestação de contas, sem substituir a observação original do PDDEInfo.',
+  },
+  {
+    id: 'FNDE_DADOS_ABERTOS_CONTROLE_2026',
+    label: 'Dados Abertos FNDE como controle - 2026',
+    sourceId: 'FNDE_DADOS_ABERTOS',
+    fiscalYear: 2026,
+    state: 'PILOT_REQUIRED',
+    purpose: 'Backfill/controle condicionado à comprovação de que o recurso consultado realmente cobre o período de 2026.',
+  },
+  {
+    id: 'PDDE_MONITORING_PANELS_CONTROLE_2026',
+    label: 'Painéis oficiais do PDDE como controle - 2026',
+    sourceId: 'PDDE_MONITORING_PANELS',
+    fiscalYear: 2026,
+    state: 'PILOT_REQUIRED',
+    purpose: 'Controle secundário dos principais indicadores após comprovação de exportação estável e granularidade por escola/UEx.',
   },
 ];
