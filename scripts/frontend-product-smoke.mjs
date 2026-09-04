@@ -324,7 +324,7 @@ async function smoke(viewport, suffix) {
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
   await page.getByRole('heading', { name: 'As perguntas que precisam de resposta' }).waitFor();
-  await page.getByText('Quem recebeu a 1ª parcela / P1?', { exact: true }).waitFor();
+  await page.getByText('Para quem o FNDE informa pagamento da 1ª parcela / P1?', { exact: true }).waitFor();
   await assertNoTechnicalMetadata(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
   await assertNoMainOverflow(page);
