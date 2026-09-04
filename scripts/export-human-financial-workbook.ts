@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import type { HumanFinancialPortfolioView } from '../backend/application/build-human-financial-view';
-import { buildHumanFinancialWorkbook } from '../backend/report/human-financial-workbook';
+import { buildManagerialHumanFinancialWorkbook } from '../backend/report/managerial-human-financial-workbook';
 
 function parseArgs(argv: string[]): { input: string; output: string } {
   const args = new Map<string, string>();
@@ -57,7 +57,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const options = parseArgs(argv);
   const raw = JSON.parse(await readFile(options.input, 'utf8')) as unknown;
   viewSchema.parse(raw);
-  const workbook = buildHumanFinancialWorkbook(raw as HumanFinancialPortfolioView);
+  const workbook = buildManagerialHumanFinancialWorkbook(raw as HumanFinancialPortfolioView);
   await mkdir(dirname(options.output), { recursive: true });
   await workbook.xlsx.writeFile(options.output);
   console.log(JSON.stringify({
