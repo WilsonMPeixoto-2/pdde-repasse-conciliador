@@ -132,7 +132,7 @@ async function smoke(viewport, suffix) {
 
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
-  await page.getByRole('heading', { name: 'O que você precisa consultar?' }).waitFor();
+  await page.getByRole('heading', { name: 'Ir direto à escola ou à pergunta' }).waitFor();
   await page.getByText(/163 unidades/i).first().waitFor();
   await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
@@ -151,7 +151,7 @@ async function smoke(viewport, suffix) {
 
   const pages = [
     ['/repasses', 'Repasses', 'repasses'],
-    ['/pdde-basico', '1ª e 2ª parcelas + localização do saldo', 'pdde-basico'],
+    ['/pdde-basico', 'Parcelas, evidência bancária e localização do saldo', 'pdde-basico'],
     ['/saldos', 'Contas e Saldos', 'saldos'],
     ['/evolucao', 'Evolução Mensal', 'evolucao'],
     ['/movimentacoes', 'Movimentações', 'movimentacoes'],
