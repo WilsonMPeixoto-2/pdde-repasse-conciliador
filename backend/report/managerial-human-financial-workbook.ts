@@ -62,7 +62,7 @@ function resetSheet(sheet: ExcelJS.Worksheet): void {
   const lastColumn = Math.max(sheet.columnCount, sheet.actualColumnCount);
   for (let rowNumber = 1; rowNumber <= lastRow; rowNumber += 1) {
     const row = sheet.getRow(rowNumber);
-    row.height = undefined;
+    row.height = sheet.properties.defaultRowHeight ?? 15;
     row.alignment = {};
     for (let column = 1; column <= lastColumn; column += 1) {
       const cell = row.getCell(column);
