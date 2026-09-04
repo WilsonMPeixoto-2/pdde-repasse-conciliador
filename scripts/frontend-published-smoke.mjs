@@ -137,6 +137,8 @@ async function smoke(viewport, suffix) {
   await assertCoreNavigation(page);
   await assertNoPasswordUi(page);
   await assertNoHorizontalOverflow(page);
+  await page.getByText('Indicadores técnicos, cobertura e fontes', { exact: true }).click();
+  await page.getByRole('heading', { name: '2026 em números' }).waitFor();
   await assertPrimaryMetricsFit(page);
   await assertFormattedSmeSearch(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
