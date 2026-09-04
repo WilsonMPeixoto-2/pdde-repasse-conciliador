@@ -1,0 +1,1 @@
+Critério: nenhum saldo anterior ao pagamento pode ser apresentado como localização corrente; a nova coleta precisa concluir 163/163 e o retrato produzido precisa ser promovido ao produto após validação.
