@@ -30,4 +30,23 @@ describe('governança das novas fontes públicas', () => {
       state: 'ACTIVE',
     }));
   });
+
+  test('SIGEF Liberações é fonte ativa de escalonamento para pagamento sem evidência bancária', () => {
+    expect(SOURCE_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'SIGEF_LIBERACOES',
+      integrationState: 'ACTIVE',
+      access: 'PUBLIC',
+    }));
+    expect(DATA_PRODUCT_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'SIGEF_LIBERACOES_2026',
+      sourceId: 'SIGEF_LIBERACOES',
+      state: 'ACTIVE',
+    }));
+  });
+
+  test('não apresenta fontes de pesquisa como integração corrente', () => {
+    for (const id of ['SIGPC_PUBLICO', 'FNDE_DADOS_ABERTOS', 'PDDE_MONITORING_PANELS'] as const) {
+      expect(SOURCE_CATALOG.find((item) => item.id === id)?.integrationState).toBe('PILOT_REQUIRED');
+    }
+  });
 });
