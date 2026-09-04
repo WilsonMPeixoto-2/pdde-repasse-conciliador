@@ -1,0 +1,1 @@
+PR de correção da promoção do snapshot público. A mudança deve ser mesclada somente com CI verde e, após o merge, acompanhada até a execução 163/163 em `main`, publicação automática do snapshot e Vercel Production READY.

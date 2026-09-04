@@ -12,8 +12,32 @@ on:
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
       - 'backend/adapters/sigef-releases-html.ts'
+      - 'backend/adapters/sigef-public-bulk-extracts.ts'
       - 'backend/report/human-financial-workbook.ts'
+      - 'backend/report/managerial-human-financial-workbook.ts'
       - 'scripts/run-temporary-session.ts'
+      - '.github/workflows/sigef-full-163-validation.yml'
+      - '.github/workflows/publish-validated-snapshot.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/application/run-monitoring.ts'
+      - 'backend/application/run-financial-intelligence-monitoring.ts'
+      - 'backend/application/recover-sigef-release-accounts.ts'
+      - 'backend/application/temporary-financial-session.ts'
+      - 'backend/adapters/pddeinfo-http.ts'
+      - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/pddeinfo-normalizer.ts'
+      - 'backend/adapters/sigef-public-statement.ts'
+      - 'backend/adapters/sigef-public-releases.ts'
+      - 'backend/adapters/sigef-releases-html.ts'
+      - 'backend/adapters/sigef-public-bulk-extracts.ts'
+      - 'backend/report/human-financial-workbook.ts'
+      - 'backend/report/managerial-human-financial-workbook.ts'
+      - 'scripts/run-temporary-session.ts'
+      - '.github/workflows/sigef-full-163-validation.yml'
+      - '.github/workflows/publish-validated-snapshot.yml'
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
