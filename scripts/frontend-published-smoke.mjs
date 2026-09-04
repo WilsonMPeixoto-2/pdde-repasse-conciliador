@@ -153,7 +153,7 @@ async function smoke(viewport, suffix) {
 
   const pages = [
     ['/repasses', 'Repasses', 'repasses'],
-    ['/pdde-basico', 'Parcelas, evidência bancária e localização do saldo', 'pdde-basico'],
+    ['/pdde-basico', 'Quem recebeu, qual é a evidência e onde o dinheiro pode ser localizado', 'pdde-basico'],
     ['/saldos', 'Contas e Saldos', 'saldos'],
     ['/evolucao', 'Evolução Mensal', 'evolucao'],
     ['/movimentacoes', 'Movimentações', 'movimentacoes'],

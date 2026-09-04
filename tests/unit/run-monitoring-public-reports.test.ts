@@ -73,7 +73,7 @@ const publicResult = {
 };
 
 describe('MONITORING + relatórios públicos FNDE', () => {
-  test('incorpora dados públicos e produz uma saída humana separada', async () => {
+  test('incorpora dados públicos e exige série mensal disponível de saldos', async () => {
     const publicCollector = vi.fn(async () => publicResult);
     const result = await runFinancialIntelligenceMonitoring({
       schools: [school],
@@ -97,6 +97,9 @@ describe('MONITORING + relatórios públicos FNDE', () => {
     } as never) as any;
 
     expect(publicCollector).toHaveBeenCalledOnce();
+    expect(publicCollector).toHaveBeenCalledWith(expect.objectContaining({
+      balanceMode: 'ALL_AVAILABLE_2026',
+    }));
     expect(result.raw.publicReports.balanceReferenceMonth).toBe('06-2026');
     expect(result.raw.publicReports.balances[0].fundBalanceCents).toBe(318699);
     expect(result.human.title).toBe('Inteligência Financeira PDDE | 4ª CRE');

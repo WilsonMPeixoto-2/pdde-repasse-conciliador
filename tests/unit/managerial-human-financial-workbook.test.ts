@@ -44,7 +44,7 @@ const view: HumanFinancialPortfolioView = {
           amountCents: null,
           document: null,
         },
-        note: null,
+        note: 'SIGEF Liberações localizou a liberação pela OB 019072 para a mesma conta informada; isso confirma a ordem/destino, mas não substitui a localização do crédito no extrato.',
       }],
     }],
     accounts: [{
@@ -78,25 +78,31 @@ const view: HumanFinancialPortfolioView = {
 };
 
 describe('Excel gerencial', () => {
-  test('começa pelas perguntas gerenciais e explica saldo anterior ao pagamento sem transformar pagamento informado em recebimento comprovado', () => {
+  test('separa posição histórica de localização corrente e mantém a OB como evidência intermediária', () => {
     const workbook = buildManagerialHumanFinancialWorkbook(view, {
-      generatedAt: new Date('2026-09-04T03:00:00Z'),
+      generatedAt: new Date('2026-09-04T13:30:00Z'),
     });
     const overview = workbook.getWorksheet('Visão Geral');
     const pdde = workbook.getWorksheet('PDDE Básico');
     const gaps = workbook.getWorksheet('Lacunas e Exceções');
 
     expect(overview?.getCell('A1').value).toBe('Painel Gerencial · PDDE 2026 · 4ª CRE');
-    expect(overview?.getCell('A5').value).toBe('Para quem o FNDE informa pagamento da 1ª parcela / P1?');
-    expect(overview?.getCell('A6').value).toBe('Para quem o FNDE informa pagamento da 2ª parcela / P2?');
+    expect(overview?.getCell('A5').value).toBe('Para quem o FNDE informa pagamento do 1º ciclo?');
+    expect(overview?.getCell('A6').value).toBe('Quantas têm evidência independente do 1º ciclo no SIGEF?');
     expect(overview?.getCell('B5').value).toBe('1 de 1');
+    expect(overview?.getCell('B6').value).toBe('1 de 1');
+    expect(overview?.getCell('B7').value).toBe('0 de 1');
 
-    expect(pdde?.getCell('T3').value).toBe('Evidência do 1º ciclo');
-    expect(pdde?.getCell('U3').value).toBe('Leitura temporal / coerência');
-    expect(String(pdde?.getCell('U4').value)).toContain('saldo é anterior ao pagamento');
+    expect(pdde?.getCell('A3').value).toBe('SME');
+    expect(pdde?.getCell('G3').value).toBe('Evidência SIGEF do 1º ciclo');
+    expect(pdde?.getCell('I3').value).toBe('Onde está o recurso?');
+    expect(pdde?.getCell('I4').value).toBe('Localização atual não comprovada');
+    expect(String(pdde?.getCell('J4').value)).toContain('31/07/2026');
+    expect(String(pdde?.getCell('J4').value)).toContain('histórica');
+    expect(String(pdde?.getCell('G4').value)).toContain('Liberação/OB localizada');
 
     expect(gaps).toBeDefined();
     expect(gaps?.getCell('I4').value).toBe('Não');
-    expect(String(gaps?.getCell('L4').value)).toContain('não interpretar zero como ausência de recurso');
+    expect(String(gaps?.getCell('L4').value)).toContain('posição posterior');
   });
 });

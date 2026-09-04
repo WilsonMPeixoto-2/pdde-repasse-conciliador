@@ -6,9 +6,11 @@ export interface InstitutionalSourceCatalogItem {
     | 'PDDEINFO'
     | 'SIGEF_EXTRATO'
     | 'SIGEF_LIBERACOES'
+    | 'SIGEF_EXTRATOS_PUBLICOS'
     | 'BB_GESTAO_AGIL'
     | 'PORTAL_TRANSPARENCIA'
     | 'SIGPC_PUBLICO'
+    | 'FNDE_OLINDA_FINANCEIRO'
     | 'FNDE_DADOS_ABERTOS'
     | 'PDDE_MONITORING_PANELS';
   label: string;
@@ -25,9 +27,11 @@ export interface InstitutionalDataProduct {
     | 'PDDEINFO_PUBLIC_REPORTS_2026'
     | 'SIGEF_MOVIMENTACOES_2026'
     | 'SIGEF_LIBERACOES_2026'
+    | 'SIGEF_EXTRATOS_PUBLICOS_2026'
     | 'BB_GESTAO_AGIL_MOVIMENTACOES_2026'
     | 'PORTAL_TRANSPARENCIA_DOCUMENTOS_2026'
     | 'SIGPC_PUBLICO_PRESTACAO_2026'
+    | 'FNDE_OLINDA_FINANCEIRO_2026'
     | 'FNDE_DADOS_ABERTOS_CONTROLE_2026'
     | 'PDDE_MONITORING_PANELS_CONTROLE_2026';
   label: string;
@@ -84,7 +88,7 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     authority: 'FNDE',
     access: 'PUBLIC',
     integrationState: 'ACTIVE',
-    purpose: 'Movimentações bancárias publicadas no SIGEF, com histórico, documento e contraparte quando disponíveis.',
+    purpose: 'Movimentações bancárias publicadas no SIGEF, com histórico, documento e contraparte quando disponíveis. A cobertura retornada precisa ser comparada com liberações posteriores para detectar defasagem da própria fonte.',
     capabilities: [
       'BANK_TRANSACTIONS',
       'COUNTERPARTY',
@@ -107,6 +111,21 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
       'TRANSFER_AMOUNT',
       'PROGRAM_FILTER',
       'CNPJ_FILTER',
+    ],
+  },
+  {
+    id: 'SIGEF_EXTRATOS_PUBLICOS',
+    label: 'SIGEF Web - Extratos > Consultas Gerais',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'PILOT_REQUIRED',
+    purpose: 'Rota pública adicional do SIGEF para geração de extratos por exercício, programa e período. Em 04/09/2026 o índice público anunciou o programa 02 (PDDE) para 2026. A descarga consolidada só poderá ser integrada após prova reproduzível sem contornar CAPTCHA ou outro controle de acesso.',
+    capabilities: [
+      'BANK_EXTRACT_EXPORT',
+      'DATE_RANGE_FILTER',
+      'PROGRAM_FILTER',
+      'FISCAL_YEAR_FILTER',
+      'PUBLIC_PROGRAM_DISCOVERY',
     ],
   },
   {
@@ -154,12 +173,28 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     capabilities: ['ACCOUNTING_STATUS', 'UEX_QUERY'],
   },
   {
+    id: 'FNDE_OLINDA_FINANCEIRO',
+    label: 'Olinda/FNDE - PDDE Consulta Escola Financeiro',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'ACCESS_BLOCKED',
+    purpose: 'API oficial cujo metadado expõe banco, agência, conta, valor/data de pagamento e os campos DT_REC_DISPONIVEL_CONTA e REC_DISPONIVEL_CONTA. Em 04/09/2026 a consulta aos dados retornava ORA-00942 no servidor do FNDE; por isso a fonte é monitorada, mas não participa de conclusões enquanto o órgão não restaurar a view.',
+    capabilities: [
+      'CURRENT_ACCOUNT',
+      'PAID_INFORMED',
+      'PAYMENT_ORDER_DATE',
+      'AVAILABLE_ACCOUNT_RESOURCE_DATE',
+      'AVAILABLE_ACCOUNT_RESOURCE',
+      'SCHOOL_QUERY',
+    ],
+  },
+  {
     id: 'FNDE_DADOS_ABERTOS',
-    label: 'Dados Abertos FNDE / Olinda',
+    label: 'Dados Abertos FNDE / catálogo federal',
     authority: 'FNDE',
     access: 'PUBLIC',
     integrationState: 'PILOT_REQUIRED',
-    purpose: 'Backfill e controle secundário para execução, escolas atendidas, saldos e regularidade. A ativação depende de comprovação de frescor e cobertura do recurso específico para 2026.',
+    purpose: 'Controle secundário para execução, escolas atendidas, saldos e regularidade. O catálogo oficial descreve execução financeira e saldos de contas do PDDE Básico com periodicidade mensal, mas a ativação depende de acesso estável ao arquivo e comprovação de cobertura de 2026.',
     capabilities: ['FINANCIAL_EXECUTION', 'SCHOOL_COVERAGE', 'BALANCE_HISTORY', 'ACCOUNTING_STATUS'],
   },
   {
@@ -207,6 +242,14 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     purpose: 'Confirma ordem bancária e conta destinatária e serve como escalonamento quando o PDDEInfo informa pagamento sem evidência bancária suficiente.',
   },
   {
+    id: 'SIGEF_EXTRATOS_PUBLICOS_2026',
+    label: 'Extratos públicos gerais do SIGEF - 2026',
+    sourceId: 'SIGEF_EXTRATOS_PUBLICOS',
+    fiscalYear: 2026,
+    state: 'PILOT_REQUIRED',
+    purpose: 'Candidato público adicional para extratos consolidados por período e programa. Só passa a integrar conclusões quando a descarga e a granularidade forem reproduzíveis sem burlar controles do portal.',
+  },
+  {
     id: 'BB_GESTAO_AGIL_MOVIMENTACOES_2026',
     label: 'Movimentações BB Gestão Ágil - 2026',
     sourceId: 'BB_GESTAO_AGIL',
@@ -229,6 +272,14 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     fiscalYear: 2026,
     state: 'PILOT_REQUIRED',
     purpose: 'Segunda evidência para prestação de contas, sem substituir a observação original do PDDEInfo.',
+  },
+  {
+    id: 'FNDE_OLINDA_FINANCEIRO_2026',
+    label: 'Recurso disponível em conta na API Olinda/FNDE - 2026',
+    sourceId: 'FNDE_OLINDA_FINANCEIRO',
+    fiscalYear: 2026,
+    state: 'ACCESS_BLOCKED',
+    purpose: 'Candidato oficial para data e valor de recurso disponível em conta. Não integra cálculo nem diagnóstico enquanto a consulta de dados permanecer quebrada no servidor do FNDE.',
   },
   {
     id: 'FNDE_DADOS_ABERTOS_CONTROLE_2026',
