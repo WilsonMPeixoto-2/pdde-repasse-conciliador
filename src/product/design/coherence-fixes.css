@@ -5,6 +5,15 @@
   .metrics-band > .metric .metric-value {
     font-size: clamp(1.65rem, 1.95vw, 2.25rem);
   }
+
+  /*
+   * Na Home gerencial, as métricas técnicas ficam dentro de um disclosure
+   * deliberadamente mais estreito. O valor deve continuar inteiro e legível,
+   * sem invadir a coluna vizinha quando o saldo agregado chega aos milhões.
+   */
+  .technical-disclosure .metrics-band > .metric .metric-value {
+    font-size: clamp(1.45rem, 1.7vw, 2rem);
+  }
 }
 
 /* A carteira preserva a linguagem probatória sem sacrificar a barra comparativa. */
