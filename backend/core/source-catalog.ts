@@ -6,6 +6,7 @@ export interface InstitutionalSourceCatalogItem {
     | 'PDDEINFO'
     | 'SIGEF_EXTRATO'
     | 'SIGEF_LIBERACOES'
+    | 'SIGEF_EXTRATOS_PUBLICOS'
     | 'BB_GESTAO_AGIL'
     | 'PORTAL_TRANSPARENCIA'
     | 'SIGPC_PUBLICO'
@@ -25,6 +26,7 @@ export interface InstitutionalDataProduct {
     | 'PDDEINFO_PUBLIC_REPORTS_2026'
     | 'SIGEF_MOVIMENTACOES_2026'
     | 'SIGEF_LIBERACOES_2026'
+    | 'SIGEF_EXTRATOS_PUBLICOS_2026'
     | 'BB_GESTAO_AGIL_MOVIMENTACOES_2026'
     | 'PORTAL_TRANSPARENCIA_DOCUMENTOS_2026'
     | 'SIGPC_PUBLICO_PRESTACAO_2026'
@@ -84,7 +86,7 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     authority: 'FNDE',
     access: 'PUBLIC',
     integrationState: 'ACTIVE',
-    purpose: 'Movimentações bancárias publicadas no SIGEF, com histórico, documento e contraparte quando disponíveis.',
+    purpose: 'Movimentações bancárias publicadas no SIGEF, com histórico, documento e contraparte quando disponíveis. A cobertura retornada precisa ser comparada com liberações posteriores para detectar defasagem da própria fonte.',
     capabilities: [
       'BANK_TRANSACTIONS',
       'COUNTERPARTY',
@@ -107,6 +109,21 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
       'TRANSFER_AMOUNT',
       'PROGRAM_FILTER',
       'CNPJ_FILTER',
+    ],
+  },
+  {
+    id: 'SIGEF_EXTRATOS_PUBLICOS',
+    label: 'SIGEF Web - Extratos > Consultas Gerais',
+    authority: 'FNDE',
+    access: 'PUBLIC',
+    integrationState: 'PILOT_REQUIRED',
+    purpose: 'Rota pública adicional do SIGEF para geração de extratos por exercício, programa e período. Em 04/09/2026 o índice público anunciou o programa 02 (PDDE) para 2026. A descarga consolidada só poderá ser integrada após prova reproduzível sem contornar CAPTCHA ou outro controle de acesso.',
+    capabilities: [
+      'BANK_EXTRACT_EXPORT',
+      'DATE_RANGE_FILTER',
+      'PROGRAM_FILTER',
+      'FISCAL_YEAR_FILTER',
+      'PUBLIC_PROGRAM_DISCOVERY',
     ],
   },
   {
@@ -155,11 +172,11 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
   },
   {
     id: 'FNDE_DADOS_ABERTOS',
-    label: 'Dados Abertos FNDE / Olinda',
+    label: 'Dados Abertos FNDE / catálogo federal',
     authority: 'FNDE',
     access: 'PUBLIC',
     integrationState: 'PILOT_REQUIRED',
-    purpose: 'Backfill e controle secundário para execução, escolas atendidas, saldos e regularidade. A ativação depende de comprovação de frescor e cobertura do recurso específico para 2026.',
+    purpose: 'Controle secundário para execução, escolas atendidas, saldos e regularidade. O catálogo oficial descreve execução financeira e saldos de contas do PDDE Básico com periodicidade mensal, mas a ativação depende de acesso estável ao arquivo e comprovação de cobertura de 2026.',
     capabilities: ['FINANCIAL_EXECUTION', 'SCHOOL_COVERAGE', 'BALANCE_HISTORY', 'ACCOUNTING_STATUS'],
   },
   {
@@ -205,6 +222,14 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     fiscalYear: 2026,
     state: 'ACTIVE',
     purpose: 'Confirma ordem bancária e conta destinatária e serve como escalonamento quando o PDDEInfo informa pagamento sem evidência bancária suficiente.',
+  },
+  {
+    id: 'SIGEF_EXTRATOS_PUBLICOS_2026',
+    label: 'Extratos públicos gerais do SIGEF - 2026',
+    sourceId: 'SIGEF_EXTRATOS_PUBLICOS',
+    fiscalYear: 2026,
+    state: 'PILOT_REQUIRED',
+    purpose: 'Candidato público adicional para extratos consolidados por período e programa. Só passa a integrar conclusões quando a descarga e a granularidade forem reproduzíveis sem burlar controles do portal.',
   },
   {
     id: 'BB_GESTAO_AGIL_MOVIMENTACOES_2026',
