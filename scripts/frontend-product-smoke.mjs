@@ -320,6 +320,9 @@ async function smoke(viewport, suffix) {
 
   await validatePortfolioSchools(context, suffix);
 
+  const technicalDisclosure = page.locator('details.technical-disclosure');
+  await technicalDisclosure.locator('summary').click();
+  await page.getByRole('heading', { name: 'Indicadores técnicos de atenção' }).waitFor();
   const indicator = page.getByRole('link', { name: /3 unidades: Conta do repasse não exibida/i });
   await indicator.focus();
   await page.keyboard.press('Enter');
