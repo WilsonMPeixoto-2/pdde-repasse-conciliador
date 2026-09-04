@@ -166,14 +166,16 @@ describe('navegação financeira direta', () => {
     expect(html).toContain('EM Escola Teste');
   });
 
-  test('PDDE Básico mostra parcelas, evidência bancária e leitura temporal do saldo', () => {
+  test('PDDE Básico mostra pagamento, evidência independente e leitura temporal do saldo', () => {
     const html = renderWithRouter(createElement(PddeBasicOverviewPage));
-    expect(html).toContain('Parcelas, evidência bancária e localização do saldo');
-    expect(html).toContain('1ª parcela / P1 com pagamento informado');
-    expect(html).toContain('2ª parcela / P2 com pagamento informado');
-    expect(html).toContain('Crédito do 1º ciclo localizado no SIGEF');
-    expect(html).toContain('Saldo total PDDE');
-    expect(html).toContain('Leitura coerente');
+    expect(html).toContain('Quem recebeu, qual é a evidência e onde o dinheiro pode ser localizado');
+    expect(html).toContain('FNDE informa pagamento do 1º ciclo');
+    expect(html).toContain('FNDE informa pagamento do 2º ciclo');
+    expect(html).toContain('1º ciclo com evidência independente no SIGEF');
+    expect(html).toContain('Extrato SIGEF defasado em relação à liberação');
+    expect(html).toContain('Localização atual não comprovada');
+    expect(html).toContain('Última posição oficial');
+    expect(html).toContain('Inconsistência temporalmente comparável');
   });
 
   test('contas e saldos mostra identidade bancária, abertura, ocorrência e aplicações', () => {
