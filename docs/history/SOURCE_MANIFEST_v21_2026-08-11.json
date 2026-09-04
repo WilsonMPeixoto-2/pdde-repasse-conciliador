@@ -4,20 +4,62 @@
   "version": "1786483687386",
   "generated_at": "2026-08-11T21:30:02-03:00",
   "files": {
-    "README.md": {"bytes": 1441, "sha256": "3d9f4b69381c128d7581ca2a14fe78a8dbe02797a3387480e31e1b0c3edcae89"},
-    "backend/index.ts": {"bytes": 13196, "sha256": "c88a1dd39af8ce41189dd140e5697bc9105803f869a1b4c68d2b462d10be659d"},
-    "backend/realtime-subscribers.ts": {"bytes": 3453, "sha256": "4df0d658064a092b37c532daa52660758f743230533797eb468fcc93d9d5f05c"},
-    "backend/realtime.ts": {"bytes": 588, "sha256": "f7f1b3d701b7dba20f5bce4f8d363aed60c6f6f2016e0fe9cc67a4022acb298f"},
-    "backend/schools4cre.json": {"bytes": 16849, "sha256": "40b644db9989472344f031ca6058d6dabafc8056952316352d60ced0c7451743"},
-    "index.html": {"bytes": 1706, "sha256": "cb3d97aed4f191fce6f82502a70069f8fc76e4b62cfaa078aca75e2ff41318e3"},
-    "package.json": {"bytes": 504, "sha256": "a5a39a23f94bf2ebd2b64cb28340b80770303768f0e9489c32383ed3c940f55d"},
-    "postcss.config.js": {"bytes": 80, "sha256": "190c877db466995bf1482f4a16abd06e04a89ede3119341e2a86ff96e1737b27"},
-    "src/main.ts": {"bytes": 23355, "sha256": "1d7932081050bc7ddccf9f29e9168ebafb507a7d6829100da2ca6123ee50352b"},
-    "src/styles.css": {"bytes": 2222, "sha256": "6b892d5c370d6c57108253e48fc9299868ecf6db53c92ad1bb2f3ec9184ea760"},
-    "tailwind.config.js": {"bytes": 153, "sha256": "afd0d5b84fb14f098c28fed7412629de5ce314ff867e2fe9c22d7a0e94a990e8"},
-    "tests/tests.txt": {"bytes": 2067, "sha256": "5230d622221a781d351eb4248c67e19fdfa97565a52d1316084de5e8560f914a"},
-    "tsconfig.json": {"bytes": 547, "sha256": "7359c0f1538d1e41074f5ba96aa84928ca44622908ba999c788b3150ccfbce31"},
-    "vite.config.ts": {"bytes": 181, "sha256": "e9d0d4edd18f4093eb9d6dabafc8056952316352d60ced0c7451743b9e4969bcbfbce6f82502a70069f8fc76e4b62cfaa078aca75e2ff41318e3"}
+    "README.md": {
+      "bytes": 1441,
+      "sha256": "3d9f4b69381c128d7581ca2a14fe78a8dbe02797a3387480e31e1b0c3edcae89"
+    },
+    "backend/index.ts": {
+      "bytes": 13196,
+      "sha256": "c88a1dd39af8ce41189dd140e5697bc9105803f869a1b4c68d2b462d10be659d"
+    },
+    "backend/realtime-subscribers.ts": {
+      "bytes": 3453,
+      "sha256": "4df0d658064a092b37c532daa52660758f743230533797eb468fcc93d9d5f05c"
+    },
+    "backend/realtime.ts": {
+      "bytes": 588,
+      "sha256": "f7f1b3d701b7dba20f5bce4f8d363aed60c6f6f2016e0fe9cc67a4022acb298f"
+    },
+    "backend/schools4cre.json": {
+      "bytes": 16849,
+      "sha256": "40b644db9989472344f031ca6058d6dabafc8056952316352d60ced0c7451743"
+    },
+    "index.html": {
+      "bytes": 1706,
+      "sha256": "cb3d97aed4f191fce6f82502a70069f8fc76e4b62cfaa078aca75e2ff41318e3"
+    },
+    "package.json": {
+      "bytes": 504,
+      "sha256": "a5a39a23f94bf2ebd2b64cb28340b80770303768f0e9489c32383ed3c940f55d"
+    },
+    "postcss.config.js": {
+      "bytes": 80,
+      "sha256": "190c877db466995bf1482f4a16abd06e04a89ede3119341e2a86ff96e1737b27"
+    },
+    "src/main.ts": {
+      "bytes": 23355,
+      "sha256": "1d7932081050bc7ddccf9f29e9168ebafb507a7d6829100da2ca6123ee50352b"
+    },
+    "src/styles.css": {
+      "bytes": 2222,
+      "sha256": "6b892d5c370d6c57108253e48fc9299868ecf6db53c92ad1bb2f3ec9184ea760"
+    },
+    "tailwind.config.js": {
+      "bytes": 153,
+      "sha256": "afd0d5b84fb14f098c28fed7412629de5ce314ff867e2fe9c22d7a0e94a990e8"
+    },
+    "tests/tests.txt": {
+      "bytes": 2067,
+      "sha256": "5230d622221a781d351eb4248c67e19fdfa97565a52d1316084de5e8560f914a"
+    },
+    "tsconfig.json": {
+      "bytes": 547,
+      "sha256": "7359c0f1538d1e41074f5ba96aa84928ca44622908ba999c788b3150ccfbce31"
+    },
+    "vite.config.ts": {
+      "bytes": 181,
+      "sha256": "e9d0d4edd18f4093eb1da2239b3e4969bcbfbfb3963eafd49be44be2f84a7855"
+    }
   },
   "archive_note": "Cópia histórica do SOURCE_MANIFEST.json de 11/08/2026. Não representa a árvore corrente do projeto."
 }
