@@ -2,17 +2,20 @@ import { describe, expect, test } from 'vitest';
 import { resolutionPlanForGap } from '../../shared/source-resolution-policy';
 
 describe('política de escalonamento de fontes', () => {
-  test('pagamento sem crédito usa fontes bancárias e explicita dependências', () => {
+  test('pagamento sem crédito usa primeiro fontes públicas e explicita dependências', () => {
     const plan = resolutionPlanForGap('PAYMENT_NO_CREDIT');
     expect(plan.steps.map((step) => step.source)).toEqual([
       'SIGEF_EXTRATO',
       'SIGEF_LIBERACOES',
-      'BB_GESTAO_AGIL',
+      'SIGEF_EXTRATOS_PUBLICOS',
+      'FNDE_DADOS_ABERTOS',
       'PORTAL_TRANSPARENCIA',
       'PDDE_MONITORING_PANELS',
+      'BB_GESTAO_AGIL',
     ]);
     expect(plan.steps[0].state).toBe('ACTIVE');
-    expect(plan.steps[2].state).toBe('CREDENTIAL_REQUIRED');
+    expect(plan.steps[2].state).toBe('PILOT_REQUIRED');
+    expect(plan.steps.at(-1)?.state).toBe('CREDENTIAL_REQUIRED');
   });
 
   test('prestação divergente inclui SiGPC público como segunda evidência', () => {
@@ -20,19 +23,24 @@ describe('política de escalonamento de fontes', () => {
     expect(plan.steps.some((step) => step.source === 'SIGPC_PUBLICO')).toBe(true);
   });
 
-  test('saldo anterior ao pagamento não é contradição e prioriza posição bancária corrente', () => {
+  test('saldo anterior ao pagamento não é contradição e tenta novas fontes públicas antes de credenciais bancárias', () => {
     const plan = resolutionPlanForGap('BALANCE_REFERENCE_BEFORE_PAYMENT');
     expect(plan.contradiction).toBe(false);
-    expect(plan.primaryAction).toContain('posição bancária posterior');
-    expect(plan.steps[0]).toMatchObject({
-      source: 'BB_GESTAO_AGIL',
-      state: 'CREDENTIAL_REQUIRED',
-    });
+    expect(plan.primaryAction).toContain('posição posterior');
+    expect(plan.steps.slice(0, 2)).toEqual([
+      expect.objectContaining({ source: 'SIGEF_EXTRATOS_PUBLICOS', state: 'PILOT_REQUIRED' }),
+      expect.objectContaining({ source: 'FNDE_DADOS_ABERTOS', state: 'PILOT_REQUIRED' }),
+    ]);
+    expect(plan.steps.findIndex((step) => step.source === 'BB_GESTAO_AGIL'))
+      .toBeGreaterThan(plan.steps.findIndex((step) => step.source === 'SIGEF_LIBERACOES'));
   });
 
-  test('ausência de saldo publicado também escala primeiro para a fonte bancária oficial', () => {
+  test('ausência de saldo publicado também prioriza rotas públicas alternativas', () => {
     const plan = resolutionPlanForGap('NO_BALANCE_POSITION');
-    expect(plan.steps[0].source).toBe('BB_GESTAO_AGIL');
-    expect(plan.primaryAction).toContain('posição bancária corrente');
+    expect(plan.steps.slice(0, 2).map((step) => step.source)).toEqual([
+      'SIGEF_EXTRATOS_PUBLICOS',
+      'FNDE_DADOS_ABERTOS',
+    ]);
+    expect(plan.primaryAction).toContain('posição de saldo');
   });
 });
