@@ -65,7 +65,7 @@ export function PortfolioPage() {
             <div className="eyebrow">Exercício 2026 · 4ª CRE</div>
             <h1 id="portfolio-title">Inteligência financeira<br />das verbas do PDDE</h1>
             <p className="lead">
-              A primeira tela responde quem recebeu, qual evidência bancária já foi localizada,
+              A primeira tela mostra para quem o FNDE informa pagamento, qual evidência bancária já foi localizada,
               onde o saldo está e quais aparentes inconsistências são apenas diferenças de data entre as fontes.
             </p>
           </div>
