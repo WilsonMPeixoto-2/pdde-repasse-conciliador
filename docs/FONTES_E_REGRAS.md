@@ -1,95 +1,152 @@
 # Fontes e regras de evidência
 
-Este documento registra o estado operacional das fontes e as regras que afetam conclusões financeiras. Ele muda quando a fonte ou a regra muda de forma material, não a cada ajuste visual.
+**Atualização material:** 04/09/2026  
+**Estado corrente:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
 
-Estado corrente consolidado: [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md).  
-Baseline PDDEInfo + SIGEF: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md).  
-Baseline dos relatórios públicos complementares: [`BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md).  
-Pesquisas futuras: [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
+Este documento registra a maturidade das fontes, o que cada uma realmente prova, falhas conhecidas e regras que impedem conclusões financeiras falsas.
 
-## Estado das fontes — revisão de 02/09/2026
+## 1. Regra mestra
 
-| Fonte | Finalidade | Estado no canônico | Observação |
+Nenhuma fonte deve “ganhar” apagando silenciosamente outra. O sistema preserva:
+
+- o fato observado;
+- a fonte;
+- a data/cobertura;
+- a conclusão derivada;
+- divergências e lacunas.
+
+**Ausência não é zero. Fonte indisponível não é ausência. Pagamento informado não é crédito bancário.**
+
+## 2. Estado das fontes em 04/09/2026
+
+| Fonte | Finalidade | Estado | Observação atual |
 |---|---|---|---|
-| **PDDEInfo — consulta por escola** | valores programados/pagos com custeio e capital, ajustes, datas, UEx/CNPJ, situação textual, contas e ocorrência | **INTEGRADO; CONTRATO AMPLIADO EM 02/09** | Consulta direta por INEP; carteira integral de 163 escolas já comprovada. |
-| **SIGEF Extrato público direto** | créditos, débitos, aplicações, resgates, documentos, histórico e contraparte | **INTEGRADO E VALIDADO** | Extrato público integra o monitoramento e a visão humana; 284/284 contas então mapeadas foram completadas na rodada integral de 14/08. |
-| **PDDEInfo/FNDE — relatórios públicos complementares** | atendimento/ordem/alunos, cadastro/mandato, abertura de conta, suspensão e motivo, prestação de contas, saldo e aplicações | **INTEGRADO; ESCOPO AMPLIADO EM 02/09** | Atendimento/prestação/saldos possuem baseline integral de 16/08; cadastro, abertura e suspensão entram como fontes complementares explicitamente cobertas no novo read model. |
-| **SIGEF Liberações** | OB, data, valor e conta destinatária | **INTEGRADO COMO COMPLEMENTO / ASSISTIDO QUANDO NECESSÁRIO** | O fluxo possui recuperação complementar e continua aceitando exportações preservadas como evidência adicional. |
-| **SIGEF Movimentações por CSV/arquivo** | movimentos bancários em arquivos autorizados/exportados | **LEITOR SUPORTADO** | Fonte adicional; a cobertura temporal do arquivo precisa permanecer explícita. |
-| **Portal da Transparência / CGU** | documentos e transferências federais | **CLIENTE IMPLEMENTADO; FONTE OPERACIONAL DESABILITADA** | Depende de credencial oficial e piloto real antes de influenciar conclusões correntes. |
-| **Novo Webservice do SIGEF** | potencial interface institucional de extrato | **PESQUISA CONFIRMADA; NÃO INTEGRADO** | Depende de documentação/credenciais/escopo institucional. |
-| **BB Gestão Ágil / transição SIGPC Ágil** | potencial camada bancária institucional e documentos | **NÃO INTEGRADO** | O FNDE iniciou a transição gradual ao SIGPC Ágil em 31/08/2026; as UEx não integram a fase inicial. Não fazer scraping de interface autenticada. |
-| **Plataforma Antonieta de Barros** | produtos estruturados/datasets | **POTENCIAL; CONEXÃO NÃO CERTIFICADA** | Exige piloto que prove ganho material para 2026. |
-| **PDDEREx** | fonte legada | **NÃO USAR COMO FONTE CORRENTE** | Foi sucedido pelo PDDEInfo; manter apenas como referência histórica quando necessário. |
-| **Dados Abertos FNDE / Olinda** | execução financeira do PDDE, escolas atendidas, saldos e regularidade de prestação | **CANDIDATO SECUNDÁRIO FORTE** | O catálogo oficial inclui execução financeira até nível de escola e consulta de prestação; metadados/recursos apresentam frescor desigual e exigem piloto antes de entrar na conclusão corrente. |
-| **SiGPC - Acesso Público** | situação de prestação de contas das UEx e EEx | **PÚBLICO; PILOTO NECESSÁRIO** | O FNDE informa acesso sem cadastro prévio e consulta específica de situação UEx. Pode servir como evidência independente de prestação, mas o acesso legado pode aplicar WAF/bloqueios e precisa de estratégia permitida/testável. |
-| **Painéis PDDE Total / Básico / Ações Integradas** | cadastro, atendimento, repasses previstos/realizados, execução e prestação | **CONTROLE SECUNDÁRIO; PILOTO NECESSÁRIO** | Painéis oficiais Power BI do FNDE. Úteis para cruzamento e descoberta, mas integração produtiva depende de exportação estável e granularidade por escola/UEx. |
+| **PDDEInfo — consulta por escola/INEP** | programação, pagamento informado, custeio/capital, ajustes, UEx/CNPJ, contas/ocorrências | **INTEGRADO** | Fonte nuclear da carteira 163; consulta direta por INEP. |
+| **SIGEF — extrato público** | créditos, débitos, aplicações, resgates, documentos, histórico e contraparte | **INTEGRADO** | Fonte nuclear/complementar para movimentação e crédito compatível. |
+| **PDDEInfo/FNDE — atendimento/repasse** | atendimento, ordem, alunos e campos relacionados | **INTEGRADO** | Falha aqui pode ser bloqueante conforme contrato do monitoramento. |
+| **PDDEInfo/FNDE — prestação/contabilidade** | situação e registros públicos de prestação | **INTEGRADO** | Tratado como evidência pública independente dentro do contrato atual. |
+| **PDDEInfo/FNDE — saldos/aplicações** | posição mensal datada de conta/aplicações | **INTEGRADO** | `BALANCE` e descoberta mensal são bloqueantes para completude. |
+| **PDDEInfo/FNDE — cadastro/mandato** | situação cadastral, mandato, atualização/contatos quando publicados | **COMPLEMENTAR INTEGRADO** | Ausência/falha não apaga fatos financeiros de fontes nucleares. |
+| **PDDEInfo/FNDE — abertura de conta** | situação pública de abertura | **COMPLEMENTAR, FONTE EXTERNA COM ERRO EM 04/09** | Relatório retornou ORA-00904 para as 163 UEx; não usar como prova negativa. |
+| **PDDEInfo/FNDE — suspensões/motivos** | situação e motivos publicados | **COMPLEMENTAR INTEGRADO** | Cobertura deve permanecer explícita. |
+| **SIGEF — liberação/conta** | OB/data/valor/conta quando disponível | **INTEGRADO COMO COMPLEMENTO** | Não confundir ordem/liberação com crédito observado. |
+| **SIGEF — CSV/arquivo autorizado** | movimentos bancários exportados | **LEITOR SUPORTADO** | Cobertura temporal do arquivo precisa ser explicitada. |
+| **Browser assistido / Playwright** | fallback permitido para fonte pública quando HTTP direto não basta | **INTEGRADO** | Chromium é instalado no Full 163 desde PR #56. |
+| **Portal da Transparência / CGU** | recursos/documentos federais por favorecido | **CLIENTE EM CÓDIGO; NÃO ATIVO COMO AUTORIDADE CORRENTE** | Exige token oficial e piloto real antes de influenciar conclusões. |
+| **SiGPC Acesso Público** | segunda evidência para prestação/situação UEx | **PESQUISA CONFIRMADA; PILOTO PENDENTE** | Acesso público descrito pelo FNDE; WAF/legado exige estratégia permitida/testável. |
+| **Dados Abertos FNDE / Olinda** | execução financeira, saldos, prestação, backfill/controle | **CANDIDATO FORTE; PILOTO PENDENTE** | Frescor desigual; não promover histórico a corrente. |
+| **Painéis PDDE Total/Básico/Ações Integradas** | conferência e controle cruzado | **SECUNDÁRIO; PILOTO DE EXPORTAÇÃO PENDENTE** | Não usar como fonte nuclear sem exportação estável por escola/UEx. |
+| **Novo Webservice SIGEF** | potencial consulta institucional de extrato | **PESQUISA CONFIRMADA; NÃO INTEGRADO** | Falta credencial/documentação/homologação. |
+| **BB Gestão Ágil** | potencial visão bancária/documental institucional | **NÃO INTEGRADO** | Preferir API/acesso institucional; não raspar interface autenticada. |
+| **Plataforma Antonieta de Barros** | potenciais produtos/datasets estruturados | **POTENCIAL; NÃO CERTIFICADO** | Exige piloto que prove ganho real para 2026. |
+| **SIGPC Ágil** | nova prestação digital com integração bancária | **NÃO APLICÁVEL ÀS 163 UEx NA FASE PESQUISADA** | Fase inicial de 31/08/2026 não inclui UEx. |
+| **PDDEREx** | legado FNDE | **HISTÓRICO; NÃO USAR COMO FONTE CORRENTE** | Só investigação histórica específica. |
 
-## Evidência já comprovada
+## 3. Baselines já comprovados
 
-### PDDEInfo principal + SIGEF — 14/08/2026
+### 14/08/2026 — PDDEInfo principal + SIGEF
 
-- 163/163 escolas concluídas no PDDEInfo;
-- 284/284 contas SIGEF então mapeadas concluídas;
+- 163/163 escolas concluídas;
+- 284/284 contas SIGEF então mapeadas;
 - 520 registros de repasse/parcela;
 - 394 movimentos pertencentes a 2026;
-- movimentos históricos recebidos no bruto ficaram fora da visão corrente;
-- R$ 827.615,00 com pagamento informado no PDDEInfo;
-- R$ 409.010,00 em créditos compatíveis localizados no SIGEF naquele retrato.
+- R$ 827.615,00 com pagamento informado;
+- R$ 409.010,00 em créditos compatíveis localizados naquele retrato.
 
-### Relatórios públicos complementares — 16/08/2026
+Esses números são históricos, não constantes permanentes.
 
-- 163 CNPJs de UEx localizados para as 163 UEs;
+### 16/08/2026 — relatórios públicos complementares
+
+- 163 CNPJs de UEx;
 - 169 registros de atendimento/repasse;
-- 311 registros de prestação de contas;
+- 311 registros de prestação;
 - 2.690 posições mensais de saldo;
 - 461 séries conta/programa;
-- cobertura publicada então disponível de janeiro a junho de 2026;
-- 0 falhas de coleta e 0 inconsistências aritméticas observadas no baseline.
+- cobertura então disponível jan–jun/2026;
+- 0 falhas de coleta e 0 inconsistências aritméticas naquele baseline.
 
-Esses números são **baselines datados**, não constantes de negócio. Uma nova coleta pode produzir valores e cobertura diferentes.
+### 02/09/2026 — prova de frescor
 
-## Regra temporal — 2026
+Uma nova coleta alterou o total programado de R$ 2.182.050,00 para R$ 2.238.502,00, concentrado em 17 novos registros de Educação Conectada.
 
-A visão operacional atual trabalha exclusivamente com o exercício de **2026**.
+Na mesma comparação permaneceram:
 
-Dados históricos podem ser preservados como evidência ou usados numa investigação histórica separada, mas não:
+- pagamento informado: R$ 827.615,00;
+- crédito compatível SIGEF: R$ 409.010,00;
+- saldo: R$ 1.644.171,85;
+- aplicações: R$ 1.368.045,22;
+- referência de saldo: 31/07/2026.
+
+**Conclusão:** coleta fresca pode devolver números iguais quando a fonte não publicou fatos novos. Frescor e mudança de valor são coisas diferentes.
+
+## 4. Execução integral validada de 04/09/2026
+
+A run #216 (`33906605579`) concluiu `COMPLETE` 163/163 após o runner receber Chromium para o fallback Playwright.
+
+Artefato aprovado:
+
+- `sigef-full-163-2026`;
+- id `9950830049`.
+
+O snapshot foi promovido automaticamente e confirmado em produção com os mesmos IDs.
+
+## 5. Falha conhecida do relatório de abertura de conta
+
+Na execução analisada em 04/09, o relatório de abertura de conta retornou para as 163 UEx:
+
+`ORA-00904: "REPASSE"."NU_SEQ_UNIDADE_EXECUTORA": invalid identifier`
+
+Interpretação obrigatória:
+
+- isso é **falha da fonte**, não “sem conta”;
+- deve aparecer como cobertura indisponível/falha suplementar;
+- não pode apagar conta localizada em PDDEInfo/SIGEF;
+- não pode virar zero;
+- não deve derrubar a coleta nuclear quando as evidências bloqueantes estão completas.
+
+No contrato atual, `ACCOUNT_OPENING` é suplementar. Falhas como `ATTENDANCE`, `ACCOUNTING`, `BALANCE` e `BALANCE_MONTH_DISCOVERY` são bloqueantes para `COMPLETE`.
+
+## 6. Regra temporal — exercício 2026
+
+A visão operacional trabalha com 2026.
+
+Dados anteriores podem ser preservados como evidência histórica, mas não:
 
 - completam conta corrente ausente;
 - entram em saldo corrente;
 - provam aplicação/rendimento atual;
 - fecham lacuna de crédito de 2026;
-- mudam a conclusão sobre cobertura corrente.
+- mudam conclusão sobre cobertura corrente.
 
-## Níveis de evidência financeira
+## 7. Níveis de evidência financeira
 
-### Valor programado / previsto
+### Programado / previsto
 
-Valor informado pela fonte como programação. Não significa pagamento nem crédito.
+Valor informado como programação. Não significa pagamento.
 
 ### Pagamento informado
 
-O PDDEInfo informa que determinado pagamento foi registrado. Isso não comprova, sozinho, crédito bancário.
+Registro de pagamento na fonte. Não comprova sozinho crédito bancário.
 
-### Ordem de pagamento / liberação
+### Ordem/liberação
 
-Uma fonte adequada pode corroborar documento/OB, data, valor e conta destinatária. A existência da ordem continua distinta do crédito observado em extrato.
+Documento/OB/data/valor/conta em fonte adequada. Continua distinto do crédito observado no extrato.
 
 ### Crédito compatível localizado
 
-Movimentação bancária compatível encontrada no SIGEF dentro da identidade financeira disponível. Na interface humana, preferir **“Crédito compatível localizado”** a uma formulação absoluta de “crédito confirmado” quando essa é a evidência disponível.
+Movimentação bancária compatível encontrada com identidade suficiente. A expressão humana preferida é **“Crédito compatível localizado”** quando essa é a força real da evidência.
 
 ### Evidência bancária direta autorizada
 
-Quando houver fonte bancária institucional/autorizada com contrato próprio, esse nível deve permanecer distinguível dos anteriores.
+Se futura fonte institucional bancária fornecer evidência mais forte, esse nível deve permanecer distinguível.
 
 ### Consulta inconclusiva
 
-Usada quando falta cobertura, fonte, chave ou informação necessária para concluir com segurança. Indisponibilidade não vira ausência.
+Usada quando falta cobertura, fonte, chave ou informação necessária para concluir com segurança.
 
-## Estados técnicos dos repasses
+## 8. Estados operacionais de repasse
 
-A camada operacional pode usar:
+O núcleo pode usar estados como:
 
 - `PROGRAMADO_NAO_PAGO`;
 - `CREDITO_CONFIRMADO`;
@@ -98,61 +155,43 @@ A camada operacional pode usar:
 - `CREDITO_AMBIGUO`;
 - `CONSULTA_INCONCLUSIVA`.
 
-A camada humana traduz esses estados para linguagem probatória neutra. Exemplos:
+A camada humana traduz de forma neutra. `CREDITO_CONFIRMADO`, quando sustentado apenas pela associação existente, deve ser apresentado como **Crédito compatível localizado**.
 
-- `CREDITO_CONFIRMADO` → **Crédito compatível localizado**;
-- `PAGO_CREDITO_NAO_LOCALIZADO` → pagamento informado, crédito compatível ainda não localizado nesta coleta;
-- `PAGO_SEM_CONTA_ATUAL` → pagamento informado, conta correspondente não exibida na coleta atual;
-- `PROGRAMADO_NAO_PAGO` → pagamento ainda não informado.
+## 9. PDDE Básico — ciclos operacionais
 
-Não usar “repasse ausente” como sinônimo automático de pagamento ainda não informado.
-
-## Leitura operacional das parcelas do PDDE Básico — 03/09/2026
-
-Para a visualização gerencial da carteira, o produto mantém os nomes originais das destinações, mas agrega os dois caminhos de atendimento do PDDE Básico em ciclos equivalentes de acompanhamento:
+Para leitura gerencial, preservando os nomes de origem:
 
 - **1º ciclo:** `PDDE Básico · 1ª Parcela` ou `PDDE Básico — Primeira Infância · P1`;
 - **2º ciclo:** `PDDE Básico · 2ª Parcela` ou `PDDE Básico — Primeira Infância · P2`.
 
-Essa agregação é **somente de leitura operacional**. Ela não renomeia nem funde os registros de origem.
+Essa agregação é apenas de leitura. Não funde nem renomeia os registros de origem.
 
-No retrato público de 31/07/2026 usado para validação desta regra:
+No retrato de 31/07/2026 usado para validar a regra:
 
-- 111 unidades tinham pagamento informado na `1ª Parcela` regular;
-- 52 unidades tinham pagamento informado em `Primeira Infância · P1`;
-- os dois conjuntos eram complementares e cobriam as 163 unidades;
-- as 52 unidades de Primeira Infância possuíam saldo positivo em conta PDDE na referência, sendo 33 com valor em conta corrente e 19 com valor em aplicações;
-- saldo em conta corrente igual a zero **não** pode ser apresentado como ausência de recurso quando aplicações ou saldo total forem positivos.
+- 111 unidades tinham pagamento informado na 1ª Parcela regular;
+- 52 tinham pagamento informado em Primeira Infância P1;
+- os conjuntos cobriam as 163 unidades;
+- as 52 de Primeira Infância tinham saldo positivo em conta PDDE: 33 com valor em conta corrente e 19 com valor em aplicações.
 
-A visualização deve sempre distinguir:
+Portanto, **conta corrente zero não pode ser mostrada como ausência de recurso quando aplicações ou saldo total são positivos**.
 
-1. valor programado;
-2. pagamento informado;
-3. crédito compatível localizado;
-4. saldo em conta corrente;
-5. aplicações;
-6. saldo total;
-7. data de referência.
+## 10. Saldos e aplicações
 
-O estado da 2ª parcela é calculado pelo pagamento informado da fonte e deve se atualizar automaticamente em novas coletas. Existência de programação para a 2ª parcela não equivale a pagamento.
-
-## Saldos e aplicações
-
-Posição de saldo é um **fato datado**.
+Saldo é fato datado.
 
 Regras:
 
-- mostrar a data de referência junto ao valor;
-- não misturar contas de referências diferentes no mesmo total rotulado;
-- mês ausente permanece ausência, não zero;
-- zero publicado continua zero conhecido;
-- `Saldo Fundos`, `Poupança` e `RDB/CDB` são posições aplicadas publicadas na referência;
-- posição aplicada não é sinônimo de rendimento;
-- aplicação/resgate observados no extrato não bastam para reconstruir automaticamente a posição atual.
+- mostrar a data de referência;
+- não misturar referências diferentes em um total rotulado como atual;
+- mês ausente permanece ausência;
+- zero publicado permanece zero conhecido naquela referência;
+- `Saldo Fundos`, `Poupança`, `RDB/CDB` são posições aplicadas publicadas;
+- aplicação não é rendimento;
+- aplicação/resgate do extrato não bastam para reconstruir posição atual.
 
-## Movimentações e categorias auxiliares
+## 11. Movimentações
 
-Categorias possíveis incluem:
+Categorias auxiliares podem incluir:
 
 - `REPASSE_FNDE`;
 - `APLICACAO_FINANCEIRA`;
@@ -165,129 +204,100 @@ Categorias possíveis incluem:
 - `ESTORNO_REVERSAO`;
 - `MOVIMENTO_NAO_CLASSIFICADO`.
 
-Sempre preservar o histórico e documento originais da fonte. A categoria auxilia leitura e monitoramento, mas **não é juízo automático de regularidade da despesa**. Ausência de categoria “rendimento” também não prova ausência de rendimento.
+A categoria auxilia leitura. Não é juízo automático de regularidade.
 
-## Regras de correspondência
+## 12. Regras de correspondência
 
-Uma associação usa a combinação mais forte disponível de:
+Usar a combinação mais forte disponível de:
 
-- INEP/UEx e CNPJ;
+- INEP/UEx/CNPJ;
 - exercício;
-- programa;
-- ação;
+- programa/ação;
 - parcela;
 - conta;
 - valor;
 - data;
-- documento/OB quando disponível.
+- documento/OB.
 
-### Proibições
+Proibido:
 
-- não confirmar por valor semelhante isoladamente;
-- não escolher arbitrariamente entre múltiplos candidatos;
-- não promover referência histórica a dado corrente;
-- não converter cobertura incompleta em prova de ausência;
-- não usar um programa para preencher silenciosamente conta de outro;
-- não esconder divergência entre fontes por meio de uma “fonte preferida”;
-- não usar movimento de outro exercício para fechar 2026.
+- confirmar por valor semelhante isoladamente;
+- escolher arbitrariamente entre candidatos;
+- usar histórico para preencher corrente;
+- converter cobertura incompleta em prova de ausência;
+- usar conta/programa de outro contexto silenciosamente;
+- esconder divergência por “fonte preferida”;
+- usar movimento de outro exercício para fechar 2026.
 
-## Contas bancárias
+## 13. Contas bancárias
 
-Banco, agência e conta permanecem texto. Identidades equivalentes podem ser canonizadas internamente para associação, sem apagar a representação observada na fonte.
+Banco, agência e conta permanecem texto. Canonização interna pode apoiar associação, sem apagar a representação original.
 
-Uma conta ausente pode receber informação complementar de outra fonte somente quando a origem ficar explícita e a correspondência for confiável. Complementar não significa reescrever silenciosamente a observação original.
+Uma conta ausente pode receber complemento de outra fonte apenas quando a origem fica explícita e a correspondência é confiável.
 
-## Autonomia e limites de acesso
+## 14. Estratégia de aquisição
 
 Ordem preferencial:
 
-1. HTTP direto + parser determinístico quando permitido;
-2. navegador controlado quando interação real for necessária;
-3. IA/agente apenas como auxílio de diagnóstico/adaptação;
-4. interromper e registrar o estado diante de CAPTCHA, login, autorização ou bloqueio externo.
+1. HTTP direto + parser determinístico;
+2. navegador controlado quando a interação pública real for necessária;
+3. IA/agente como apoio de diagnóstico/adaptação;
+4. interromper/registrar diante de CAPTCHA, login, autorização ou bloqueio sem rota permitida.
 
 CAPTCHA não será contornado.
 
-## Evidência e rastreabilidade
+Desde 04/09, o Full 163 instala Chromium porque o fallback Playwright faz parte do caminho legítimo de coleta pública.
 
-Quando agrega valor à conclusão, preservar artefatos/observações com data, origem e hash. A trilha técnica pode conter URLs, parser, páginas e IDs internos; a interface humana não precisa expor esses detalhes como conteúdo operacional.
+## 15. Qualidade > velocidade
 
-## Regra de incorporação de nova fonte
+A coleta pode usar o tempo necessário para:
 
-Uma fonte só vira oficial quando possuir:
+- retentar fonte instável;
+- abrir fallback de navegador;
+- descobrir meses publicados;
+- cruzar fontes;
+- investigar inconsistências;
+- validar 163/163.
 
-1. estratégia de acesso permitida;
+Não reduzir profundidade apenas para “caber” em poucos minutos.
+
+## 16. Incorporação de nova fonte
+
+Uma fonte só influencia conclusão corrente quando houver:
+
+1. acesso permitido;
 2. chave de consulta conhecida;
 3. parser/contrato testável;
-4. cobertura e limitações explícitas;
+4. cobertura/limitações explícitas;
 5. integração sem sobrescrita silenciosa;
-6. piloto/execução controlada com utilidade real;
-7. comportamento compatível com o foco de 2026.
+6. piloto real com utilidade;
+7. compatibilidade com o foco 2026;
+8. política de falha que não converta indisponibilidade em ausência.
 
 Pesquisa, protótipo ou existência de API não equivalem a integração produtiva.
 
+## 17. Pesquisa de 03/09 — prioridades que não devem ser esquecidas
 
-## Ampliação de cobertura — 02/09/2026
+Ordem de investigação sugerida e ainda válida como ponto de partida, salvo evidência posterior:
 
-A revisão de completude identificou informação oficial que já existia nas fontes, mas não sobrevivia até o produto humano. O contrato passa a preservar:
+1. **SiGPC Acesso Público** para segunda evidência de prestação;
+2. **Portal da Transparência/CGU** para recursos/documentos, após token oficial;
+3. **Dados Abertos FNDE** para piloto de frescor/backfill;
+4. **painéis PDDE** como controle secundário;
+5. **novo Webservice SIGEF/BB Gestão Ágil** somente com condições institucionais adequadas.
 
-- programação e pagamento separados em custeio/capital;
-- ajustes de custeio/capital;
-- quantidade de alunos informada no relatório de atendimento;
-- situação cadastral e mandato da UEx;
-- data de atualização cadastral e dados de contato quando publicados;
-- situação pública de abertura de conta;
-- coluna `Ocorrência` da conta exibida na Consulta por Escola;
-- motivos/tipos de suspensão publicados;
-- cobertura nominal de cada conjunto consultado.
+Antes de repetir essas pesquisas, consultar também `CONHECIMENTO_ACUMULADO.md` e o histórico consolidado.
 
-As fontes complementares de cadastro, abertura e suspensão **não são tratadas como prova negativa quando retornam sem cobertura**. Falha dessas fontes fica exposta como cobertura indisponível e não apaga um retrato financeiro completo obtido pelas fontes nucleares.
+## 18. Evidência e rastreabilidade
 
+Quando agrega valor à conclusão, preservar artefatos/observações com data, origem e hash. A camada técnica pode conter IDs, URLs, parser e tentativas; a interface humana deve expor a proveniência em nível compreensível, não o ruído interno.
 
-## Verificação de frescor e fontes complementares — 03/09/2026
+## 19. Regra de publicação
 
-A rodada integral concluída em 02/09/2026 confirmou que a consulta ao vivo realmente volta às fontes e pode detectar mudanças: o total programado passou de **R$ 2.182.050,00** para **R$ 2.238.502,00**, concentrado em 17 novos registros de Educação Conectada. No mesmo intervalo, pagamento informado (**R$ 827.615,00**), crédito compatível SIGEF (**R$ 409.010,00**), saldo (**R$ 1.644.171,85**) e aplicações (**R$ 1.368.045,22**) permaneceram iguais, com referência de saldo ainda em **31/07/2026**.
+Uma fonte nova ou dado novo não deve ser considerado publicado apenas porque existe no workspace/artefato.
 
-A mesma execução registrou:
-- 537 registros de repasse/parcela;
-- 325 registros de prestação de contas;
-- 408 movimentações SIGEF de 2026;
-- 163 cadastros de UEx;
-- 0 registros de abertura de conta;
-- 163 falhas do relatório de abertura de conta;
-- erro da própria fonte FNDE na abertura de conta: `ORA-00904: "REPASSE"."NU_SEQ_UNIDADE_EXECUTORA": invalid identifier`.
+Para o retrato integral da carteira:
 
-Consequência: uma nova consulta pode ser tecnicamente fresca e, ainda assim, manter os mesmos números centrais quando as fontes oficiais não publicaram fatos financeiros novos.
+`coleta -> COMPLETE 163/163 -> artefato da mesma execução -> snapshot validado -> main -> Vercel -> manifesto público`.
 
-### Fontes adicionais verificadas em 03/09
-
-1. **SiGPC - Acesso Público**
-   - acesso oficialmente descrito pelo FNDE como público e sem cadastro prévio;
-   - permite consultar situação das prestações e situação das UEx;
-   - prioridade: **P1**, como segunda evidência de prestação/regularidade;
-   - restrição prática: o sistema legado pode rejeitar acessos automatizados por WAF; qualquer integração deve respeitar esse limite.
-
-2. **API do Portal da Transparência / CGU**
-   - API REST oficial ativa;
-   - endpoint de recursos recebidos por favorecido e documentos por favorecido;
-   - cliente já existe no repositório;
-   - token oficial é obtido por autenticação Gov.br e fica apenas no backend;
-   - prioridade: **P1**, como evidência independente de recursos federais/documentos SIAFI por CNPJ.
-
-3. **Dados Abertos do FNDE**
-   - catálogo oficial do PDDE declara execução financeira até nível de escola, saldos e situação da prestação de contas;
-   - há recursos de execução financeira, consulta de prestação e saldos de UEx;
-   - prioridade: **P2/P1 para backfill**, condicionado a teste de atualização efetiva de 2026.
-
-4. **Painéis PDDE Total / PDDE Básico / Ações Integradas**
-   - o próprio FNDE declara que permitem consultas sobre cadastro, atendimento, repasses previstos e realizados, execução e prestação;
-   - prioridade: **P2**, como controle cruzado e detecção de divergências;
-   - não usar como fonte nuclear enquanto não houver mecanismo de exportação estável e auditável por escola/UEx.
-
-5. **SIGPC Ágil**
-   - lançado em 31/08/2026;
-   - recebe movimentações bancárias diretamente do Banco do Brasil e prevê extratos/transações;
-   - nesta fase do PDDE, atende EEx e EM; **UEx ainda não migram**;
-   - portanto: **não aplicável como fonte operacional das 163 UEx neste momento**.
-
-A ordem de próxima integração permanece: **SiGPC Acesso Público (prestação) → Portal da Transparência (recursos/documentos, após token) → piloto Dados Abertos → painéis PDDE como controle secundário**.
+Essa regra foi materializada nos PRs #55/#56 e comprovada pela run #216.
