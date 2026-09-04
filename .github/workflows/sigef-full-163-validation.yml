@@ -55,6 +55,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Instalar Chromium para os fallbacks de coleta pública
+        run: npx playwright install --with-deps chromium
       - name: Extrair, conciliar e materializar o produto para as 163 UEs
         env:
           PDDE_SESSION_ID: full-163-${{ github.run_id }}
