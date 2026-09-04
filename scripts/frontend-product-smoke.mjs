@@ -166,10 +166,19 @@ const school = {
   ],
 };
 
+const schoolsByInep = Object.fromEntries(units.map((unit, index) => [
+  unit.inep,
+  {
+    ...school,
+    school: { ...school.school, inep: unit.inep, sme: unit.sme, name: unit.name },
+    followUp: index === 0 ? school.followUp : [],
+  },
+]));
+
 const snapshotPartPath = '/data/frontend-product-smoke-snapshot.txt';
 const encodedSnapshot = Buffer.from(gzipSync(strToU8(JSON.stringify({
   portfolio,
-  schools: { [school.school.inep]: school },
+  schools: schoolsByInep,
 })))).toString('base64');
 
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
@@ -314,6 +323,8 @@ async function smoke(viewport, suffix) {
   const page = await context.newPage();
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: /Inteligência financeira/i }).waitFor();
+  await page.getByRole('heading', { name: 'As perguntas que precisam de resposta' }).waitFor();
+  await page.getByText('Quem recebeu a 1ª parcela / P1?', { exact: true }).waitFor();
   await assertNoTechnicalMetadata(page);
   await page.screenshot({ path: new URL(`home-${suffix}.png`, output).pathname, fullPage: true });
   await assertNoMainOverflow(page);
