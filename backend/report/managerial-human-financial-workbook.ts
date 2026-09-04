@@ -139,7 +139,7 @@ function rebuildManagerialOverview(
   answerRow(
     sheet,
     5,
-    'Quem recebeu a 1ª parcela / P1?',
+    'Para quem o FNDE informa pagamento da 1ª parcela / P1?',
     `${monitoring.firstPaidCount} de ${monitoring.schoolCount}`,
     `${monitoring.firstRegularCount} no PDDE Básico regular + ${monitoring.firstInfancyCount} em Primeira Infância/P1.`,
     monitoring.firstPendingCount === 0 ? 'positive' : 'attention',
@@ -147,7 +147,7 @@ function rebuildManagerialOverview(
   answerRow(
     sheet,
     6,
-    'Quem já recebeu a 2ª parcela / P2?',
+    'Para quem o FNDE informa pagamento da 2ª parcela / P2?',
     `${monitoring.secondPaidCount} de ${monitoring.schoolCount}`,
     `${monitoring.secondPendingCount} ainda sem pagamento informado.`,
     monitoring.secondPaidCount > 0 ? 'positive' : 'neutral',
