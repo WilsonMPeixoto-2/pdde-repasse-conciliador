@@ -58,9 +58,27 @@ describe('governança das novas fontes públicas', () => {
     }));
   });
 
+  test('Olinda financeiro é fonte pública relevante, mas bloqueada enquanto o FNDE retorna erro de servidor', () => {
+    expect(SOURCE_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'FNDE_OLINDA_FINANCEIRO',
+      access: 'PUBLIC',
+      integrationState: 'ACCESS_BLOCKED',
+      capabilities: expect.arrayContaining([
+        'AVAILABLE_ACCOUNT_RESOURCE_DATE',
+        'AVAILABLE_ACCOUNT_RESOURCE',
+      ]),
+    }));
+    expect(DATA_PRODUCT_CATALOG).toContainEqual(expect.objectContaining({
+      id: 'FNDE_OLINDA_FINANCEIRO_2026',
+      sourceId: 'FNDE_OLINDA_FINANCEIRO',
+      state: 'ACCESS_BLOCKED',
+    }));
+  });
+
   test('não apresenta fontes de pesquisa como integração corrente', () => {
     for (const id of ['SIGEF_EXTRATOS_PUBLICOS', 'SIGPC_PUBLICO', 'FNDE_DADOS_ABERTOS', 'PDDE_MONITORING_PANELS'] as const) {
       expect(SOURCE_CATALOG.find((item) => item.id === id)?.integrationState).toBe('PILOT_REQUIRED');
     }
+    expect(SOURCE_CATALOG.find((item) => item.id === 'FNDE_OLINDA_FINANCEIRO')?.integrationState).toBe('ACCESS_BLOCKED');
   });
 });
