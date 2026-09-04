@@ -38,9 +38,9 @@ export async function downloadCurrentWorkbook(
   schools: readonly HumanSchool[],
   generatedAt?: string | null,
 ): Promise<void> {
-  const { buildHumanFinancialWorkbook } = await import('../../backend/report/human-financial-workbook');
+  const { buildManagerialHumanFinancialWorkbook } = await import('../../backend/report/managerial-human-financial-workbook');
   const parsedGeneratedAt = generatedAt ? new Date(generatedAt) : new Date();
-  const workbook = buildHumanFinancialWorkbook(
+  const workbook = buildManagerialHumanFinancialWorkbook(
     buildCurrentWorkbookView(portfolio, schools),
     { generatedAt: Number.isNaN(parsedGeneratedAt.getTime()) ? new Date() : parsedGeneratedAt },
   );
