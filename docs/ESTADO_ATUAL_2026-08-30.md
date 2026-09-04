@@ -1,8 +1,11 @@
-# Estado operacional atual — 30/08/2026
+> [!IMPORTANT]
+> **DOCUMENTO HISTÓRICO.** Este arquivo registra a fotografia de 30/08–03/09/2026 e foi supersedido como estado corrente por [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md). Não use as expressões “estado atual”, “pendente” ou “próximo passo” abaixo para decidir ações presentes sem primeiro ler `LEIA_PRIMEIRO.md` e o estado soberano mais recente.
 
-Este documento substitui o checkpoint de 19/08/2026 como **índice factual do estado corrente** da Plataforma de Inteligência Financeira PDDE | 4ª CRE. Documentos com datas anteriores continuam úteis como baseline, auditoria ou registro de decisão, mas não devem ser usados isoladamente para concluir o que está ou não implantado hoje.
+# Estado operacional — fotografia iniciada em 30/08/2026
 
-## Escopo corrente
+Este documento substituiu o checkpoint de 19/08/2026 **naquele momento**. Desde 04/09/2026 ele é histórico. As seções abaixo são preservadas para registrar a evolução material do projeto e não para determinar o estado corrente.
+
+## Escopo corrente naquele checkpoint
 
 - Carteira institucional: **163 unidades escolares da 4ª CRE / SME-Rio**.
 - Exercício operacional: **2026**.
@@ -10,7 +13,7 @@ Este documento substitui o checkpoint de 19/08/2026 como **índice factual do es
 - `extrator-pdde-4cre`: referência histórica/técnica.
 - `EXTRATOR-PDDE-MANUS`: projeto paralelo somente leitura para este fluxo.
 
-## O que está materializado
+## O que estava materializado
 
 ### Coleta e inteligência financeira
 
@@ -27,7 +30,7 @@ Este documento substitui o checkpoint de 19/08/2026 como **índice factual do es
 
 ### Produto web publicado
 
-O frontend React/Vite está publicado no Vercel e possui:
+O frontend React/Vite estava publicado no Vercel e possuía:
 
 - Home financeira;
 - busca por escola;
@@ -35,15 +38,15 @@ O frontend React/Vite está publicado no Vercel e possui:
 - visões globais de **Escolas, Repasses, Contas e saldos, Evolução mensal, Movimentações, Cadastro e habilitação, Pendências e suspensões, Prestação de contas e Cobertura das fontes**;
 - indicadores acionáveis;
 - prontuário financeiro por escola;
-- navegação do prontuário por `Resumo`, `Cadastro`, `Repasses`, `Contas e saldos`, `Movimentações`, `Pendências` e `Prestação de contas` quando houver dados;
+- navegação do prontuário por `Resumo`, `Cadastro`, `Repasses`, `Contas e saldos`, `Movimentações`, `Pendências` e `Prestação de contas` quando havia dados;
 - composição do saldo e série mensal;
 - extrato de movimentações;
 - consulta ao vivo da carteira com progresso por unidade;
-- download do Excel humano diretamente da Home, sempre derivado do mesmo retrato financeiro que está sendo exibido;
-- preservação do retrato anterior quando a atualização falha ou termina parcial;
-- deep links da SPA no ambiente Vercel.
+- download do Excel humano diretamente da Home, derivado do retrato financeiro exibido;
+- preservação do retrato anterior quando a atualização falhava ou terminava parcial;
+- deep links da SPA no Vercel.
 
-## O que ainda não está implantado definitivamente
+## O que ainda não estava implantado definitivamente naquele checkpoint
 
 - **Supabase dedicado** para esta plataforma;
 - aplicação das migrations no banco canônico definitivo;
@@ -53,9 +56,9 @@ O frontend React/Vite está publicado no Vercel e possui:
 - credencial oficial e ativação do Portal da Transparência como fonte operacional;
 - PDF executivo final.
 
-Enquanto o Supabase dedicado não for conectado, uma consulta ao vivo completa atualiza a sessão do navegador. Recarregar a página retorna ao retrato estável publicado.
+Naquele estado, uma consulta ao vivo completa atualizava a sessão do navegador e recarregar a página retornava ao retrato estável publicado. **Essa afirmação foi parcialmente supersedida em 04/09 pela promoção automática e durável do snapshot integral validado via Git/Vercel.**
 
-## Regras financeiras que continuam obrigatórias
+## Regras financeiras que permanecem válidas
 
 1. `Pagamento informado` não equivale a crédito bancário.
 2. Ordem FNDE/OB e crédito observado são fatos distintos.
@@ -68,25 +71,15 @@ Enquanto o Supabase dedicado não for conectado, uma consulta ao vivo completa a
 9. Fontes independentes não se sobrescrevem.
 10. Conciliação financeira é determinística e testável; IA não decide regularidade financeira.
 
-## Hierarquia documental
+## Hierarquia documental histórica deste arquivo
 
-Para evitar que fotografias antigas do projeto sejam confundidas com estado corrente:
-
-1. **README.md** — visão operacional resumida atual;
-2. **este documento** — estado corrente consolidado;
-3. `FONTES_E_REGRAS.md` — regras de evidência e maturidade das fontes;
-4. `VISUAL_PRODUCT_CONSTITUTION_2026.md` — princípios permanentes de apresentação;
-5. `DECISOES.md` — registro datado de decisões, não status operacional;
-6. `BASELINE_*.md`, auditorias e planos datados — fotografias históricas que permanecem válidas apenas no contexto de sua data.
-
-Em caso de conflito sobre **o que existe hoje**, prevalecem o código da `main`, os testes/verificações do commit corrente, o README e este estado operacional, nessa ordem.
-
+A hierarquia que constava neste checkpoint foi substituída pela cadeia soberana de `AGENTS.md`, `LEIA_PRIMEIRO.md`, `ESTADO_ATUAL_2026-09-04.md` e `INDICE_DOCUMENTAL.md`.
 
 ## Manutenção técnica e qualidade — 30/08/2026
 
-O ciclo de manutenção de dependências foi isolado das frentes de completude financeira e segurança semântica. O objetivo é modernizar infraestrutura e testes sem alterar regras financeiras.
+O ciclo de manutenção de dependências foi isolado das frentes de completude financeira e segurança semântica. O objetivo era modernizar infraestrutura e testes sem alterar regras financeiras.
 
-### Atualizações aprovadas para produção
+### Atualizações aprovadas para produção naquele ciclo
 
 - Vite 8.2.2;
 - Vitest 4.1.11;
@@ -104,98 +97,73 @@ O ciclo de manutenção de dependências foi isolado das frentes de completude f
 
 - @playwright/test para jornadas reais em Chromium;
 - @axe-core/playwright para regressões de acessibilidade;
-- MSW para testes de integrações HTTP sem substituir manualmente fetch;
+- MSW para testes de integrações HTTP;
 - execução E2E em desktop e mobile dentro do workflow de smoke do produto.
 
-A dívida conhecida de contraste permanece explicitamente rastreada no teste de acessibilidade; violações críticas ou sérias inesperadas continuam bloqueando o gate.
+A dívida conhecida de contraste permanecia explicitamente rastreada; violações críticas ou sérias inesperadas continuavam bloqueando o gate.
 
 ### Atualização deliberadamente adiada
 
-Zod permanece em 4.4.3. A série 4.5 não foi promovida neste ciclo porque a decisão do projeto exige maturação e benchmark antes da atualização. Compatibilidade aparente em CI não substitui esse gate.
-
-## Relação com PRs pendentes
-
-As frentes de completude financeira e segurança semântica permanecem separadas. O refresh de dependências é construído diretamente sobre a `main` para que possa ser validado e promovido sem carregar alterações funcionais dessas frentes.
-
+Zod permanecia em 4.4.3 naquele ciclo, condicionado a maturação e benchmark.
 
 ## Publicação do refresh em 30/08/2026
 
 O refresh de dependências e gates foi integrado à `main` pelo PR #45, com merge funcional em `6711ccf81ea458cb84563710102cd6a8270d6408`.
 
-Os gates pós-merge da `main` foram aprovados:
+Gates pós-merge:
 
 - `Verificação contínua`: run `33339818684`, `success`;
-- `Frontend Product Smoke 2026`: run `33339818696`, `success`, incluindo jornada Playwright desktop/mobile e Axe.
+- `Frontend Product Smoke 2026`: run `33339818696`, `success`.
 
-A publicação do novo commit no Vercel ficou **externamente bloqueada** em 30/08/2026 pela cota diária do plano gratuito: `api-deployments-free-per-day`, 100/100 deployments consumidos, 0 restantes. A própria API da Vercel informou reset para **31/08/2026 às 19:46:57 (America/Sao_Paulo)**.
-
-Até esse reset, o domínio público continua servindo com segurança o deployment anterior `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`, associado ao commit `6cab204dcd2bc49da233a1d8fca966b2607b3d36`. O deep link `/repasses` respondeu HTTP 200 e `/api/live` respondeu HTTP 405 para GET, conforme contrato. A consulta de erros de runtime da última hora retornou zero ocorrências.
-
-**Consequência:** código, CI e documentação do refresh estão integrados à `main`; a promoção do novo build para o domínio público não pode ser afirmada como concluída enquanto a Vercel não aceitar um novo deployment. Não promover previews antigos do PR #43, pois pertencem à pilha #41/#42.
-
+A publicação ficou temporariamente bloqueada pela cota diária da Vercel. Até o reset, o domínio continuou servindo o deployment anterior `dpl_BcgcVXiFv3vcRoZ1BCw3gMBFNMAF`.
 
 ## Fechamento de produção — 31/08/2026
 
-Após o reset da cota diária da Vercel, a integração Git foi acionada novamente a partir da `main` sem qualquer alteração funcional adicional. O commit `107a78d92de0d089445cdeb3911d98cdf4f3b859` possui a mesma árvore validada `1232a855796c307a00739ff8fa5358e9185d8522` do checkpoint anterior e serviu exclusivamente para disparar a publicação.
+Após o reset da cota, a integração Git foi acionada novamente a partir da `main` pelo commit `107a78d92de0d089445cdeb3911d98cdf4f3b859`, sem alteração funcional adicional.
 
-A publicação foi concluída com sucesso:
+A publicação foi concluída:
 
-- deployment Vercel: `dpl_J74Zef4USvkMjjPG21yXLbRM1gGv`;
-- target: `production`;
-- branch: `main`;
-- commit publicado: `107a78d92de0d089445cdeb3911d98cdf4f3b859`;
-- estado: `READY`;
-- `aliasError`: ausente;
-- aliases canônicos atribuídos, incluindo `pdde-repasse-conciliador.vercel.app`;
-- build Vite 8.2.2 cliente + SSR concluído com sucesso;
-- `npm ci`: concluído;
+- deployment Vercel `dpl_J74Zef4USvkMjjPG21yXLbRM1gGv`;
+- `production`;
+- `main`;
+- estado `READY`;
+- aliases canônicos atribuídos;
+- build Vite concluído;
 - auditoria de dependências do build: 0 vulnerabilidades.
 
-Homologação pública após a promoção:
+Homologação pública daquele checkpoint:
 
 - `/repasses`: HTTP 200;
 - `/saldos`: HTTP 200;
 - `/unidades`: HTTP 200;
-- `/api/live` via GET: HTTP 405, conforme contrato do endpoint;
+- `/api/live` via GET: HTTP 405 conforme contrato;
 - erros de runtime na última hora: zero.
-
-O bloqueio por quota registrado em 30/08 permanece apenas como histórico. O refresh de dependências e gates está, a partir de 31/08/2026, **integrado à `main`, validado e publicado em produção**.
-
-Os PRs #41 e #42 permanecem Draft e continuam fora desta publicação. O antigo PR #43 não deve ser promovido.
-
 
 ## Exportação do retrato exibido — 02/09/2026
 
-O produto web passa a expor a ação **Baixar planilha Excel** ao lado de **Fazer nova consulta**. A exportação reutiliza o gerador canônico da planilha humana e não dispara uma segunda coleta:
+O produto passou a expor **Baixar planilha Excel** ao lado de **Fazer nova consulta**. A exportação reutiliza o gerador canônico e não dispara uma segunda coleta.
 
-- no estado inicial, o arquivo é derivado do snapshot publicado;
-- após uma consulta ao vivo completa, o arquivo é derivado dos mesmos 163 prontuários mantidos na sessão e usados pela interface;
-- cobertura escolar incompleta bloqueia a exportação;
-- nome do arquivo: `inteligencia-financeira-pdde-4cre-2026.xlsx`;
-- ExcelJS é carregado sob demanda apenas quando a exportação é solicitada.
-
-A limitação de persistência permanece a mesma: enquanto não houver publicação durável do novo retrato, recarregar a página retorna ao snapshot estável publicado.
-
+- estado inicial: arquivo derivado do snapshot publicado;
+- após consulta ao vivo completa: arquivo derivado dos mesmos 163 prontuários exibidos;
+- cobertura escolar incompleta bloqueia exportação;
+- nome: `inteligencia-financeira-pdde-4cre-2026.xlsx`;
+- ExcelJS carregado sob demanda.
 
 ## Ampliação do universo de informação — 02/09/2026
 
-A implementação corrente amplia o read model humano e os produtos de apresentação para aproveitar informações oficiais antes descartadas ou não coletadas.
+O read model humano e os produtos passaram a incorporar:
 
-### Dados incorporados
-
-- programação por custeio e capital;
-- ajustes por custeio e capital;
-- pagamento informado por custeio e capital;
-- quantidade de alunos do relatório de atendimento;
-- cadastro, mandato e atualização da UEx;
+- programação por custeio/capital;
+- ajustes por custeio/capital;
+- pagamento informado por custeio/capital;
+- quantidade de alunos;
+- cadastro/mandato/atualização da UEx;
 - situação de abertura de conta;
-- ocorrência textual da conta publicada no PDDEInfo;
-- suspensões e seus motivos;
-- cobertura explícita por conjunto de fonte.
+- ocorrência textual da conta;
+- suspensões/motivos;
+- cobertura por conjunto de fonte.
 
-### Arquitetura do site
-
-Navegação global:
+### Navegação global daquele marco
 
 - Visão geral;
 - Escolas;
@@ -208,57 +176,28 @@ Navegação global:
 - Prestação de contas;
 - Cobertura das fontes.
 
-Prontuário da escola:
-
-- Resumo;
-- Cadastro;
-- Repasses;
-- Contas e saldos;
-- Movimentações, quando houver;
-- Pendências;
-- Prestação de contas, quando houver.
-
 ### Excel humano
 
-A exportação canônica passa a usar dez abas:
-
-1. Visão Geral;
-2. Escolas;
-3. Repasses;
-4. Contas e Saldos;
-5. Evolução Mensal;
-6. Movimentações;
-7. Cadastro e Habilitação;
-8. Pendências e Suspensões;
-9. Prestação de Contas;
-10. Cobertura das Fontes.
+Dez abas correspondentes às mesmas dimensões operacionais.
 
 ### Regra de cobertura
 
-Cadastro, abertura de conta e suspensão são conjuntos complementares. Falha técnica nesses relatórios fica registrada como cobertura indisponível e **não converte um resultado financeiro completo em ausência de dado nem apaga o retrato anterior**. Atendimento, prestação de contas, saldo e a cadeia PDDEInfo/SIGEF continuam sujeitos aos gates de completude financeira já existentes.
+Cadastro, abertura de conta e suspensão eram conjuntos complementares. Falha técnica nesses relatórios não deveria converter um resultado financeiro completo em ausência de dado nem apagar o retrato anterior.
 
-### Fontes ainda fora do pipeline corrente
+### Fontes ainda fora do pipeline naquele momento
 
-- Portal da Transparência: cliente implementado, sem credencial oficial configurada;
-- SiGPC Acesso Público: candidato a segunda evidência de prestação;
-- painéis PDDE Total/Básico/Ações Integradas: candidatos a controle secundário;
-- Dados Abertos FNDE: candidato a controle/backfill;
-- SIGPC Ágil: lançado em 31/08/2026, mas UEx não integram a fase inicial informada pelo FNDE.
-
-Essas fontes não são apresentadas como integradas antes de piloto/contrato real.
-
+- Portal da Transparência sem credencial oficial;
+- SiGPC Acesso Público como candidato;
+- painéis PDDE como candidatos a controle secundário;
+- Dados Abertos FNDE como candidato a controle/backfill;
+- SIGPC Ágil sem UEx na fase inicial pesquisada.
 
 ## Comparação antes × depois da consulta ao vivo — 03/09/2026
 
-A ação `Fazer nova consulta` passa a gerar uma comparação explícita entre o retrato exibido antes da execução e os 163 prontuários produzidos pela consulta nova.
+A ação `Fazer nova consulta` passou a gerar comparação explícita entre retrato anterior e os 163 prontuários produzidos pela nova consulta, incluindo totais, referências, contagens, escolas alteradas e fontes indisponíveis.
 
-O quadro informa:
-- programado, pagamento informado, crédito compatível, saldo e aplicações: antes, agora e diferença;
-- referência de saldo anterior e atual;
-- variação de registros de repasse, prestação de contas, movimentações, cadastro, abertura de conta e suspensões;
-- número de escolas com alteração financeira e complementar;
-- fontes indisponíveis agrupadas pelo nome do conjunto.
+Requisições às fontes passaram a solicitar `no-cache/no-store` onde aplicável.
 
-A comparação é calculada apenas após promoção integral da carteira. Resultado parcial continua sem substituir o retrato anterior.
+## Supersessão em 04/09/2026
 
-As requisições HTTP às fontes PDDEInfo, SIGEF e Portal da Transparência também passam a solicitar `no-cache/no-store`, além do `no-store` já aplicado à resposta de `/api/live`.
+Este documento termina antes do fechamento dos PRs #55/#56. A partir de 04/09, o sistema passou a promover automaticamente o snapshot integral validado para `main`/Vercel, com proveniência da run/artefato e prova do manifesto público. Para esse estado, ler `ESTADO_ATUAL_2026-09-04.md` e `PRODUCTION_CHECKPOINT_2026-09-04.md`.

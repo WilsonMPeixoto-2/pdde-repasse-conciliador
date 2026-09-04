@@ -1,144 +1,194 @@
-# Projeto PDDE — visão e evolução
+# Projeto PDDE — visão, missão e limites
+
+**Atualização:** 04/09/2026  
+**Estado corrente:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
 
 ## Missão
 
-Construir uma plataforma interna para a 4ª CRE capaz de **coletar, validar, conciliar, monitorar e rastrear dados financeiros do PDDE**, preservando a distinção entre o que cada fonte realmente comprova e entregando uma experiência operacional simples, além de relatórios profissionais e auditáveis.
+Construir uma plataforma interna para a 4ª CRE capaz de **coletar, validar, conciliar, monitorar, explicar e rastrear dados financeiros do PDDE**, preservando o que cada fonte realmente comprova e oferecendo site e Excel úteis para trabalho fiscal/gerencial.
 
-O caso prioritário é a carteira das **163 escolas da 4ª CRE no exercício de 2026**. Expansões de exercício, CRE ou fonte só entram quando melhorarem o produto real.
+O caso prioritário é a carteira das **163 unidades escolares da 4ª CRE no exercício de 2026**.
 
-> **Estado corrente:** consulte [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md). Baselines e planos anteriores continuam preservados como fotografias históricas e não devem ser usados isoladamente para concluir o que existe hoje.
+## Princípio de qualidade
 
-## Fonte de verdade
+A prioridade do produto é:
 
-- Repositório canônico: `WilsonMPeixoto-2/pdde-repasse-conciliador`.
-- `WilsonMPeixoto-2/extrator-pdde-4cre`: referência histórica/técnica.
-- `WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS`: projeto paralelo exclusivo do Manus e somente leitura para este fluxo.
+1. confiabilidade;
+2. completude;
+3. cruzamento de fontes;
+4. investigação de divergências;
+5. rastreabilidade;
+6. desempenho/tempo de execução.
 
-A `main` do canônico, seus testes e o estado de implantação efetivamente verificado prevalecem sobre resumos antigos.
+Uma coleta pode levar muitos minutos. Isso é aceitável. Não sacrificar retries, fallback, cobertura ou validação para terminar mais rápido.
 
-## Evolução materializada
+## Fonte de verdade e governança
 
-### 1. Extração do PDDEInfo
+- repositório canônico para escrita: `WilsonMPeixoto-2/pdde-repasse-conciliador`;
+- `extrator-pdde-4cre`: referência histórica/técnica;
+- `EXTRATOR-PDDE-MANUS`: somente leitura neste fluxo.
 
-O projeto deixou de depender das rotinas legadas de exportação e passou a consultar diretamente as informações públicas necessárias. O experimento municipal comprovou escala e a carteira da 4ª CRE foi fixada em 163 INEPs conhecidos.
+A retomada obrigatória está em `AGENTS.md` e `docs/LEIA_PRIMEIRO.md`.
 
-A ausência de conta ou valor na coleta corrente permanece ausência. Histórico não é promovido silenciosamente a dado de 2026.
+## Problema que o produto resolve
 
-### 2. Evidência financeira e SIGEF
+Dados do PDDE aparecem em múltiplas fontes e podem parecer contraditórios quando lidos sem contexto. Exemplos:
 
-A leitura financeira passou a separar:
+- pagamento informado sem crédito bancário localizado;
+- conta corrente zero com valor positivo em aplicação;
+- saldo publicado com referência mensal antiga;
+- fonte complementar indisponível;
+- programação nova sem pagamento novo;
+- dados históricos devolvidos junto a dados de 2026.
 
-- valor programado;
-- pagamento informado pelo PDDEInfo;
-- ordem/liberação quando disponível;
-- crédito compatível localizado no extrato SIGEF;
-- movimentação bancária;
-- estorno/devolução;
-- consulta inconclusiva.
+A plataforma não deve “arrumar” essas situações inventando coerência. Deve mostrar a força da evidência, cruzar fontes e manter a incerteza explícita quando necessário.
 
-A consulta pública do extrato SIGEF foi incorporada ao repositório canônico. A rodada integral de 14/08/2026 completou 163/163 escolas e 284/284 contas então mapeadas, sem converter os movimentos históricos devolvidos pela fonte em fatos correntes de 2026.
+## Produtos
 
-### 3. Relatórios públicos complementares do FNDE
+### Site
 
-Os relatórios públicos complementares do PDDEInfo/FNDE deixaram de ser apenas pesquisa e foram **integrados e validados** para:
+Prioriza:
 
-- atendimento/ordens de pagamento;
-- prestação de contas e suspensão informada;
-- posições de saldo e aplicações por data de referência.
+- compreensão rápida;
+- busca/encontrabilidade;
+- visão consolidada;
+- prontuário por escola;
+- repasses;
+- contas e saldos;
+- evolução mensal;
+- movimentações;
+- cadastro/habilitação;
+- pendências/suspensões;
+- prestação de contas;
+- cobertura das fontes;
+- atualização/coleta;
+- navegação até os casos por trás dos indicadores.
 
-O backfill de 16/08/2026 normalizou 2.690 posições mensais, 461 séries conta/programa e 1.304 artefatos brutos, sem falhas de coleta. Detalhes estão em [`BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md).
+### Excel
 
-### 4. Visão operacional e visão humana
+Prioriza:
 
-O sistema mantém uma camada técnica para processamento/auditoria e uma camada humana para o produto. A experiência comum trabalha com entidades compreensíveis:
+- análise livre;
+- filtros e cruzamentos;
+- conferência da carteira;
+- exportação gerencial;
+- visão das mesmas dimensões informacionais do site em formato tabular.
 
-```text
-4ª CRE
-└── Escola
-    ├── Programa / ação
-    │   └── Parcela
-    └── Conta
-        ├── posição de saldo
-        ├── aplicações
-        └── movimentações
-```
+Site e Excel são complementares e devem derivar do mesmo retrato humano, sem necessidade de copiar exatamente a mesma interface.
 
-Hashes, parser, retry, URLs técnicas, número de páginas e payloads permanecem na camada de rastreabilidade, não na interface fiscal comum.
+## Cadeia de evidência
 
-### 5. Monitoramento institucional
+O sistema separa:
 
-O job `MONITORING` está implementado em código e integra o pipeline financeiro completo. A infraestrutura do repositório inclui:
+1. valor programado;
+2. pagamento informado;
+3. ordem/liberação;
+4. crédito compatível localizado;
+5. movimentação bancária;
+6. posição de saldo/aplicações com data;
+7. situação de prestação de contas;
+8. cobertura/falha da fonte;
+9. conclusão determinística do conciliador.
 
-- API e worker;
-- fila e idempotência;
-- artefatos e eventos append-only;
-- snapshots financeiros;
-- read model fiscal/técnico;
-- read model financeiro humano;
-- adapters e migrations para Supabase/PostgreSQL.
+Uma camada não se passa pela outra.
 
-**Código existente não é sinônimo de infraestrutura conectada.** Ainda não existe um projeto Supabase dedicado implantado para esta plataforma.
+## Fontes principais
 
-### 6. Produto web publicado
+Integradas:
 
-O frontend React/Vite está publicado no Vercel e hoje oferece:
+- PDDEInfo por INEP;
+- SIGEF extrato público/movimentações;
+- relatórios públicos FNDE/PDDEInfo para atendimento, prestação/contabilidade e saldos;
+- fontes complementares de cadastro, mandato, suspensão e abertura de conta quando respondem;
+- fallback Playwright/Chromium para interação pública legítima quando necessário.
 
-- Home com posição financeira e consulta ao vivo;
-- busca por nome, SME e INEP;
-- carteira das escolas;
-- visões consolidadas de Repasses e Saldos e contas;
-- indicadores e subconjuntos acionáveis;
-- prontuário financeiro por escola;
-- navegação local para Resumo, Repasses, Contas e saldos, Movimentações e Prestação de contas;
-- composição do saldo, série mensal e extrato de movimentações;
-- atualização ao vivo com progresso por unidade e proteção contra retrato parcial;
-- deep links compatíveis com o hosting Vercel.
+Pesquisadas/candidatas e ainda condicionadas:
 
-A consulta ao vivo atualiza a sessão do navegador quando a carteira inteira termina de forma válida. Enquanto a persistência dedicada não for ligada, recarregar a página retorna ao retrato estável publicado.
+- SiGPC Acesso Público;
+- Portal da Transparência/CGU;
+- Dados Abertos FNDE;
+- painéis PDDE;
+- novo Webservice SIGEF;
+- BB Gestão Ágil;
+- Plataforma Antonieta de Barros.
 
-### 7. Excel como produto complementar
+SIGPC Ágil não cobria UEx na fase inicial pesquisada. PDDEREx permanece legado.
 
-O site prioriza compreensão, navegação e investigação. O Excel continua sendo a superfície adequada para filtros livres, cruzamentos e exportação analítica. Ambos derivam de contratos financeiros controlados e não competem para reproduzir exatamente a mesma experiência.
+Detalhes: `docs/FONTES_E_REGRAS.md`.
+
+## Estado de publicação em 04/09/2026
+
+A cadeia integral foi comprovada:
+
+- Full 163 run #216 / `33906605579`;
+- `COMPLETE` 163/163;
+- artefato `9950830049`;
+- commit de snapshot `6004178a0394dfe011baa6dda7c4f6e87f028180`;
+- deployment Vercel `dpl_pvNye9gTntZ7a18W3rcGmuW6SYVv`, `READY`;
+- manifesto público com a mesma proveniência.
+
+O snapshot histórico anterior foi supersedido.
 
 ## Regras permanentes do produto
 
-1. **2026 é o escopo operacional corrente.**
-2. **Pagamento informado não comprova crédito bancário.**
-3. **Ordem FNDE e crédito observado são fatos distintos.**
-4. **Saldo sempre carrega data de referência.**
-5. **Aplicação/resgate não prova rendimento acumulado nem posição atual por si só.**
-6. **Ausência não é zero.**
-7. **Cobertura parcial produz incerteza explícita.**
-8. **Fontes independentes não se sobrescrevem.**
-9. **Conciliação é determinística e auditável.**
-10. **A escola é a unidade principal da experiência humana.**
-11. **Indicador agregado deve permitir chegar aos casos que o compõem.**
-12. **Complexidade técnica fica disponível para auditoria sem dominar a interface comum.**
+1. 2026 é o exercício operacional corrente.
+2. Ausência não é zero.
+3. Zero exige publicação real da fonte na referência correta.
+4. Pagamento informado não comprova crédito bancário.
+5. Ordem/liberação e crédito observado são fatos distintos.
+6. Saldo carrega data de referência.
+7. Conta corrente zero não implica recurso total zero quando há aplicações.
+8. Aplicação/resgate não prova rendimento nem posição atual sozinho.
+9. Cobertura parcial produz incerteza explícita.
+10. Fontes independentes não se sobrescrevem.
+11. Conciliação é determinística e auditável.
+12. A escola é a unidade principal da experiência humana.
+13. Indicador agregado deve levar aos casos que o compõem.
+14. Complexidade técnica fica disponível para auditoria sem dominar a interface comum.
+15. Resultado `PARTIAL` não substitui retrato válido.
+16. Coleta integral nova só vira retrato oficial após `COMPLETE 163/163` e publicação comprovada.
+17. Qualidade prevalece sobre velocidade.
 
-## O que ainda falta para a implantação institucional definitiva
+## Evolução material do projeto
 
-- criar e conectar um Supabase dedicado;
-- aplicar as migrations no banco canônico;
-- persistir de forma durável as consultas disparadas pelo site, seus artefatos e evidências;
-- conectar de forma permanente fila/worker à experiência publicada;
-- ativar o Portal da Transparência somente com credencial oficial;
-- definir/publicar o PDF executivo final.
+A trajetória consolidada está em:
 
-Essas pendências não invalidam o frontend ou o monitoramento já publicados; elas delimitam a diferença entre **consulta operacional em sessão** e **plataforma institucional persistente**.
+`docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md`.
+
+Esse histórico registra:
+
+- criação das regras de evidência;
+- baselines PDDEInfo/SIGEF;
+- integração dos relatórios públicos;
+- evolução do site/Excel;
+- regressões e gates;
+- pesquisa de novas fontes;
+- problemas de coerência;
+- desacoplamento coleta/publicação;
+- PRs #55/#56;
+- fechamento em produção.
+
+## Persistência institucional
+
+Já existe durabilidade do retrato aprovado via Git/Vercel. Ainda é fronteira futura a implantação institucional definitiva de:
+
+- Supabase dedicado permanentemente conectado;
+- histórico persistente de coletas/evidências;
+- fila/worker durável ligada ao frontend;
+- consulta histórica das execuções pelo produto.
+
+Código existente de migrations/stores não deve ser descrito como infraestrutura implantada sem verificação real.
 
 ## Documentos de referência
 
-- estado corrente: [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md);
-- regras das fontes: [`FONTES_E_REGRAS.md`](FONTES_E_REGRAS.md);
-- constituição visual: [`VISUAL_PRODUCT_CONSTITUTION_2026.md`](VISUAL_PRODUCT_CONSTITUTION_2026.md);
-- baseline PDDEInfo + SIGEF: [`BASELINE_TECNICO_2026-08-14.md`](BASELINE_TECNICO_2026-08-14.md);
-- baseline financeiro público: [`BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md`](BASELINE_FINANCEIRO_PUBLICO_2026-08-16.md);
-- decisões: [`DECISOES.md`](DECISOES.md);
-- conhecimento ainda não incorporado: [`CONHECIMENTO_ACUMULADO.md`](CONHECIMENTO_ACUMULADO.md).
+- porta de entrada: `docs/LEIA_PRIMEIRO.md`;
+- estado corrente: `docs/ESTADO_ATUAL_2026-09-04.md`;
+- continuidade: `docs/CONTINUIDADE_WORK.md`;
+- decisões: `docs/DECISOES.md`;
+- fontes/regras: `docs/FONTES_E_REGRAS.md`;
+- arquitetura: `docs/ARCHITECTURE.md`;
+- histórico: `docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md`;
+- checkpoint produção: `docs/PRODUCTION_CHECKPOINT_2026-09-04.md`;
+- conhecimento/pesquisas: `docs/CONHECIMENTO_ACUMULADO.md`.
 
-
-## Qualidade de engenharia — checkpoint 30/08/2026
-
-A manutenção de dependências passa a ser tratada como capacidade de produto, não como atualização cosmética. O projeto incorpora jornada E2E com Playwright Test, verificação automatizada de acessibilidade com Axe e simulação HTTP com MSW. Dependências de infraestrutura são atualizadas em PR isolado das regras financeiras, preservando a possibilidade de atribuir regressões à camada correta.
-
-Motion 13.1.1 foi aceito após smoke visual. PGlite 0.5.8 integra o ciclo corrente. Zod permanece em 4.4.3 até cumprir maturação e benchmark antes de qualquer promoção para 4.5.
+Qualquer documento datado anterior continua preservado como fotografia histórica, não como instrução corrente.
