@@ -356,9 +356,11 @@ function rebuildPddeBasicSheet(workbook: ExcelJS.Workbook, view: HumanFinancialP
   ];
   header(headerRow);
 
+  let outputRow = 4;
   for (const item of monitoring.rows) {
     const release = releaseByInep.get(item.inep) ?? derivePddeBasicFirstCycleReleaseEvidence({ programs: [] });
-    const row = sheet.addRow([
+    const row = sheet.getRow(outputRow);
+    row.values = [
       item.sme,
       item.name,
       item.inep,
@@ -375,7 +377,8 @@ function rebuildPddeBasicSheet(workbook: ExcelJS.Workbook, view: HumanFinancialP
       suggestedSources(item),
       item.first.track,
       item.second.track,
-    ]);
+    ];
+    outputRow += 1;
     row.getCell(4).numFmt = MONEY;
     row.getCell(8).numFmt = MONEY;
     if (item.first.paymentInformedCents > 0) {
