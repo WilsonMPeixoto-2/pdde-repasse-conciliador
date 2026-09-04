@@ -290,6 +290,7 @@ export async function runFinancialIntelligenceMonitoring(
     const reports = await publicCollector({
       schools: options.schools,
       fiscalYear: 2026,
+      balanceMode: 'ALL_AVAILABLE_2026',
       ...(options.signal ? { signal: options.signal } : {}),
     });
 
