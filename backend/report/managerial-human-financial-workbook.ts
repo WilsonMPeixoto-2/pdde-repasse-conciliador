@@ -83,8 +83,8 @@ function rebuildManagerialOverview(
 ): void {
   const sheet = workbook.getWorksheet('Visão Geral');
   if (!sheet) return;
-  if (sheet.rowCount > 0) sheet.spliceRows(1, sheet.rowCount);
   for (const merged of [...sheet.model.merges]) sheet.unMergeCells(merged);
+  if (sheet.rowCount > 0) sheet.spliceRows(1, sheet.rowCount);
 
   const monitoring = derivePddeBasicPortfolio(view.schools);
   const staleZero = monitoring.rows.filter((row) => (
