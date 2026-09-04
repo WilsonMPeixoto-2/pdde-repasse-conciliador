@@ -1,188 +1,265 @@
 # Arquitetura atual e direção de evolução
 
-## Estado corrente — 30/08/2026
+**Estado corrente:** 04/09/2026  
+**Resumo factual:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
 
-A arquitetura canônica já une o **motor financeiro**, o **read model humano** e o **produto web publicado**. A infraestrutura institucional persistente também existe em código, mas ainda não está conectada a um Supabase dedicado.
+## 1. Princípio arquitetural
 
-O estado factual resumido está em [`ESTADO_ATUAL_2026-08-30.md`](ESTADO_ATUAL_2026-08-30.md).
+O sistema separa três coisas que não podem ser confundidas:
 
-## Princípio arquitetural
+1. **fato observado por uma fonte**;
+2. **conclusão derivada por regra determinística**;
+3. **apresentação humana no site/Excel**.
 
-O sistema é deliberadamente determinístico nas conclusões financeiras. IA, navegador automatizado ou agentes podem ajudar a coletar, diagnosticar mudanças e melhorar a experiência, mas não decidem o resultado da conciliação.
-
-A aplicação também separa **fato observado**, **conclusão derivada** e **apresentação humana**.
+IA, agentes e navegador automatizado podem auxiliar coleta/diagnóstico, mas não decidem a conclusão financeira final.
 
 ```text
-fontes públicas
-   │
-   ▼
+fontes públicas/autorizadas
+        │
+        ▼
 evidência bruta / observações
-   │
-   ▼
-normalização específica da fonte
-   │
-   ▼
-conciliação e classificação determinística
-   │
-   ├──────────────► visão técnica / auditoria
-   │
-   ▼
-read model financeiro humano
-   │
-   ▼
-produto web / Excel humano
+        │
+        ▼
+normalização por fonte
+        │
+        ▼
+conciliação determinística
+        │
+        ├────────► auditoria/evidência técnica
+        │
+        ▼
+read model humano
+        │
+        ├────────► Excel gerencial
+        └────────► site React/Vite
 ```
 
-## Fluxo financeiro materializado
+## 2. Fontes materializadas
 
 ```text
-Lista-mestre · 163 escolas · 2026
+Lista-mestre · 163 UEs · exercício 2026
         │
-        ├── PDDEInfo por INEP
-        │     ├── escola / UEx / CNPJ
-        │     ├── contas exibidas
-        │     └── repasses / ações / parcelas
+        ├── PDDEInfo principal por INEP
+        │     ├── UEx/CNPJ/cadastro
+        │     ├── contas/ocorrências
+        │     ├── repasses/ações/parcelas
+        │     └── custeio/capital/ajustes
         │
         ├── Relatórios públicos PDDEInfo/FNDE
-        │     ├── atendimento / ordem de pagamento
-        │     ├── prestação de contas
-        │     └── saldos / aplicações por referência
+        │     ├── atendimento/ordem/alunos
+        │     ├── cadastro/mandato
+        │     ├── abertura de conta (suplementar)
+        │     ├── suspensão/motivos
+        │     ├── prestação/contabilidade
+        │     └── saldos/aplicações mensais
         │
         └── SIGEF
-              ├── liberação/conta quando aplicável
-              └── extrato / movimentações
-        │
-        ▼
-runFinancialIntelligenceMonitoring
-        │
-        ├── visão operacional/fiscal
-        ├── snapshots financeiros
-        ├── evidências e artefatos
-        └── visão humana
-        │
-        ▼
-contrato humano compartilhado
-        │
-        ├── portfólio resumido
-        └── prontuário por escola
-        │
-        ▼
-React/Vite no Vercel
+              ├── conta/liberação quando aplicável
+              └── extrato/movimentações/crédito compatível
 ```
 
-## Fronteiras de responsabilidade
+Quando HTTP direto não basta para uma fonte pública, existe fallback de navegador controlado. O workflow integral instala Chromium explicitamente desde o PR #56.
 
-### `backend/core/`
+## 3. Orquestração financeira
 
-Contém contratos e invariantes independentes de UI/fonte: dinheiro em centavos, escopo temporal, identidade, evidência e regras determinísticas.
+`backend/application/run-financial-intelligence-monitoring.ts` coordena a inteligência financeira e distingue falhas bloqueantes de falhas suplementares.
 
-### `backend/adapters/`
+Princípio:
 
-Acessa PDDEInfo, SIGEF, persistência e demais integrações. Cada fonte mantém sua própria semântica e nunca reescreve silenciosamente outra.
+- uma falha em dado nuclear pode tornar a execução `PARTIAL`;
+- falha em fonte suplementar deve ser preservada como cobertura/erro, sem inventar ausência e sem apagar evidência nuclear.
 
-### `backend/application/`
+No checkpoint de 04/09, o relatório de abertura de conta do FNDE apresentou erro Oracle para as 163 UEx; `ACCOUNT_OPENING` permaneceu suplementar. Falhas de `BALANCE`, por exemplo, continuam bloqueantes.
 
-Orquestra coleta, monitoramento, conciliação, snapshots e read models. O fluxo institucional completo está representado por `run-financial-intelligence-monitoring.ts` e pelo job `MONITORING`.
+## 4. Fluxo integral de publicação do retrato
 
-### `shared/human-financial-contract.ts`
+A arquitetura de produção foi alterada em 04/09 para eliminar o desacoplamento entre “coletar” e “publicar”.
 
-É a fronteira comum entre backend e frontend. Antes de uma projeção humana ser publicada/consumida, valida estrutura financeira profunda e impede que metadados técnicos sejam tratados como conteúdo de produto.
+### 4.1. Gate Full 163
 
-### `src/product/`
+Workflow: `.github/workflows/sigef-full-163-validation.yml`.
 
-Implementa a experiência fiscal. Não reconcilia fontes e não tenta reinterpretar o bruto. Organiza a informação humana por escola, repasse, conta, saldo, movimentação e acompanhamento.
+Propriedades:
 
-### `supabase/migrations/`
+- roda em mudanças relevantes e na `main`;
+- Node 24;
+- `npm ci`;
+- instala Chromium/dependências;
+- executa a sessão para `all`;
+- timeout de segurança: 120 minutos;
+- exige `session.status === COMPLETE`;
+- exige `schoolCount === 163`;
+- preserva artefato/evidências mesmo quando a execução falha.
 
-Define a persistência institucional planejada/testada para fila, evidência, snapshots e read models. As migrations foram exercitadas em PostgreSQL/PGlite, mas ainda não foram aplicadas em um projeto Supabase dedicado desta plataforma.
+**O timeout não é meta de velocidade.** Ele existe como proteção superior. Coletas longas são aceitáveis quando continuam saudáveis.
 
-## Produto web atual
+### 4.2. Publisher do snapshot
 
-Rotas principais:
+Workflow: `.github/workflows/publish-validated-snapshot.yml`.
 
-- `/` — Início / posição consolidada;
-- `/unidades` — carteira e filtros;
-- `/repasses` — visão consolidada de repasses;
-- `/pdde-basico` — leitura operacional da 1ª/2ª parcela do PDDE Básico e localização do saldo em conta/aplicações;
-- `/saldos` — visão consolidada de saldos e contas;
-- `/unidades/:inep` — prontuário financeiro;
-- `/indicadores/:slug` — relação nominal de um indicador.
+Dispara somente após conclusão do Full 163 e só publica quando:
 
-O prontuário possui navegação local por âncoras e mantém os detalhes técnicos fora da leitura comum.
+- a run terminou `success`;
+- a branch da run é `main`.
 
-## Consulta ao vivo
+O publisher:
 
-A consulta web não tenta executar toda a carteira dentro de uma única função longa. O cliente consulta `/api/live` por escola com concorrência e retentativas limitadas.
+1. encontra o artefato `sigef-full-163-2026` da **mesma run**;
+2. baixa o artefato;
+3. exige `COMPLETE` + 163;
+4. exige portfólio com 163 escolas;
+5. exige 163 prontuários distintos por INEP;
+6. registra `workflowRunId`, `artifactId` e nome do artefato;
+7. impede uma run mais antiga de substituir uma mais nova;
+8. serializa, comprime gzip e codifica base64;
+9. divide o snapshot em partes estáticas;
+10. reidrata e valida o conteúdo antes do push;
+11. cria commit automático em `main`;
+12. deixa a integração Git do Vercel publicar a nova versão.
+
+Essa arquitetura garante que o snapshot público tenha proveniência verificável.
+
+## 5. Prova do circuito em 04/09
+
+- Full 163 run #216 / id `33906605579`: `success`;
+- artefato `9950830049`;
+- publisher run `33909648939`: `success`;
+- commit de dados `6004178a0394dfe011baa6dda7c4f6e87f028180`;
+- Vercel `dpl_pvNye9gTntZ7a18W3rcGmuW6SYVv`: `READY`;
+- manifesto público servindo `33906605579 / 9950830049`.
+
+O snapshot histórico `32164281411 / 9335143477` foi supersedido.
+
+## 6. Consulta/coleta disparada pelo site
+
+A experiência web mantém o retrato anterior enquanto a atualização trabalha. A coleta pode realizar múltiplas consultas, retries e fallbacks.
 
 Propriedades obrigatórias:
 
-- o retrato publicado permanece na tela durante a atualização;
-- o progresso é exibido por unidade;
-- qualquer falha não resolvida impede promoção da carteira incompleta;
-- qualquer resultado `PARTIAL` impede promoção;
-- somente uma rodada integral válida passa a ser o retrato da sessão;
-- um prontuário já aberto acompanha a versão da consulta ao vivo da mesma sessão.
+- exibir progresso sem tratar demora normal como falha;
+- não substituir o retrato anterior por resultado `PARTIAL`;
+- não transformar timeout/falha de uma fonte em zero;
+- um prontuário aberto deve acompanhar o retrato válido promovido na sessão;
+- o produto deve privilegiar qualidade/completude, não duração curta.
 
-A atualização ainda é **volátil no navegador**. Persistência durável depende da infraestrutura dedicada.
+Uma futura evolução pode tornar a orquestração de longa duração ainda mais persistente, mas **não é aceitável reduzir a profundidade de coleta apenas para caber em uma janela menor**.
 
-## Publicação corrente versus persistência futura
+## 7. Fronteiras de responsabilidade
 
-### Publicado agora
+### `backend/core/`
 
-- frontend Vercel;
-- snapshot financeiro estável distribuído com o produto;
-- endpoint `/api/live`;
-- consulta e atualização integral em sessão;
-- rotas profundas da SPA;
-- CI e smoke desktop/mobile.
+Contratos e invariantes: dinheiro em centavos, exercício, identidade, evidência e regras determinísticas.
 
-### Implementado em código, ainda não conectado definitivamente
+### `backend/adapters/`
 
-- Supabase dedicado;
-- fila/worker institucional persistente;
-- armazenamento institucional de artefatos das consultas web;
-- publicação durável do novo retrato completo;
-- histórico persistente consultável pelo frontend.
+Acesso às fontes. Cada adaptador preserva semântica/cobertura próprias. Uma fonte não reescreve outra silenciosamente.
 
-Essa distinção evita o erro antigo de tratar “existe uma migration/adaptador” como sinônimo de “está implantado”.
+### `backend/application/`
 
-## Regras que a arquitetura não pode violar
+Orquestra coleta, monitoramento, conciliação, snapshots e projeções.
+
+### `shared/human-financial-contract.ts`
+
+Fronteira comum entre backend e frontend para a projeção humana.
+
+### `backend/report/`
+
+Geração de Excel humano/gerencial e saídas técnicas correspondentes.
+
+### `src/product/`
+
+Experiência fiscal. Organiza a informação; não reinterpreta o bruto nem decide conciliação.
+
+### `public/data/`
+
+Snapshot público materializado após gate integral validado. O manifesto registra proveniência da run/artefato.
+
+### `supabase/migrations/`
+
+Infraestrutura institucional planejada/testada. Código existente não significa implantação definitiva.
+
+## 8. Produto web atual
+
+O produto inclui visões para:
+
+- visão geral;
+- escolas;
+- repasses;
+- contas e saldos;
+- evolução mensal;
+- movimentações;
+- cadastro e habilitação;
+- pendências e suspensões;
+- prestação de contas;
+- cobertura das fontes;
+- prontuário por escola;
+- leitura operacional do PDDE Básico;
+- indicadores acionáveis.
+
+Site e Excel compartilham o mesmo domínio de informação, mas têm densidades diferentes.
+
+## 9. Regras que a arquitetura não pode violar
 
 1. exercício operacional corrente = 2026;
 2. ausência não vira zero;
-3. dado antigo não completa dado corrente;
-4. pagamento informado não equivale a crédito bancário;
-5. ordem/liberação e crédito no extrato são fatos distintos;
-6. saldo é uma posição datada;
-7. aplicação não é rendimento;
-8. cobertura incompleta permanece inconclusiva;
-9. fontes preservam independência;
-10. conciliação usa a chave mais forte disponível e não escolhe arbitrariamente entre candidatos;
-11. resultado parcial não substitui retrato corrente válido;
-12. interfaces humanas não expõem hashes, parsers, retries, payloads ou IDs técnicos como conteúdo comum.
+3. zero exige evidência publicada;
+4. dado histórico não completa dado corrente;
+5. pagamento informado não equivale a crédito bancário;
+6. ordem/liberação e crédito observado são fatos distintos;
+7. saldo é posição datada;
+8. conta corrente zero não significa recurso total zero quando há aplicações;
+9. aplicação/resgate não é rendimento nem posição atual automática;
+10. cobertura incompleta permanece inconclusiva;
+11. fontes preservam independência;
+12. conciliação usa a chave mais forte disponível;
+13. resultado parcial não substitui retrato válido;
+14. coleta nova só vira snapshot oficial após `COMPLETE 163/163`;
+15. duração longa não autoriza cortar investigação/retries;
+16. interface humana não expõe ruído técnico como conteúdo comum.
 
-## Próxima fronteira arquitetural
+## 10. Persistência: o que já existe e o que ainda falta
 
-A principal lacuna deixou de ser coleta ou frontend. É **durabilidade institucional**:
+### Já durável/publicado
 
-1. criar Supabase dedicado;
-2. aplicar migrations canônicas;
-3. conectar stores/publisher/worker;
-4. persistir consultas web e evidências;
-5. fazer o frontend consumir o retrato corrente persistido sem perder o comportamento conservador já validado.
+- snapshot integral validado via commit em `main`;
+- proveniência run/artifact;
+- distribuição Vercel;
+- artefato temporário da execução no GitHub Actions;
+- produto web e Excel derivados do retrato.
 
-Mudanças futuras de UX ou novas fontes devem ser feitas sobre essa arquitetura, não substituindo-a por outra pilha sem ganho comprovado.
+### Ainda não institucionalizado definitivamente
 
+- Supabase dedicado permanentemente conectado;
+- histórico durável de execuções/evidências no banco institucional;
+- fila/worker persistente ligada ao frontend de forma definitiva;
+- consulta histórica das execuções pelo próprio produto.
 
-## Gates técnicos incorporados — 30/08/2026
+A promoção automática via Git/Vercel resolveu a durabilidade do **retrato público aprovado**, mas não substitui a futura camada institucional de histórico operacional.
 
-A arquitetura de validação passa a incluir quatro camadas complementares:
+## 11. Gates de engenharia
 
-1. Vitest para regras e contratos determinísticos;
-2. MSW para simular integrações HTTP de forma controlada;
-3. Playwright Test para jornadas reais em Chromium desktop/mobile;
-4. Axe sobre Playwright para regressões de acessibilidade de impacto sério ou crítico, preservando dívida conhecida explicitamente registrada.
+A validação inclui, conforme o fluxo:
 
-O workflow de frontend continua executando o smoke determinístico existente e acrescenta a jornada E2E e o gate de acessibilidade. Isso mantém testes de unidade e experiência real separados, sem converter o frontend em autoridade sobre regras financeiras.
+- Vitest;
+- TypeScript/typecheck;
+- build Vite;
+- MSW para integrações controladas;
+- Playwright em navegador real;
+- Axe para acessibilidade;
+- smoke desktop/mobile;
+- Full 163 com fontes reais;
+- reidratação do snapshot publicado.
 
-A remoção da dependência opcional explícita de Rollup Linux é aceita somente porque instalação e build continuam sendo exercitados em runner Linux. A política de dependências permanece conservadora para bibliotecas com impacto semântico: Zod 4.5 não entra no ciclo corrente antes de maturação e benchmark.
+CI verde de testes locais não substitui prova de fontes reais quando a mudança afeta dados.
+
+## 12. Próxima fronteira arquitetural
+
+Evoluções futuras devem ocorrer sobre a arquitetura atual, preservando os gates e a semântica já conquistados. Prioridades possíveis:
+
+1. persistência institucional dedicada;
+2. histórico durável de coletas e proveniência consultável;
+3. integração de fontes adicionais apenas após piloto/credencial;
+4. reforço da orquestração longa sem reduzir profundidade;
+5. melhorias de UX que não alterem silenciosamente as regras financeiras.
+
+Antes de qualquer mudança, ler `AGENTS.md` e `docs/LEIA_PRIMEIRO.md`.
