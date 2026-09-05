@@ -1,6 +1,8 @@
 import { load } from 'cheerio';
 import {
+  canonicalAccount,
   canonicalCnpj,
+  canonicalDocument,
   canonicalProgramCode,
   canonicalText,
 } from '../core/normalization';
@@ -154,6 +156,8 @@ async function defaultFetchExport(
     headers: {
       accept: 'text/html,application/xhtml+xml,application/octet-stream;q=0.9,*/*;q=0.8',
       'user-agent': 'PDDE-4CRE-Concilia/2026 (+consulta-publica-fnde)',
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
     },
     ...(signal ? { signal } : {}),
   });
@@ -165,23 +169,22 @@ async function defaultFetchExport(
   return { html, rawBytes };
 }
 
+/**
+ * A mesma transação pode vir das duas rotas com diferenças cosméticas na
+ * contraparte. A identidade de sobreposição usa os campos bancários fortes do
+ * movimento, normalizados, e mantém contagem multiconjunto para não apagar duas
+ * linhas realmente duplicadas publicadas pela própria fonte.
+ */
 function movementFingerprint(movement: SigefPublicMovement): string {
   return JSON.stringify([
-    movement.schoolCnpj,
-    movement.programCode,
-    movement.account.bank,
-    movement.account.agency,
-    movement.account.number,
+    canonicalCnpj(movement.schoolCnpj),
+    canonicalProgramCode(movement.programCode),
+    canonicalAccount(movement.account),
     movement.movementDate,
     movement.operation,
     movement.amountCents,
-    movement.document,
-    movement.history,
-    movement.counterparty.document,
-    movement.counterparty.name,
-    movement.counterparty.bank,
-    movement.counterparty.agency,
-    movement.counterparty.account,
+    canonicalDocument(movement.document),
+    canonicalText(movement.history),
   ]);
 }
 
