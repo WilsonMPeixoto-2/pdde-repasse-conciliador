@@ -145,4 +145,32 @@ describe('fallback público SIGEF via visualizaexcel', () => {
       failure: 'fonte complementar indisponível',
     });
   });
+
+  test('limita o tempo da exportação complementar sem bloquear a carteira inteira', async () => {
+    const collectPrimary = primary('2026-05-28');
+    const fetchExport = vi.fn((_url: string, signal?: AbortSignal) => new Promise<never>((_resolve, reject) => {
+      const fail = () => reject(signal?.reason ?? new Error('abortado'));
+      if (signal?.aborted) fail();
+      else signal?.addEventListener('abort', fail, { once: true });
+    }));
+
+    const startedAt = Date.now();
+    const result = await collectSigefPublicAccount({
+      cnpj,
+      programCode: '02',
+      account,
+      startYear: 2026,
+      requiredThrough: '2026-08-05',
+      supplementalExportTimeoutMs: 20,
+      collectPrimary,
+      fetchExport,
+    });
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(fetchExport).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('COMPLETE');
+    expect(result.coverageThrough).toBe('2026-05-28');
+    expect(result.movements).toEqual([primaryMovement]);
+    expect(result.supplementalExport?.failure).toMatch(/timeout/i);
+  });
 });
