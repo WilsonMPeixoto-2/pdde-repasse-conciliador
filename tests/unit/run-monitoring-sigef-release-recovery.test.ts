@@ -150,5 +150,22 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
       account: recoveredAccount,
     });
     expect(result.human.schools[0].programs[0].installments[0].note).toMatch(/SIGEF.*Liberações/i);
+    expect(result.raw.quality.paymentTemporalCoverage).toMatchObject({
+      status: 'SUFFICIENT',
+      evaluatedPaymentCount: 1,
+      sufficientCount: 1,
+      outOfCoverageCount: 0,
+      unknownCount: 0,
+      latestKnownPaymentDate: '2026-08-05',
+      maxObservedCoverageThrough: '2026-08-18',
+    });
+    expect(result.raw.coverage.paymentTemporalCoverage.rows[0]).toMatchObject({
+      schoolInep: school.inep,
+      programCode: '02',
+      paymentDate: '2026-08-05',
+      coverageThrough: '2026-08-18',
+      status: 'SUFFICIENT',
+      reason: 'COVERAGE_REACHES_PAYMENT',
+    });
   });
 });
