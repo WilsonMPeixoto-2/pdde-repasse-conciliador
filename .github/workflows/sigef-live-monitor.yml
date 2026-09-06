@@ -3,8 +3,12 @@ on:
   pull_request:
     paths:
       - 'backend/adapters/sigef-public-statement.ts'
+      - 'backend/adapters/sigef-public-releases.ts'
+      - 'backend/adapters/sigef-legacy-releases-html.ts'
       - 'scripts/monitor-live-2026.ts'
+      - 'scripts/verify-sigef-legacy-releases.ts'
       - 'tests/unit/sigef-public-statement-compact.test.ts'
+      - 'tests/unit/sigef-public-releases-legacy.test.ts'
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -24,6 +28,8 @@ jobs:
       - run: npm ci
       - name: Teste live de 10 UEs reais da 4ª CRE
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
+      - name: Verificar rota legada pública de Liberações contra a rota SIGEF atual
+        run: node --import tsx scripts/verify-sigef-legacy-releases.ts
       - name: Preservar dados e HTMLs do teste
         if: always()
         uses: actions/upload-artifact@v7
