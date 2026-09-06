@@ -20,7 +20,7 @@ const LEGACY_HEADERS = [
   'PROGRAMA',
   'BANCO',
   'AGENCIA',
-  'C/C',
+  'C C',
 ] as const;
 
 function decodeLegacySource(source: Uint8Array | string): string {
@@ -105,7 +105,7 @@ function normalizedHeader(value: string): string {
   const header = canonicalText(value);
   if (header === 'DATA PGTO') return 'Data de pagamento';
   if (header === 'OB') return 'Ordem Bancária';
-  if (header === 'C/C') return 'Conta Corrente';
+  if (header === 'C C') return 'Conta Corrente';
   if (header === 'AGENCIA') return 'Agência';
   if (header === 'PARCELA') return 'Parcela';
   if (header === 'VALOR') return 'Valor';
