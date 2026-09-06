@@ -5,8 +5,14 @@ on:
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
       - 'backend/adapters/sigef-legacy-releases-html.ts'
+      - 'backend/application/recover-sigef-release-accounts.ts'
+      - 'backend/application/verify-live-financial-consistency.ts'
+      - 'backend/core/payment-temporal-coverage.ts'
       - 'scripts/monitor-live-2026.ts'
       - 'scripts/verify-sigef-legacy-releases.ts'
+      - 'scripts/verify-live-financial-consistency.ts'
+      - 'tests/unit/run-monitoring-sigef-release-recovery.test.ts'
+      - 'tests/unit/live-financial-consistency.test.ts'
       - 'tests/unit/sigef-public-statement-compact.test.ts'
       - 'tests/unit/sigef-public-releases-legacy.test.ts'
   workflow_dispatch:
@@ -28,6 +34,10 @@ jobs:
       - run: npm ci
       - name: Teste live de 10 UEs reais da 4ª CRE
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
+      - name: Exigir consistência semântica do produto financeiro live
+        run: |
+          set -o pipefail
+          node --import tsx scripts/verify-live-financial-consistency.ts artifacts/monitor-live-2026.json | tee artifacts/live-financial-consistency.json
       - name: Verificar rota legada pública de Liberações contra a rota SIGEF atual
         run: node --import tsx scripts/verify-sigef-legacy-releases.ts
       - name: Preservar dados e HTMLs do teste
@@ -37,6 +47,8 @@ jobs:
           name: sigef-live-monitor-2026
           path: |
             artifacts/monitor-live-2026.json
+            artifacts/live-financial-consistency.json
+            .tmp/monitor-live/**/*.json
             .tmp/monitor-live/pddeinfo/**/*.html
             .tmp/monitor-live/sigef/**/*.html
           if-no-files-found: warn
