@@ -10,6 +10,7 @@ import {
   type SigefMovementClass,
 } from '../adapters/sigef-public-statement';
 import { canonicalAccount, canonicalCnpj, canonicalText } from '../core/normalization';
+import { assessPaymentTemporalCoverage } from '../core/payment-temporal-coverage';
 import type { BankAccount, SigefRelease } from '../core/schemas';
 import { buildFiscalHumanView } from './build-fiscal-human-view';
 import { buildMonitoringOperationalView } from './build-monitoring-operational-view';
@@ -282,12 +283,34 @@ function recomputeRaw(raw: RawMonitoring & { accountRecoveries: SigefReleaseAcco
     movimentosHistoricosExtraidos: historical,
     movimentosDoExercicio: movementsInYear,
   };
+
+  const temporal = assessPaymentTemporalCoverage({
+    payments: raw.schools.flatMap((school) => (
+      school.repasses.map((repasse) => ({
+        schoolInep: school.inep,
+        programCode: repasse.programCode,
+        account: repasse.account,
+        amountPaidCents: repasse.pagoInformadoCents,
+        paymentDate: repasse.dataOrdem,
+      }))
+    )),
+    accounts: raw.schools.flatMap((school) => (
+      school.accounts.map((account) => ({
+        schoolInep: school.inep,
+        programCode: account.programCode,
+        account: account.account,
+        coverageThrough: account.coverageThrough,
+      }))
+    )),
+  });
+  raw.quality.paymentTemporalCoverage = temporal;
   raw.coverage = {
     ...raw.coverage,
     mappedAccountsAttempted: accounts.length,
     mappedAccountsComplete: complete,
     mappedAccountsPartial: partial,
     mappedAccountsFailed: failed,
+    paymentTemporalCoverage: temporal,
   };
   raw.status = raw.status === 'COMPLETE' && releaseFailures === 0 && partial === 0 && failed === 0
     ? 'COMPLETE'
