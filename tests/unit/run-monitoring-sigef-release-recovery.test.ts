@@ -137,6 +137,20 @@ describe('recuperação de conta pela liberação oficial do SIGEF', () => {
         orderBank: '900001',
       }),
     ]);
+    expect(result.raw.sourceObservations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: 'SIGEF_LIBERACOES',
+        collectionStatus: 'COMPLETE',
+        observationBasis: 'LATEST_RELEASE_RETURNED',
+        observedThrough: '2026-08-05',
+        metrics: expect.objectContaining({
+          releaseMatches: 1,
+          recoveredAccounts: 1,
+          confirmedAccounts: 0,
+          errors: 0,
+        }),
+      }),
+    ]));
     expect(result.operational.repasses[0]).toMatchObject({
       account: recoveredAccount,
       bankCreditStatus: 'CREDITO_CONFIRMADO',
