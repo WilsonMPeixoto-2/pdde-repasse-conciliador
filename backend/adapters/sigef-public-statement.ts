@@ -19,6 +19,8 @@ import {
 export * from './sigef-public-statement-core';
 
 const EXPORT_BASE = 'https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/visualizaexcel';
+const DEFAULT_SUPPLEMENTAL_EXPORT_TIMEOUT_MS = 25_000;
+const MAX_SUPPLEMENTAL_EXPORT_TIMEOUT_MS = 120_000;
 
 interface SigefPublicStatementExportUrlInput {
   cnpj: string;
@@ -46,6 +48,7 @@ type FetchExport = (url: string, signal?: AbortSignal) => Promise<SigefPublicExp
 
 export type CollectSigefPublicAccountInput = CoreCollectInput & {
   requiredThrough?: string;
+  supplementalExportTimeoutMs?: number;
   collectPrimary?: CollectPrimary;
   fetchExport?: FetchExport;
 };
@@ -72,6 +75,14 @@ function validateYear(year: number): number {
     throw new Error(`Ano inicial inválido para exportação SIGEF: ${year}.`);
   }
   return year;
+}
+
+function validateSupplementalTimeout(timeoutMs: number | undefined): number {
+  const value = timeoutMs ?? DEFAULT_SUPPLEMENTAL_EXPORT_TIMEOUT_MS;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_SUPPLEMENTAL_EXPORT_TIMEOUT_MS) {
+    throw new Error(`Timeout inválido para exportação pública SIGEF: ${value}.`);
+  }
+  return value;
 }
 
 export function buildSigefPublicStatementExportUrl(
@@ -165,8 +176,45 @@ async function defaultFetchExport(
     throw new Error(`Exportação pública SIGEF respondeu HTTP ${response.status}.`);
   }
   const rawBytes = Buffer.from(await response.arrayBuffer());
+  if (rawBytes.byteLength > 8 * 1024 * 1024) {
+    throw new Error('Exportação pública SIGEF excedeu 8 MiB.');
+  }
   const html = decodeSigefHtml(rawBytes, response.headers.get('content-type'));
   return { html, rawBytes };
+}
+
+async function fetchSupplementalWithDeadline(
+  fetchExport: FetchExport,
+  url: string,
+  parentSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): Promise<SigefPublicExportFetchResult> {
+  parentSignal?.throwIfAborted();
+  const controller = new AbortController();
+  const timeoutError = new Error(`Timeout da exportação pública SIGEF após ${timeoutMs} ms.`);
+  const timeout = setTimeout(() => controller.abort(timeoutError), timeoutMs);
+  const onParentAbort = () => controller.abort(parentSignal?.reason);
+  parentSignal?.addEventListener('abort', onParentAbort, { once: true });
+
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => {
+      const reason = controller.signal.reason;
+      reject(reason instanceof Error ? reason : new Error(String(reason ?? 'Exportação SIGEF abortada.')));
+    };
+    controller.signal.addEventListener('abort', onAbort, { once: true });
+  });
+
+  try {
+    return await Promise.race([
+      fetchExport(url, controller.signal),
+      aborted,
+    ]);
+  } finally {
+    clearTimeout(timeout);
+    parentSignal?.removeEventListener('abort', onParentAbort);
+    if (onAbort) controller.signal.removeEventListener('abort', onAbort);
+  }
 }
 
 /**
@@ -225,13 +273,15 @@ function errorText(cause: unknown): string {
  * Mantém a rota paginada como aquisição primária e escala para a exportação
  * pública somente quando há uma data financeira conhecida que a primeira rota
  * não alcança. A falha complementar nunca apaga nem rebaixa o resultado
- * primário por si só.
+ * primário por si só. O fallback é deliberadamente limitado no tempo para uma
+ * rota suplementar lenta não monopolizar a validação das 163 escolas.
  */
 export async function collectSigefPublicAccount(
   input: CollectSigefPublicAccountInput,
 ): Promise<CoreSigefAccountResult & { supplementalExport?: SigefSupplementalExportObservation }> {
   const {
     requiredThrough,
+    supplementalExportTimeoutMs,
     collectPrimary = collectSigefPublicAccountCore,
     fetchExport = defaultFetchExport,
     ...coreInput
@@ -243,7 +293,12 @@ export async function collectSigefPublicAccount(
 
   const url = buildSigefPublicStatementExportUrl(input);
   try {
-    const fetched = await fetchExport(url, input.signal);
+    const fetched = await fetchSupplementalWithDeadline(
+      fetchExport,
+      url,
+      input.signal,
+      validateSupplementalTimeout(supplementalExportTimeoutMs),
+    );
     const parsed = parseSigefPublicExport(fetched.html, url, {
       cnpj: input.cnpj,
       programCode: input.programCode,
@@ -263,6 +318,7 @@ export async function collectSigefPublicAccount(
       },
     };
   } catch (cause) {
+    input.signal?.throwIfAborted();
     return {
       ...primary,
       supplementalExport: {
