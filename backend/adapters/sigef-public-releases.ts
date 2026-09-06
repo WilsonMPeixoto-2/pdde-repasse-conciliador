@@ -21,6 +21,11 @@ interface ReleaseQueryInput {
   fiscalYear: number;
 }
 
+export interface CollectSigefPublicReleasesInput extends ReleaseQueryInput {
+  targetCnpjs?: string[];
+  signal?: AbortSignal;
+}
+
 function normalizeReleaseQuery(input: ReleaseQueryInput): {
   cnpj: string;
   programCode: string;
@@ -129,13 +134,30 @@ function errorText(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-export async function collectSigefPublicReleases(input: {
-  cnpj: string;
-  programCode: string;
-  fiscalYear: number;
-  targetCnpjs?: string[];
-  signal?: AbortSignal;
-}): Promise<SigefPublicReleaseCollection> {
+export async function collectSigefLegacyReleases(
+  input: CollectSigefPublicReleasesInput,
+): Promise<SigefPublicReleaseCollection> {
+  const targets = input.targetCnpjs ?? [input.cnpj];
+  const legacyUrl = buildSigefLegacyReleaseUrl(input);
+  const fetched = await fetchReleasePage(legacyUrl, input.signal, 'legacy');
+  const parsed = parseSigefLegacyReleaseHtml(fetched.html, {
+    fiscalYear: input.fiscalYear,
+    programCode: input.programCode,
+    targetCnpjs: targets,
+    sourceUrl: fetched.sourceUrl,
+    queriedAt: fetched.queriedAt,
+  });
+  return {
+    ...parsed,
+    rawBytes: fetched.rawBytes,
+    sourceUrl: fetched.sourceUrl,
+    route: 'legacy',
+  };
+}
+
+export async function collectSigefPublicReleases(
+  input: CollectSigefPublicReleasesInput,
+): Promise<SigefPublicReleaseCollection> {
   const targets = input.targetCnpjs ?? [input.cnpj];
   const modernUrl = buildSigefPublicReleaseUrl(input);
 
@@ -155,22 +177,8 @@ export async function collectSigefPublicReleases(input: {
     };
   } catch (modernCause) {
     input.signal?.throwIfAborted();
-    const legacyUrl = buildSigefLegacyReleaseUrl(input);
     try {
-      const fetched = await fetchReleasePage(legacyUrl, input.signal, 'legacy');
-      const parsed = parseSigefLegacyReleaseHtml(fetched.html, {
-        fiscalYear: input.fiscalYear,
-        programCode: input.programCode,
-        targetCnpjs: targets,
-        sourceUrl: fetched.sourceUrl,
-        queriedAt: fetched.queriedAt,
-      });
-      return {
-        ...parsed,
-        rawBytes: fetched.rawBytes,
-        sourceUrl: fetched.sourceUrl,
-        route: 'legacy',
-      };
+      return await collectSigefLegacyReleases(input);
     } catch (legacyCause) {
       input.signal?.throwIfAborted();
       throw new Error(
