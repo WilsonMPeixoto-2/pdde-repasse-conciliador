@@ -85,4 +85,35 @@ describe('probe streaming da Plataforma Antonieta de Barros', () => {
       'normal',
     ]);
   });
+
+  test('preserva par de aspas literais no meio de campo não delimitado como no registro oficial 2761528', async () => {
+    const text = [
+      'ANO;INEP;NOME;DESCRICAO',
+      '2026;33069247;E E E F "FREI GIL DE VILA NOVA";normal',
+    ].join('\n');
+    const compressed = gzipSync(Buffer.from(text, 'utf8'));
+
+    const probe = await probeAntonietaDataProduct({
+      productId: 24,
+      targetIneps: new Set(['33069247']),
+      fetchImpl: mockFetch(compressed),
+      maxSamples: 5,
+    });
+
+    expect(probe).toMatchObject({
+      recordCount: 1,
+      fieldCountDistribution: { '4': 1 },
+      dominantFieldCount: 4,
+      nonDominantFieldCount: 0,
+      years: { '2026': 1 },
+      matchedTargetIneps: ['33069247'],
+      targetMatchCountsByYear: { '2026:33069247': 1 },
+    });
+    expect(probe.sample2026TargetRows).toContainEqual([
+      '2026',
+      '33069247',
+      'E E E F "FREI GIL DE VILA NOVA"',
+      'normal',
+    ]);
+  });
 });
