@@ -15,7 +15,8 @@ function mockFetch(compressed: Buffer): typeof fetch {
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.endsWith('/artifact')) {
-      return new Response(compressed, { status: 200, headers: { 'content-type': 'application/gzip' } });
+      const body = Uint8Array.from(compressed).buffer;
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/gzip' } });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;

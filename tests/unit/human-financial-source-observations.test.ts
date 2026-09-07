@@ -59,7 +59,9 @@ describe('observações factuais das fontes no produto humano', () => {
       human: human as never,
     });
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(Buffer.from(session.workbookBytes));
+    await workbook.xlsx.load(
+      session.workbookBytes as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    );
     const sheet = workbook.getWorksheet('Observações das Fontes');
     expect(sheet).toBeDefined();
     const visible: string[] = [];
