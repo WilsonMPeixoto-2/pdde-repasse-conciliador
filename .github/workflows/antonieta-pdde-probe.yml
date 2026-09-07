@@ -26,50 +26,156 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: 24
           cache: npm
 
       - name: Instalar dependências
         run: npm ci
 
-      - name: Executar sonda com retentativas independentes
+      - name: Baixar artefato oficial com validação e retomada por faixas
+        id: download
         shell: bash
         env:
           PRODUCT_ID: ${{ inputs.product_id || '24' }}
         run: |
           set -euo pipefail
-          mkdir -p artifacts
-          rm -f artifacts/antonieta-pdde-product-${PRODUCT_ID}.json
+          ROOT="artifacts/antonieta-download"
+          LOCAL_API="${ROOT}/local-api/products/data-products/${PRODUCT_ID}"
+          mkdir -p "${LOCAL_API}" "${ROOT}/chunks"
 
+          BASE="https://www.fnde.gov.br/plataforma-antonieta-de-barros-api/products/data-products/${PRODUCT_ID}"
+          METADATA_URL="${BASE}/artifact-metadata"
+          ARTIFACT_URL="${BASE}/artifact"
+          METADATA_FILE="${LOCAL_API}/artifact-metadata"
+          ARTIFACT_FILE="${LOCAL_API}/artifact"
+
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-all-errors --connect-timeout 20 --max-time 120 \
+            -H 'Accept: application/json' \
+            -D "${ROOT}/metadata.headers" \
+            -o "${METADATA_FILE}" \
+            "${METADATA_URL}"
+
+          EXPECTED_BYTES=$(node -e "const fs=require('node:fs'); const m=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); if(!Number.isInteger(m.size)||m.size<1) process.exit(2); process.stdout.write(String(m.size));" "${METADATA_FILE}")
+          echo "Tamanho oficial esperado: ${EXPECTED_BYTES} bytes"
+
+          valid_artifact() {
+            local file="$1"
+            test -s "${file}" || return 1
+            local actual
+            actual=$(stat -c '%s' "${file}")
+            test "${actual}" = "${EXPECTED_BYTES}" || return 1
+            gzip -t "${file}"
+          }
+
+          DIRECT_OK=0
           for attempt in 1 2 3; do
-            echo "Antonieta product ${PRODUCT_ID}: tentativa ${attempt}/3"
-            if npx tsx scripts/probe-antonieta-data-product.ts \
-              "${PRODUCT_ID}" \
-              "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"; then
-              test -s "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"
-              echo "Sonda concluída na tentativa ${attempt}."
-              exit 0
+            rm -f "${ARTIFACT_FILE}"
+            echo "Download integral ${attempt}/3"
+            if curl --fail --location --silent --show-error \
+              --retry 5 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 20 --max-time 1200 \
+              -H 'Accept: application/gzip, application/octet-stream, */*' \
+              -D "${ROOT}/direct-${attempt}.headers" \
+              -o "${ARTIFACT_FILE}" \
+              "${ARTIFACT_URL}"; then
+              ACTUAL_BYTES=$(stat -c '%s' "${ARTIFACT_FILE}")
+              echo "Recebidos ${ACTUAL_BYTES}/${EXPECTED_BYTES} bytes"
+              if valid_artifact "${ARTIFACT_FILE}"; then
+                DIRECT_OK=1
+                break
+              fi
             fi
-
-            rm -f "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"
-            if [ "${attempt}" -lt 3 ]; then
-              sleep $((attempt * 20))
-            fi
+            sleep $((attempt * 5))
           done
 
-          echo "Produto ${PRODUCT_ID} falhou em três transferências independentes." >&2
-          exit 1
+          if [ "${DIRECT_OK}" -ne 1 ]; then
+            echo "Download integral não produziu gzip completo; tentando aquisição determinística por faixas."
+            rm -f "${ARTIFACT_FILE}"
+            CHUNK_SIZE=$((8 * 1024 * 1024))
+            START=0
+            INDEX=0
+            RANGE_OK=1
 
-      - name: Publicar resultado da sonda
+            while [ "${START}" -lt "${EXPECTED_BYTES}" ]; do
+              END=$((START + CHUNK_SIZE - 1))
+              if [ "${END}" -ge "${EXPECTED_BYTES}" ]; then END=$((EXPECTED_BYTES - 1)); fi
+              EXPECTED_CHUNK=$((END - START + 1))
+              CHUNK_FILE="${ROOT}/chunks/$(printf '%04d' "${INDEX}").part"
+              HEADER_FILE="${ROOT}/chunks/$(printf '%04d' "${INDEX}").headers"
+              rm -f "${CHUNK_FILE}"
+
+              echo "Faixa ${START}-${END} (${EXPECTED_CHUNK} bytes)"
+              HTTP_CODE=$(curl --location --silent --show-error \
+                --retry 5 --retry-all-errors --retry-delay 2 \
+                --connect-timeout 20 --max-time 300 \
+                --range "${START}-${END}" \
+                -H 'Accept: application/gzip, application/octet-stream, */*' \
+                -D "${HEADER_FILE}" \
+                -o "${CHUNK_FILE}" \
+                -w '%{http_code}' \
+                "${ARTIFACT_URL}" || true)
+
+              ACTUAL_CHUNK=$(stat -c '%s' "${CHUNK_FILE}" 2>/dev/null || echo 0)
+              if [ "${HTTP_CODE}" = '206' ] && [ "${ACTUAL_CHUNK}" = "${EXPECTED_CHUNK}" ]; then
+                cat "${CHUNK_FILE}" >> "${ARTIFACT_FILE}"
+              elif [ "${START}" = '0' ] && [ "${HTTP_CODE}" = '200' ] && [ "${ACTUAL_CHUNK}" = "${EXPECTED_BYTES}" ]; then
+                mv "${CHUNK_FILE}" "${ARTIFACT_FILE}"
+                START="${EXPECTED_BYTES}"
+                break
+              else
+                echo "Faixa inválida: HTTP ${HTTP_CODE}; bytes ${ACTUAL_CHUNK}/${EXPECTED_CHUNK}" >&2
+                RANGE_OK=0
+                break
+              fi
+
+              START=$((END + 1))
+              INDEX=$((INDEX + 1))
+            done
+
+            if [ "${RANGE_OK}" -ne 1 ] || ! valid_artifact "${ARTIFACT_FILE}"; then
+              ACTUAL_BYTES=$(stat -c '%s' "${ARTIFACT_FILE}" 2>/dev/null || echo 0)
+              echo "Não foi possível obter o artefato completo: ${ACTUAL_BYTES}/${EXPECTED_BYTES} bytes." >&2
+              exit 1
+            fi
+          fi
+
+          ACTUAL_BYTES=$(stat -c '%s' "${ARTIFACT_FILE}")
+          SHA256=$(sha256sum "${ARTIFACT_FILE}" | awk '{print $1}')
+          echo "Artefato íntegro: ${ACTUAL_BYTES} bytes; sha256=${SHA256}"
+          echo "local_root=${ROOT}/local-api" >> "${GITHUB_OUTPUT}"
+
+      - name: Analisar artefato íntegro com o parser de produção
+        if: steps.download.outcome == 'success'
+        shell: bash
+        env:
+          PRODUCT_ID: ${{ inputs.product_id || '24' }}
+          ANTONIETA_BASE_URL: 'http://127.0.0.1:8765/products'
+        run: |
+          set -euo pipefail
+          ROOT="artifacts/antonieta-download"
+          python3 -m http.server 8765 --directory "${ROOT}/local-api" > "${ROOT}/local-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
+          sleep 1
+          node --import tsx scripts/probe-antonieta-data-product.ts \
+            "${PRODUCT_ID}" \
+            "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"
+
+      - name: Publicar resultado e diagnóstico de transporte
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: antonieta-pdde-product-${{ inputs.product_id || '24' }}
-          path: artifacts/antonieta-pdde-product-${{ inputs.product_id || '24' }}.json
+          path: |
+            artifacts/antonieta-pdde-product-${{ inputs.product_id || '24' }}.json
+            artifacts/antonieta-download/**/*.headers
+            artifacts/antonieta-download/local-api/products/data-products/${{ inputs.product_id || '24' }}/artifact-metadata
+            artifacts/antonieta-download/local-server.log
           if-no-files-found: warn
           retention-days: 7

@@ -13,7 +13,14 @@ if (schools.length !== 163) {
 }
 const targetIneps = new Set(schools.map((school) => school.inep));
 const signal = AbortSignal.timeout(30 * 60 * 1000);
-const probe = await probeAntonietaDataProduct({ productId, targetIneps, signal, maxSamples: 25 });
+const baseUrl = process.env.ANTONIETA_BASE_URL?.trim();
+const probe = await probeAntonietaDataProduct({
+  productId,
+  targetIneps,
+  signal,
+  maxSamples: 25,
+  ...(baseUrl ? { baseUrl } : {}),
+});
 const output = resolve(outputArg);
 await mkdir(dirname(output), { recursive: true });
 const document = {

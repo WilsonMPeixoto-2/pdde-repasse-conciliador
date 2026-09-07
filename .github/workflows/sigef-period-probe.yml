@@ -1,0 +1,55 @@
+name: SIGEF Period Parameter Probe
+
+on:
+  push:
+    branches:
+      - feat/temporal-coverage-sigef-export-2026-09-05
+    paths:
+      - '.github/workflows/sigef-period-probe.yml'
+      - 'scripts/probe-sigef-statement-periods.ts'
+      - 'backend/adapters/sigef-public-statement.ts'
+      - 'backend/adapters/sigef-public-statement-core.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Comparar períodos do extrato público
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Comparar parâmetros mensais na mesma conta real
+        env:
+          SIGEF_PROBE_CNPJ: '03.178.700/0001-69'
+          SIGEF_PROBE_PROGRAM: '02'
+          SIGEF_PROBE_BANK: '001'
+          SIGEF_PROBE_AGENCY: '0249'
+          SIGEF_PROBE_ACCOUNT: '0000562858'
+          SIGEF_PROBE_YEAR: '2026'
+          SIGEF_PROBE_MONTHS: '1,4,5,6,7,8,9,10,11,12'
+        run: >-
+          node --import tsx scripts/probe-sigef-statement-periods.ts
+          artifacts/sigef-period-probe.json
+
+      - name: Publicar evidência
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sigef-period-probe
+          path: artifacts/sigef-period-probe.json
+          if-no-files-found: warn
+          retention-days: 7
