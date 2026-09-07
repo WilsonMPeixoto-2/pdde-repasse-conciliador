@@ -1,0 +1,75 @@
+name: Antonieta PDDE Product Probe
+
+on:
+  push:
+    branches:
+      - feat/temporal-coverage-sigef-export-2026-09-05
+    paths:
+      - '.github/workflows/antonieta-pdde-probe.yml'
+      - 'backend/adapters/antonieta-data-product.ts'
+      - 'scripts/probe-antonieta-data-product.ts'
+      - 'backend/schools4cre.json'
+  workflow_dispatch:
+    inputs:
+      product_id:
+        description: 'ID do produto de dados Antonieta'
+        required: false
+        default: '24'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe produto PDDE
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar sonda com retentativas independentes
+        shell: bash
+        env:
+          PRODUCT_ID: ${{ inputs.product_id || '24' }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          rm -f artifacts/antonieta-pdde-product-${PRODUCT_ID}.json
+
+          for attempt in 1 2 3; do
+            echo "Antonieta product ${PRODUCT_ID}: tentativa ${attempt}/3"
+            if npx tsx scripts/probe-antonieta-data-product.ts \
+              "${PRODUCT_ID}" \
+              "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"; then
+              test -s "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"
+              echo "Sonda concluída na tentativa ${attempt}."
+              exit 0
+            fi
+
+            rm -f "artifacts/antonieta-pdde-product-${PRODUCT_ID}.json"
+            if [ "${attempt}" -lt 3 ]; then
+              sleep $((attempt * 20))
+            fi
+          done
+
+          echo "Produto ${PRODUCT_ID} falhou em três transferências independentes." >&2
+          exit 1
+
+      - name: Publicar resultado da sonda
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: antonieta-pdde-product-${{ inputs.product_id || '24' }}
+          path: artifacts/antonieta-pdde-product-${{ inputs.product_id || '24' }}.json
+          if-no-files-found: warn
+          retention-days: 7
