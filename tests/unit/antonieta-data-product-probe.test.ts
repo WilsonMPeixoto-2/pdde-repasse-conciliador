@@ -116,4 +116,29 @@ describe('probe streaming da Plataforma Antonieta de Barros', () => {
       'normal',
     ]);
   });
+
+  test('descarta registro malformado fora da carteira antes de interpretar a linha alvo de 2026', async () => {
+    const text = [
+      'ANO;INEP;NOME;DESCRICAO',
+      '2025;99999999;"ESCOLA FORA DA CARTEIRA;registro nacional defeituoso',
+      '2026;33069247;ESCOLA ALVO;normal',
+    ].join('\n');
+    const compressed = gzipSync(Buffer.from(text, 'utf8'));
+
+    const probe = await probeAntonietaDataProduct({
+      productId: 24,
+      targetIneps: new Set(['33069247']),
+      fetchImpl: mockFetch(compressed),
+      maxSamples: 5,
+    });
+
+    expect(probe.matchedTargetIneps).toEqual(['33069247']);
+    expect(probe.targetMatchCountsByYear).toEqual({ '2026:33069247': 1 });
+    expect(probe.sample2026TargetRows).toContainEqual([
+      '2026',
+      '33069247',
+      'ESCOLA ALVO',
+      'normal',
+    ]);
+  });
 });
