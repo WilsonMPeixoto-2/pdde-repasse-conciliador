@@ -55,4 +55,34 @@ describe('probe streaming da Plataforma Antonieta de Barros', () => {
     expect(probe.sample2026Rows).toContainEqual(['2026', '33069247', 'texto;com;separadores']);
     expect(probe.sample2026TargetRows).toContainEqual(['2026', '33069247', 'texto;com;separadores']);
   });
+
+  test('preserva aspas literais dentro de campo não delimitado como ocorre no artefato oficial', async () => {
+    const text = [
+      'ANO;INEP;NOME;DESCRICAO',
+      '2026;33069247;ESC INDÍGENA O"DIA;normal',
+    ].join('\n');
+    const compressed = gzipSync(Buffer.from(text, 'utf8'));
+    const probe = await probeAntonietaDataProduct({
+      productId: 24,
+      targetIneps: new Set(['33069247']),
+      fetchImpl: mockFetch(compressed),
+      maxSamples: 5,
+    });
+
+    expect(probe).toMatchObject({
+      recordCount: 1,
+      fieldCountDistribution: { '4': 1 },
+      dominantFieldCount: 4,
+      nonDominantFieldCount: 0,
+      years: { '2026': 1 },
+      matchedTargetIneps: ['33069247'],
+      targetMatchCountsByYear: { '2026:33069247': 1 },
+    });
+    expect(probe.sample2026TargetRows).toContainEqual([
+      '2026',
+      '33069247',
+      'ESC INDÍGENA O"DIA',
+      'normal',
+    ]);
+  });
 });

@@ -167,6 +167,7 @@ export async function probeAntonietaDataProduct(
     bom: true,
     skip_empty_lines: true,
     relax_column_count: true,
+    relax_quotes: true,
     trim: true,
   });
   const source = Readable.from(artifactResponse.body as AsyncIterable<Uint8Array>);
