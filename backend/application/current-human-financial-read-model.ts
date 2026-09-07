@@ -7,6 +7,7 @@ import {
   humanSchoolIdentitySchema,
   humanSourceSchema,
 } from '../../shared/human-financial-contract';
+import { sourceObservationSchema, type SourceObservation } from '../../shared/source-observation';
 import { evidenceIdentifierSchema } from '../core/evidence';
 
 export { humanPortfolioMetricsSchema } from '../../shared/human-financial-contract';
@@ -17,6 +18,7 @@ const humanViewSchema = z.object({
   referenceLabel: z.string().min(1),
   metrics: humanPortfolioMetricsSchema,
   sources: z.array(humanSourceSchema).min(1),
+  sourceObservations: z.array(sourceObservationSchema).optional(),
   indicators: z.array(humanIndicatorSchema),
   schools: z.array(humanSchoolContentSchema),
 }).strict();
@@ -55,6 +57,7 @@ export interface CurrentHumanFinancialPortfolio {
   schoolCount: number;
   metrics: z.infer<typeof humanPortfolioMetricsSchema>;
   sources: z.infer<typeof humanSourceSchema>[];
+  sourceObservations?: SourceObservation[];
   indicators: z.infer<typeof humanIndicatorSchema>[];
   schools: z.infer<typeof humanPortfolioSchoolSchema>[];
 }
@@ -99,7 +102,6 @@ function latestPortfolioReferenceDate(
     .sort()
     .at(-1) ?? null;
 }
-
 
 function normalizedHumanStatus(value: string | null | undefined): string {
   return (value ?? '')
@@ -270,6 +272,7 @@ export function prepareCurrentHumanFinancialSnapshot(input: {
       schoolCount: schools.length,
       metrics: human.metrics,
       sources: human.sources,
+      ...(human.sourceObservations ? { sourceObservations: human.sourceObservations } : {}),
       indicators: human.indicators,
       schools: human.schools.map((school) => buildCurrentPortfolioSchoolSummary(school, referenceDate)),
     },

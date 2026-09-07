@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sourceObservationSchema } from './source-observation';
 
 export const humanMoneySchema = z.number().int();
 export const humanNonNegativeMoneySchema = humanMoneySchema.nonnegative();
@@ -168,7 +169,6 @@ export const humanAccountSchema = z.object({
   note: z.string().nullable(),
 }).strict();
 
-
 export const humanRegistrationSchema = z.object({
   studentCount: z.number().int().nonnegative().nullable(),
   location: z.string().nullable(),
@@ -234,6 +234,7 @@ export const humanPublicPortfolioSchema = z.object({
   schoolCount: z.number().int().positive(),
   metrics: humanPortfolioMetricsSchema,
   sources: z.array(humanSourceSchema).min(1),
+  sourceObservations: z.array(sourceObservationSchema).optional(),
   indicators: z.array(humanIndicatorSchema),
   schools: z.array(humanPortfolioSchoolSchema),
 }).strict().refine((value) => value.schoolCount === value.schools.length, {

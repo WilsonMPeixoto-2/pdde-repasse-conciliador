@@ -1,6 +1,7 @@
+import ExcelJS from 'exceljs';
 import { describe, expect, test } from 'vitest';
 import { prepareCurrentHumanFinancialSnapshot } from '../../backend/application/current-human-financial-read-model';
-import { buildHumanFinancialWorkbook } from '../../backend/report/human-financial-workbook';
+import { materializeTemporaryFinancialSession } from '../../backend/application/temporary-financial-session';
 
 const sourceObservations = [
   {
@@ -50,8 +51,15 @@ describe('observações factuais das fontes no produto humano', () => {
     expect(JSON.stringify(prepared.portfolio)).not.toContain('sha256');
   });
 
-  test('gera aba humana específica que explica observação e defasagem sem inferir ausência', () => {
-    const workbook = buildHumanFinancialWorkbook(human as never);
+  test('materializa no Excel entregue ao usuário uma aba que explica observação e defasagem sem inferir ausência', async () => {
+    const session = await materializeTemporaryFinancialSession({
+      runId: 'monitoring-full-2026',
+      status: 'COMPLETE',
+      expectedSchoolCount: 1,
+      human: human as never,
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.from(session.workbookBytes));
     const sheet = workbook.getWorksheet('Observações das Fontes');
     expect(sheet).toBeDefined();
     const visible: string[] = [];
