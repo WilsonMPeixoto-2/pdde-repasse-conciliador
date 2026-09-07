@@ -207,6 +207,47 @@ jobs:
           set -e
 
           printf '%s\n' "${PARSER_STATUS}" > "${ROOT}/parser-exit-code.txt"
+
+          if [ "${PARSER_STATUS}" -ne 0 ]; then
+            ERROR_LINE=$(sed -n 's/.* at line \([0-9][0-9]*\).*/\1/p' "${ROOT}/parser.stderr.log" | tail -n 1)
+            if [[ "${ERROR_LINE}" =~ ^[0-9]+$ ]]; then
+              echo "Preservando contexto da linha inválida ${ERROR_LINE}."
+              python3 - "${ARTIFACT_FILE}" "${ERROR_LINE}" "${ROOT}/offending-record-context.json" <<'PY'
+          import gzip
+          import json
+          import sys
+
+          artifact, error_line_text, output = sys.argv[1:4]
+          error_line = int(error_line_text)
+          first = max(1, error_line - 2)
+          last = error_line + 2
+          rows = []
+          with gzip.open(artifact, 'rt', encoding='utf-8', errors='replace', newline='') as source:
+              for number, line in enumerate(source, start=1):
+                  if number < first:
+                      continue
+                  if number > last:
+                      break
+                  raw = line.rstrip('\r\n')
+                  rows.append({
+                      'line': number,
+                      'utf8_bytes': len(raw.encode('utf-8')),
+                      'semicolon_count': raw.count(';'),
+                      'quote_count': raw.count('"'),
+                      'text': raw,
+                  })
+          with open(output, 'w', encoding='utf-8') as target:
+              json.dump({
+                  'error_line': error_line,
+                  'context_first_line': first,
+                  'context_last_line': last,
+                  'rows': rows,
+              }, target, ensure_ascii=False, indent=2)
+              target.write('\n')
+          PY
+            fi
+          fi
+
           exit "${PARSER_STATUS}"
 
       - name: Publicar resultado e diagnóstico de transporte
@@ -220,6 +261,7 @@ jobs:
             artifacts/antonieta-download/local-api/products/data-products/${{ inputs.product_id || '24' }}/artifact-metadata
             artifacts/antonieta-download/local-server.log
             artifacts/antonieta-download/payload-diagnostic.json
+            artifacts/antonieta-download/offending-record-context.json
             artifacts/antonieta-download/parser.stdout.log
             artifacts/antonieta-download/parser.stderr.log
             artifacts/antonieta-download/parser-exit-code.txt
