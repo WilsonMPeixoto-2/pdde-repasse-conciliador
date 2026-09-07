@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { buildMonitoringOperationalView } from './build-monitoring-operational-view';
 import { canonicalAccount } from '../core/normalization';
 import { assessPaymentTemporalCoverage } from '../core/payment-temporal-coverage';
 import type { RunFinancialIntelligenceMonitoringResult } from './run-financial-intelligence-monitoring';
@@ -16,6 +17,9 @@ export interface LiveFinancialConsistencyReport {
   unknownPayments: number;
   balanceReferenceDate: string | null;
   paymentsAfterBalanceReference: number;
+  sourceObservationCount: number;
+  finalAccountCount: number;
+  operationalCreditStatusCounts: Record<string, number>;
   errors: string[];
 }
 
@@ -41,6 +45,17 @@ function recomputeTemporal(raw: RawFinancialMonitoring) {
   });
 }
 
+function parseDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function addDays(value: string, days: number): string {
+  const date = parseDate(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): LiveFinancialConsistencyReport {
   const errors: string[] = [];
   const expectedTemporal = recomputeTemporal(raw);
@@ -49,6 +64,21 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
   }
   if (!isDeepStrictEqual(raw.coverage.paymentTemporalCoverage, expectedTemporal)) {
     errors.push('TEMPORAL_COVERAGE_MIRROR_STALE');
+  }
+
+  const observations = raw.sourceObservations ?? [];
+  const observedSources = new Set<string>(observations.map((item) => item.source));
+  for (const source of raw.sources ?? []) {
+    if (!observedSources.has(source)) errors.push(`SOURCE_OBSERVATION_MISSING:${source}`);
+  }
+
+  const finalAccountCount = raw.schools.reduce((sum, school) => sum + school.accounts.length, 0);
+  const sigefStatementObservation = observations.find((item) => item.source === 'SIGEF_EXTRATO');
+  if (sigefStatementObservation) {
+    const observedAccounts = sigefStatementObservation.metrics.accountsQueried;
+    if (observedAccounts !== finalAccountCount) {
+      errors.push(`SIGEF_STATEMENT_OBSERVATION_STALE:${observedAccounts ?? 'MISSING'}:${finalAccountCount}`);
+    }
   }
 
   const recoveries = raw.accountRecoveries ?? [];
@@ -81,6 +111,36 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
     }
   }
 
+  const operational = buildMonitoringOperationalView(raw);
+  const operationalCreditStatusCounts: Record<string, number> = {};
+  const confirmedClaims = new Map<string, number>();
+  for (const repasse of operational.repasses) {
+    operationalCreditStatusCounts[repasse.bankCreditStatus] = (operationalCreditStatusCounts[repasse.bankCreditStatus] ?? 0) + 1;
+
+    if (repasse.bankCreditStatus === 'PAGO_CREDITO_NAO_LOCALIZADO' && repasse.orderDate && repasse.account) {
+      const repasseAccount = repasse.account;
+      const school = raw.schools.find((candidate) => candidate.inep === repasse.school.inep);
+      const account = school?.accounts.find((candidate) => (
+        candidate.programCode === repasse.programCode
+        && canonicalAccount(candidate.account) === canonicalAccount(repasseAccount)
+      ));
+      const requiredThrough = addDays(repasse.orderDate, 30);
+      if (!account?.coverageThrough || account.coverageThrough < requiredThrough) {
+        errors.push(`NEGATIVE_CREDIT_WITHOUT_FULL_WINDOW:${repasse.school.inep}:${repasse.programCode}:${repasse.orderDate}:${account?.coverageThrough ?? 'NONE'}`);
+      }
+    }
+
+    if (repasse.bankCreditStatus === 'CREDITO_CONFIRMADO' && repasse.account) {
+      for (const candidate of repasse.bankCreditCandidates ?? []) {
+        const key = `${repasse.school.inep}|${repasse.programCode}|${canonicalAccount(repasse.account)}|${candidate.id}`;
+        confirmedClaims.set(key, (confirmedClaims.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  for (const [key, count] of confirmedClaims) {
+    if (count > 1) errors.push(`CREDIT_CLAIM_REUSED:${key}:${count}`);
+  }
+
   const balanceReferenceDate = raw.publicReports?.coverageThrough ?? null;
   const paid = raw.schools.flatMap((school) => school.repasses)
     .filter((repasse) => repasse.pagoInformadoCents > 0);
@@ -99,6 +159,9 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
     unknownPayments: expectedTemporal.unknownCount,
     balanceReferenceDate,
     paymentsAfterBalanceReference,
+    sourceObservationCount: observations.length,
+    finalAccountCount,
+    operationalCreditStatusCounts,
     errors,
   };
 }

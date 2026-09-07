@@ -1,18 +1,26 @@
-import { z } from 'zod';
 import { isoTimestampSchema } from './time';
+import { sourceObservationSchema, type SourceObservation } from '../../shared/source-observation';
+export { sourceObservationSchema, type SourceObservation } from '../../shared/source-observation';
 
-export const sourceObservationSchema = z.object({
-  source: z.enum(['PDDEINFO', 'SIGEF_EXTRATO']),
-  collectionStatus: z.enum(['COMPLETE', 'PARTIAL', 'FAILED', 'NOT_ATTEMPTED']),
-  collectedAt: isoTimestampSchema,
-  observationBasis: z.enum(['QUERY_TIMESTAMP', 'LATEST_MOVEMENT_RETURNED']),
-  observedThrough: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  observedLagDays: z.number().int().nonnegative().nullable(),
-  freshnessConclusion: z.literal('NOT_INFERRED'),
-  metrics: z.record(z.string(), z.number().int().nonnegative()),
-}).strict();
-
-export type SourceObservation = z.infer<typeof sourceObservationSchema>;
+export function buildReleaseSourceObservation(input: {
+  collectedAt: string;
+  paymentDates: string[];
+  metrics: Record<string, number>;
+}): SourceObservation {
+  const { queriesAttempted = 0, queriesSucceeded = 0, queriesFailed = 0 } = input.metrics;
+  const observedThrough = latest(input.paymentDates);
+  return sourceObservationSchema.parse({
+    source: 'SIGEF_LIBERACOES',
+    collectionStatus: queriesAttempted === 0 ? 'NOT_ATTEMPTED'
+      : queriesSucceeded === 0 ? 'FAILED' : queriesFailed > 0 ? 'PARTIAL' : 'COMPLETE',
+    collectedAt: input.collectedAt,
+    observationBasis: 'LATEST_RELEASE_RETURNED',
+    observedThrough,
+    observedLagDays: observedThrough ? daysBetween(observedThrough, dateOnly(input.collectedAt)) : null,
+    freshnessConclusion: 'NOT_INFERRED',
+    metrics: input.metrics,
+  });
+}
 
 interface MonitoringSourceObservationInput {
   generatedAt: string;
