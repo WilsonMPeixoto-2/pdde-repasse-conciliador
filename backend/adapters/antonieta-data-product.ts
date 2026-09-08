@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
+import { createInterface } from 'node:readline';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
-import { parse } from 'csv-parse';
 import { z } from 'zod';
 
 const DEFAULT_BASE_URL = 'https://www.fnde.gov.br/plataforma-antonieta-de-barros-api/products';
@@ -108,6 +108,71 @@ function orderedCounter(counter: Map<string, number>): Record<string, number> {
   return Object.fromEntries([...counter.entries()].sort(([left], [right]) => left.localeCompare(right)));
 }
 
+/**
+ * Interpreta uma linha física do artefato sem permitir que aspas defeituosas em
+ * um registro nacional contaminem o estado do registro seguinte. A Antonieta
+ * contém tanto campos CSV realmente delimitados por aspas quanto aspas
+ * literais no meio de nomes de escolas. Quando uma aspa de abertura não fecha
+ * na própria linha, a linha é tratada de forma conservadora como delimitada
+ * apenas por ponto e vírgula. Assim a anomalia permanece visível na distribuição
+ * de colunas, mas não impede a leitura das escolas subsequentes da carteira.
+ */
+function parseSemicolonPhysicalLine(line: string): string[] {
+  const fallback = (): string[] => line.split(';').map((value) => value.trim());
+  const row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index] ?? '';
+
+    if (inQuotes) {
+      if (char !== '"') {
+        field += char;
+        continue;
+      }
+
+      if (line[index + 1] === '"') {
+        field += '"';
+        index += 1;
+        continue;
+      }
+
+      let nextMeaningful = index + 1;
+      while (nextMeaningful < line.length && /\s/.test(line[nextMeaningful] ?? '')) {
+        nextMeaningful += 1;
+      }
+      if (nextMeaningful === line.length || line[nextMeaningful] === ';') {
+        inQuotes = false;
+        index = nextMeaningful - 1;
+        continue;
+      }
+
+      // Aspa dentro de um campo já delimitado, mas sem função estrutural.
+      field += '"';
+      continue;
+    }
+
+    if (char === ';') {
+      row.push(field.trim());
+      field = '';
+      continue;
+    }
+
+    if (char === '"' && field.trim().length === 0) {
+      field = '';
+      inQuotes = true;
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (inQuotes) return fallback();
+  row.push(field.trim());
+  return row;
+}
+
 async function fetchChecked(
   fetchImpl: typeof fetch,
   url: string,
@@ -162,16 +227,11 @@ export async function probeAntonietaDataProduct(
       callback(null, bytes);
     },
   });
-  const parser = parse({
-    delimiter: ';',
-    bom: true,
-    skip_empty_lines: true,
-    relax_column_count: true,
-    relax_quotes: true,
-    trim: true,
-  });
+
   const source = Readable.from(artifactResponse.body as AsyncIterable<Uint8Array>);
-  const pumping = pipeline(source, meter, createGunzip(), parser);
+  const gunzip = createGunzip();
+  const pumping = pipeline(source, meter, gunzip);
+  const lines = createInterface({ input: gunzip, crlfDelay: Infinity });
 
   let header: string[] | null = null;
   let recordCount = 0;
@@ -185,9 +245,11 @@ export async function probeAntonietaDataProduct(
   let inepColumnIndexes: number[] = [];
 
   try {
-    for await (const record of parser) {
-      const row = (record as unknown[]).map((value) => String(value ?? '').trim());
+    for await (const physicalLine of lines) {
+      if (!physicalLine.trim()) continue;
+      const row = parseSemicolonPhysicalLine(physicalLine);
       if (!header) {
+        if (row[0]) row[0] = row[0].replace(/^\uFEFF/, '');
         header = row;
         yearColumnIndexes = header.flatMap((value, index) => isYearHeader(value) ? [index] : []);
         inepColumnIndexes = header.flatMap((value, index) => isInepHeader(value) ? [index] : []);
@@ -210,6 +272,7 @@ export async function probeAntonietaDataProduct(
     }
     await pumping;
   } catch (cause) {
+    lines.close();
     await pumping.catch(() => undefined);
     throw cause;
   }
