@@ -79,9 +79,8 @@ function normalizeInep(value: string): string {
 }
 
 function yearsInRow(row: readonly string[], indexes: readonly number[]): string[] {
-  const candidates = indexes.length > 0
-    ? indexes.map((index) => row[index] ?? '')
-    : row;
+  if (indexes.length === 0) return [];
+  const candidates = indexes.map((index) => row[index] ?? '');
   return [...new Set(candidates
     .map((value) => value.trim())
     .filter((value) => /^(?:19|20)\d{2}$/.test(value)))];
