@@ -21,9 +21,14 @@ permissions:
 
 jobs:
   probe:
-    name: Probe produto PDDE
+    name: Probe produto PDDE ${{ matrix.product_id }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # push_product_ids: ['66', '70']
+        product_id: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.product_id)) || fromJSON('["66","70"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,7 +46,7 @@ jobs:
         id: download
         shell: bash
         env:
-          PRODUCT_ID: ${{ inputs.product_id || '24' }}
+          PRODUCT_ID: ${{ matrix.product_id }}
         run: |
           set -euo pipefail
           ROOT="artifacts/antonieta-download"
@@ -154,7 +159,7 @@ jobs:
         if: steps.download.outcome == 'success'
         shell: bash
         env:
-          PRODUCT_ID: ${{ inputs.product_id || '24' }}
+          PRODUCT_ID: ${{ matrix.product_id }}
           ANTONIETA_BASE_URL: 'http://127.0.0.1:8765/products'
         run: |
           set -euo pipefail
@@ -254,11 +259,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: antonieta-pdde-product-${{ inputs.product_id || '24' }}
+          name: antonieta-pdde-product-${{ matrix.product_id }}
           path: |
-            artifacts/antonieta-pdde-product-${{ inputs.product_id || '24' }}.json
+            artifacts/antonieta-pdde-product-${{ matrix.product_id }}.json
             artifacts/antonieta-download/**/*.headers
-            artifacts/antonieta-download/local-api/products/data-products/${{ inputs.product_id || '24' }}/artifact-metadata
+            artifacts/antonieta-download/local-api/products/data-products/${{ matrix.product_id }}/artifact-metadata
             artifacts/antonieta-download/local-server.log
             artifacts/antonieta-download/payload-diagnostic.json
             artifacts/antonieta-download/offending-record-context.json
