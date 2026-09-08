@@ -80,7 +80,7 @@ jobs:
 
           def is_year_header(value):
               n = normalize_header(value)
-              return n in {'ANO', 'EXERCICIO'} or 'ANO_EXERCICIO' in n or 'EXERCICIO_ANO' in n
+              return n in {'ANO', 'EXERCICIO', 'AN_EXERCICIO'} or 'ANO_EXERCICIO' in n or 'EXERCICIO_ANO' in n
 
           def is_inep_header(value):
               n = normalize_header(value)
