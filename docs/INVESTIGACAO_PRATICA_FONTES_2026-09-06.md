@@ -1,5 +1,6 @@
-# Investigação prática de novas fontes — checkpoint 06/09/2026
+# Investigação prática de novas fontes — checkpoint iniciado em 06/09/2026
 
+**Atualizado com evidências até:** 08/09/2026  
 **Projeto canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`  
 **Branch de trabalho:** `feat/temporal-coverage-sigef-export-2026-09-05`  
 **PR relacionado:** #58 — `feat: cobertura temporal e escalada pública SIGEF`  
@@ -35,9 +36,11 @@ Já implementado/testado na branch:
 - preservação da fonte original e deduplicação de movimentos;
 - política `no-cache` no fallback;
 - testes, TypeScript e build verdes no último ciclo observado;
-- Live Monitor de 10 escolas passou no teste observado.
+- Full 163 #262 concluída com `success` no HEAD `b1766b05baa0a9c7cf15d38135b1249d460df5d9` antes desta atualização documental.
 
 Regra: `visualizaexcel` é **novo mecanismo de extração do SIGEF**, não nova fonte independente.
+
+O resultado financeiro integral mais recente continua separando completude operacional de cobertura bancária: a execução 163/163 pode estar `COMPLETE` mesmo existindo pagamentos `OUT_OF_COVERAGE`. Não promover liberação/ordem bancária a crédito observado em conta.
 
 ## 3. Dados Abertos FNDE — PDDE
 
@@ -81,17 +84,19 @@ A descrição de saldos 2025+ declara:
 
 ### 3.3. Estado real da extração
 
-Classificação atual: `ACESSA_SEM_DADO_UTIL_EXTRAIDO`.
+Classificação atual do portal `dados.gov.br`: `ACESSA_SEM_DADO_UTIL_EXTRAIDO`.
 
 Foi possível renderizar a lista completa de recursos e identificar os recursos corretos. O botão **“Acessar o recurso”** é controlado por JavaScript e o HTML renderizado não contém diretamente a URL final do GZ.
 
-O próximo ponto de retomada é **inspecionar a API/JavaScript do portal para descobrir o objeto de recurso e a URL efetiva do arquivo**, baixar os GZ de:
+A investigação da **Plataforma Antonieta de Barros**, porém, já conseguiu baixar produtos oficiais da mesma família de dados por endpoints próprios da plataforma. Isso não autoriza declarar o portal `dados.gov.br` resolvido nem tratar canais diferentes como fontes independentes.
+
+O próximo ponto legítimo desta frente continua sendo descobrir e validar as URLs efetivas dos GZ de:
 
 1. `Saldos das Contas das UEx - PDDE Básico - Públicas`;
 2. `Execução Financeira PDDE Básico - Público`;
 3. `Consulta Prestação de Contas do PDDE`;
 
-então descompactar e procurar os CNPJs/INEPs das 163 UEx, medindo a competência máxima 2026.
+então medir especificamente a competência/exercício de 2026 para as 163 UEx.
 
 ### 3.4. Falha institucional já documentada pelo próprio portal
 
@@ -103,24 +108,43 @@ A discussão também relata erro semelhante no PDDEInfo naquele período. Isso �
 
 ## 4. Plataforma Antonieta de Barros
 
-### 4.1. Produto PDDE real identificado
+### 4.1. Produto 59 — Consulta Prestação de Contas do PDDE
 
 Produto de dados:
 
 - ID `59`;
 - nome: **Consulta Prestação de Contas do PDDE**;
 - página: `https://www.fnde.gov.br/plataforma-antonieta-de-barros/dados/produtos-de-dados/visualizar/59`;
-- ativo declarado: `exports/PDDE/PDDE_Prestacao_conta_SIGPC.txt.gz`.
+- ativo: `exports/PDDE/PDDE_Prestacao_conta_SIGPC.txt.gz`.
 
-A página foi carregada e o botão **“Exportar artefato”** foi identificado.
+A investigação ultrapassou o estado anterior de mera identificação do botão de exportação. O endpoint oficial de artefato foi localizado e o GZ foi obtido integralmente com validação de tamanho e `gzip -t`.
 
-Duas ferramentas distintas de scraping/renderização confirmaram o mesmo caminho lógico do ativo, mas as URLs óbvias testadas para o arquivo retornaram página não encontrada. O botão usa uma chamada interna não exposta no HTML estático.
+Evidências reproduzidas na branch:
 
-Classificação atual: `ACESSA_SEM_DADO_UTIL_EXTRAIDO`.
+- tamanho oficial validado: **5.907.397 bytes**;
+- **138.795 registros** no artefato;
+- presença das **163 UEs da 4ª CRE**;
+- cabeçalho temporal explícito real: `an_exercicio`;
+- o detector foi corrigido por TDD para reconhecer especificamente `AN_EXERCICIO`, sem inferir ano a partir de números soltos em outras colunas;
+- todos os registros do produto 59 observados no artefato íntegro pertencem ao **exercício de 2025**.
 
-Ponto de retomada: inspecionar bundle/rota/API chamada pelo botão `export-button`, baixar `PDDE_Prestacao_conta_SIGPC.txt.gz` e procurar CNPJs da 4ª CRE.
+Classificação atual: `EXTRAIU_DADO_REAL`, mas **sem cobertura do exercício de 2026 para preencher as lacunas correntes**.
 
-### 4.2. BB Ágil dentro da Antonieta
+Conclusão operacional: o produto 59 prova granularidade real e associação com toda a carteira, mas **não pode ser usado para completar evidência financeira de 2026** enquanto o artefato oficial disponível permanecer restrito a 2025.
+
+### 4.2. Produto 24 — execução financeira PDDE
+
+O produto 24 também foi obtido integralmente em teste posterior, com artefato oficial de aproximadamente **117 MB**. A filtragem pela carteira reduziu milhões de registros nacionais a **5.775 registros das 163 escolas da 4ª CRE**, identificadas por INEP, sem registros malformados dentro do subconjunto relevante.
+
+Os registros contêm, entre outros campos, programa, destinação/parcela, CNPJ da UEx e valores de custeio, capital e total. Entretanto, o cabeçalho desse produto **não possui coluna explícita de ano/exercício**. A coluna `dt_ini_vinculacao` é data inicial de vinculação e não data de repasse; no subconjunto observado ela alcança 2025.
+
+Uma heurística anterior chegou a interpretar números de quatro dígitos de outros campos como anos. Essa inferência foi eliminada por TDD: **sem coluna temporal explícita, o parser não atribui exercício**.
+
+Classificação atual: `EXTRAIU_DADO_REAL`, com cobertura integral da carteira, mas **sem atribuição temporal segura ao exercício de 2026**.
+
+Conclusão operacional: a base é útil para cruzamentos cadastrais/financeiros cuja semântica seja comprovada, mas não deve ser usada para afirmar que um valor é repasse de 2026 apenas porque o arquivo foi atualizado em 2026.
+
+### 4.3. BB Ágil dentro da Antonieta
 
 URL testada:
 
@@ -208,13 +232,14 @@ Não usar como fonte de saldo, crédito bancário ou aplicação.
 
 Executar **sem novo relatório intermediário** até obter dados ou esgotar tecnicamente as rotas:
 
-1. Dados Abertos FNDE 2025+ — descobrir URL real do GZ, baixar, abrir e medir competência máxima;
-2. Antonieta produto 59 — descobrir chamada real de exportação e baixar o artefato;
-3. SIMEC — explorar formulários/rotas até UEx real da 4ª CRE;
-4. Power BI PDDE — extrair dataset/query pública por UEx/escola;
-5. SiGPC — retestar por navegador/renderização avançada permitida;
-6. Portal da Transparência — integrar quando houver chave oficial;
-7. D.O. Rio — desenhar coletor específico para prestação de contas.
+1. **Dados Abertos FNDE 2025+** — obter especificamente saldos e execução com competência/exercício explícito de 2026; não repetir a descoberta já encerrada dos artefatos Antonieta 24/59;
+2. **SIMEC** — explorar formulários/rotas até UEx real da 4ª CRE e medir quantas das lacunas correntes podem ser explicadas/reforçadas;
+3. **Power BI PDDE** — extrair dataset/query pública por UEx/escola;
+4. **SiGPC** — retestar por navegador/renderização avançada permitida;
+5. **Portal da Transparência** — integrar quando houver chave oficial;
+6. **D.O. Rio** — desenhar coletor específico para prestação de contas.
+
+Antonieta 24/59 deixa de ser prioridade imediata para preencher 2026: ambos já foram efetivamente extraídos e medidos; o 59 está em 2025 e o 24 não fornece exercício explícito.
 
 ## 11. Regra de encerramento desta investigação
 
