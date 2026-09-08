@@ -20,27 +20,164 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Instalar dependências
-        run: npm ci
-
-      - name: Executar probe oficial do produto 59
+      - name: Baixar artefato oficial com validação de integridade
         run: |
           set -euo pipefail
-          node --import tsx scripts/probe-antonieta-data-product.ts \
-            59 \
-            artifacts/antonieta-pdde-product-59.json
+          mkdir -p artifacts/antonieta-product59
+          ROOT=artifacts/antonieta-product59
+          BASE='https://www.fnde.gov.br/plataforma-antonieta-de-barros-api/products/data-products/59'
+
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-all-errors --retry-delay 2 \
+            --connect-timeout 20 --max-time 120 \
+            -o "$ROOT/metadata.json" "$BASE/artifact-metadata"
+
+          EXPECTED_BYTES=$(python3 -c 'import json; print(json.load(open("artifacts/antonieta-product59/metadata.json"))["size"])')
+          test "$EXPECTED_BYTES" != "None"
+
+          success=0
+          for attempt in 1 2 3; do
+            rm -f "$ROOT/artifact.gz"
+            if curl --fail --location --silent --show-error \
+              --retry 5 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 20 --max-time 1200 \
+              -o "$ROOT/artifact.gz" "$BASE/artifact"; then
+              ACTUAL_BYTES=$(stat -c '%s' "$ROOT/artifact.gz")
+              if [ "$ACTUAL_BYTES" = "$EXPECTED_BYTES" ] && gzip -t "$ROOT/artifact.gz"; then
+                echo "Artefato íntegro: $ACTUAL_BYTES bytes"
+                success=1
+                break
+              fi
+              echo "Tentativa $attempt incompleta/inválida: $ACTUAL_BYTES/$EXPECTED_BYTES bytes" >&2
+            fi
+          done
+
+          if [ "$success" != "1" ]; then
+            echo 'Não foi possível obter o gzip íntegro do produto 59.' >&2
+            exit 1
+          fi
+
+      - name: Inspecionar esquema e carteira 4ª CRE sem inferir exercício
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import gzip
+          import hashlib
+          import json
+          import re
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path('artifacts/antonieta-product59')
+          metadata = json.loads((root / 'metadata.json').read_text(encoding='utf-8'))
+          master = json.loads(Path('backend/schools4cre.json').read_text(encoding='utf-8'))
+          target_ineps = {str(item['inep']) for item in master['schools']}
+          assert len(target_ineps) == 163, f'Catálogo mestre inesperado: {len(target_ineps)}/163'
+
+          def normalize_header(value):
+              normalized = ''.join(ch for ch in value.upper().strip() if ch.isalnum() or ch == '_')
+              return normalized
+
+          def is_year_header(value):
+              n = normalize_header(value)
+              return n in {'ANO', 'EXERCICIO'} or 'ANO_EXERCICIO' in n or 'EXERCICIO_ANO' in n
+
+          def is_inep_header(value):
+              n = normalize_header(value)
+              return 'INEP' in n or n in {'CO_ENTIDADE', 'CODIGO_ESCOLA', 'CO_ESCOLA'}
+
+          artifact = root / 'artifact.gz'
+          sha256 = hashlib.sha256()
+          with artifact.open('rb') as source:
+              for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                  sha256.update(chunk)
+
+          header = None
+          year_indexes = []
+          inep_indexes = []
+          records = 0
+          field_counts = Counter()
+          years = Counter()
+          matched_ineps = set()
+          target_by_year = Counter()
+          target_rows = []
+
+          with gzip.open(artifact, 'rt', encoding='utf-8', errors='replace', newline='') as source:
+              for physical in source:
+                  line = physical.rstrip('\r\n')
+                  if not line.strip():
+                      continue
+                  row = [part.strip().strip('"') for part in line.split(';')]
+                  if header is None:
+                      if row:
+                          row[0] = row[0].lstrip('\ufeff')
+                      header = row
+                      year_indexes = [i for i, value in enumerate(header) if is_year_header(value)]
+                      inep_indexes = [i for i, value in enumerate(header) if is_inep_header(value)]
+                      continue
+
+                  records += 1
+                  field_counts[len(row)] += 1
+
+                  row_years = set()
+                  for index in year_indexes:
+                      value = row[index].strip() if index < len(row) else ''
+                      if re.fullmatch(r'(?:19|20)\d{2}', value):
+                          row_years.add(value)
+                          years[value] += 1
+
+                  candidates = [row[i] for i in inep_indexes if i < len(row)] if inep_indexes else row
+                  row_targets = {
+                      digits for value in candidates
+                      if (digits := re.sub(r'\D', '', value)) in target_ineps
+                  }
+                  matched_ineps.update(row_targets)
+                  for year in row_years:
+                      for inep in row_targets:
+                          target_by_year[f'{year}:{inep}'] += 1
+                  if row_targets and len(target_rows) < 50:
+                      target_rows.append(row)
+
+          result = {
+              'productId': 59,
+              'metadata': metadata,
+              'compressedBytes': artifact.stat().st_size,
+              'compressedSha256': sha256.hexdigest(),
+              'metadataSizeMatchesDownload': metadata.get('size') == artifact.stat().st_size,
+              'recordCount': records,
+              'header': header,
+              'headerFieldCount': len(header) if header else None,
+              'fieldCountDistribution': {str(k): v for k, v in sorted(field_counts.items())},
+              'yearColumnIndexes': year_indexes,
+              'inepColumnIndexes': inep_indexes,
+              'years': dict(sorted(years.items())),
+              'matchedTargetIneps': sorted(matched_ineps),
+              'matchedTargetSchoolCount': len(matched_ineps),
+              'targetMatchCountsByYear': dict(sorted(target_by_year.items())),
+              'sampleTargetRows': target_rows,
+          }
+          output = root / 'probe.json'
+          output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({
+              'artifact': metadata.get('name'),
+              'metadataLastUpdated': metadata.get('lastUpdated'),
+              'compressedBytes': result['compressedBytes'],
+              'recordCount': records,
+              'header': header,
+              'yearColumnIndexes': year_indexes,
+              'inepColumnIndexes': inep_indexes,
+              'years': result['years'],
+              'matchedTargetSchoolCount': len(matched_ineps),
+          }, ensure_ascii=False, indent=2))
+          PY
 
       - name: Publicar evidência
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: antonieta-pdde-product-59
-          path: artifacts/antonieta-pdde-product-59.json
+          path: |
+            artifacts/antonieta-product59/metadata.json
+            artifacts/antonieta-product59/probe.json
           if-no-files-found: warn
           retention-days: 7
