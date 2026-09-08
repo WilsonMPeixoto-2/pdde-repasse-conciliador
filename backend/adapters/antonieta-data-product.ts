@@ -62,6 +62,7 @@ function isYearHeader(value: string): boolean {
   const normalized = normalizeHeader(value);
   return normalized === 'ANO'
     || normalized === 'EXERCICIO'
+    || normalized === 'AN_EXERCICIO'
     || normalized.includes('ANO_EXERCICIO')
     || normalized.includes('EXERCICIO_ANO');
 }
@@ -147,7 +148,6 @@ function parseSemicolonPhysicalLine(line: string): string[] {
         continue;
       }
 
-      // Aspa dentro de um campo já delimitado, mas sem função estrutural.
       field += '"';
       continue;
     }
@@ -200,12 +200,7 @@ export async function probeAntonietaDataProduct(
   const metadataUrl = `${baseUrl}/data-products/${productId}/artifact-metadata`;
   const artifactUrl = `${baseUrl}/data-products/${productId}/artifact`;
 
-  const metadataResponse = await fetchChecked(
-    fetchImpl,
-    metadataUrl,
-    options.signal,
-    'application/json',
-  );
+  const metadataResponse = await fetchChecked(fetchImpl, metadataUrl, options.signal, 'application/json');
   const metadata = artifactMetadataSchema.parse(await metadataResponse.json());
 
   const artifactResponse = await fetchChecked(
