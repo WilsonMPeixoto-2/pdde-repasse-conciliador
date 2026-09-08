@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, test } from 'vitest';
 import { probeAntonietaDataProduct } from '../../backend/adapters/antonieta-data-product';
@@ -45,5 +46,10 @@ describe('cabeçalho temporal real do produto 59 da Antonieta', () => {
     expect(probe.sample2026TargetRows).toHaveLength(1);
     expect(probe.sample2026TargetRows[0]?.[3]).toBe('2026');
     expect(probe.sample2026TargetRows[0]?.[4]).toBe('33069247');
+  });
+
+  test('mantém o probe real do produto 59 alinhado ao reconhecimento de an_exercicio', () => {
+    const workflow = readFileSync('.github/workflows/antonieta-product59-probe.yml', 'utf8');
+    expect(workflow).toContain("'AN_EXERCICIO'");
   });
 });
