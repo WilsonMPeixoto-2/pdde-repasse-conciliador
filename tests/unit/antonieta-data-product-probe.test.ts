@@ -23,6 +23,29 @@ function mockFetch(compressed: Buffer): typeof fetch {
 }
 
 describe('probe streaming da Plataforma Antonieta de Barros', () => {
+  test('não inventa exercício a partir de números de quatro dígitos quando não existe coluna temporal explícita', async () => {
+    const text = [
+      'NU_INEP;NO_ESCOLA;VL_CUSTEIO;VL_CAPITAL',
+      '33069247;ESCOLA ALVO;2026;1500',
+      '99999999;OUTRA ESCOLA;1900;2099',
+    ].join('\n');
+    const compressed = gzipSync(Buffer.from(text, 'utf8'));
+
+    const probe = await probeAntonietaDataProduct({
+      productId: 24,
+      targetIneps: new Set(['33069247']),
+      fetchImpl: mockFetch(compressed),
+      maxSamples: 5,
+    });
+
+    expect(probe.yearColumnIndexes).toEqual([]);
+    expect(probe.years).toEqual({});
+    expect(probe.targetMatchCountsByYear).toEqual({});
+    expect(probe.sample2026Rows).toEqual([]);
+    expect(probe.sample2026TargetRows).toEqual([]);
+    expect(probe.matchedTargetIneps).toEqual(['33069247']);
+  });
+
   test('processa CSV gzip com campo entre aspas contendo ponto e vírgula sem corromper as colunas', async () => {
     const text = [
       'ANO;INEP;DESCRICAO',
