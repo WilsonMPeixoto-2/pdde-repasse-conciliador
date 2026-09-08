@@ -1,0 +1,46 @@
+name: Antonieta PDDE Product 59 Probe
+
+on:
+  push:
+    branches:
+      - feat/temporal-coverage-sigef-export-2026-09-05
+    paths:
+      - '.github/workflows/antonieta-product59-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe produto 59 — prestação de contas PDDE
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar probe oficial do produto 59
+        run: |
+          set -euo pipefail
+          node --import tsx scripts/probe-antonieta-data-product.ts \
+            59 \
+            artifacts/antonieta-pdde-product-59.json
+
+      - name: Publicar evidência
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: antonieta-pdde-product-59
+          path: artifacts/antonieta-pdde-product-59.json
+          if-no-files-found: warn
+          retention-days: 7
