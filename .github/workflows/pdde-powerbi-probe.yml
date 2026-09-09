@@ -1,0 +1,156 @@
+name: PDDE Total Power BI Diagnostic Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdde-powerbi-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnostic-probe:
+    name: Probe público PDDE Total (diagnostic only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PDDE_TOTAL_URL: https://app.powerbi.com/view?r=eyJrIjoiNjBiNjZkZmYtMDRiZS00ZDRkLTkzMzUtNDkyZDk2ZDI4ZWQ4IiwidCI6ImNmODQ1NGQzLWUwMTItNGE5ZC05NWIzLTcwYmRiNmY0NTlkNSJ9
+      PROBE_DIR: artifacts/pdde-powerbi-probe
+
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências imutáveis
+        run: npm ci
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Executar probe diagnóstico no navegador
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p "$PROBE_DIR"
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const targetUrl = process.env.PDDE_TOTAL_URL;
+          const outputDir = resolve(process.env.PROBE_DIR);
+          await mkdir(outputDir, { recursive: true });
+
+          const diagnostic = {
+            targetUrl,
+            queriedAt: new Date().toISOString(),
+            browser: 'playwright/chromium',
+            purpose: 'diagnostic public-source probe',
+            finalUrl: null,
+            title: null,
+            htmlBytes: null,
+            bodyPreview: null,
+            exportOrDownloadCandidates: [],
+            downloadedFiles: [],
+            error: null,
+          };
+
+          let browser;
+          try {
+            browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              locale: 'pt-BR',
+              viewport: { width: 1440, height: 1100 },
+              acceptDownloads: true,
+            });
+            const page = await context.newPage();
+
+            page.on('download', async (download) => {
+              const filename = download.suggestedFilename();
+              diagnostic.downloadedFiles.push(filename);
+              await download.saveAs(resolve(outputDir, `download-${filename}`)).catch(() => undefined);
+            });
+
+            await page.goto(targetUrl, {
+              waitUntil: 'domcontentloaded',
+              timeout: 60_000,
+            });
+            await page.waitForTimeout(8_000);
+
+            const html = await page.content();
+            const bodyText = await page.locator('body').innerText({ timeout: 10_000 }).catch(() => '');
+            diagnostic.finalUrl = page.url();
+            diagnostic.title = await page.title().catch(() => '');
+            diagnostic.htmlBytes = Buffer.byteLength(html, 'utf8');
+            diagnostic.bodyPreview = bodyText.slice(0, 12_000);
+
+            diagnostic.exportOrDownloadCandidates = await page.locator('a,button,[role="button"]').evaluateAll((elements) =>
+              elements
+                .map((element) => ({
+                  text: (element.textContent ?? '').trim().replace(/\s+/g, ' '),
+                  title: element.getAttribute('title'),
+                  ariaLabel: element.getAttribute('aria-label'),
+                  href: element instanceof HTMLAnchorElement ? element.href : null,
+                }))
+                .filter((item) => /export|download|baixar|exportar|dados|data/i.test(
+                  `${item.text} ${item.title ?? ''} ${item.ariaLabel ?? ''} ${item.href ?? ''}`,
+                ))
+                .slice(0, 100),
+            );
+
+            await writeFile(resolve(outputDir, 'page.html'), html, 'utf8');
+            await writeFile(
+              resolve(outputDir, 'export-download-candidates.json'),
+              `${JSON.stringify(diagnostic.exportOrDownloadCandidates, null, 2)}\n`,
+              'utf8',
+            );
+            await page.screenshot({ path: resolve(outputDir, 'screenshot.png'), fullPage: true });
+            await context.close();
+          } catch (error) {
+            diagnostic.error = error instanceof Error ? error.stack ?? error.message : String(error);
+          } finally {
+            await browser?.close().catch(() => undefined);
+            await writeFile(
+              resolve(outputDir, 'diagnostic.json'),
+              `${JSON.stringify(diagnostic, null, 2)}\n`,
+              'utf8',
+            );
+          }
+
+          console.log(JSON.stringify(diagnostic, null, 2));
+          NODE
+
+      - name: Registrar resumo diagnóstico
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## PDDE Total Power BI diagnostic probe'
+            echo
+            echo "Target: \`$PDDE_TOTAL_URL\`"
+            echo
+            echo 'Objetivo: preservar HTML, screenshot e sinais de export/download para avaliar se há uma rota pública estável por escola/UEx.'
+            echo
+            if [ -f "$PROBE_DIR/diagnostic.json" ]; then
+              echo '```json'
+              cat "$PROBE_DIR/diagnostic.json"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar evidências do probe
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pdde-powerbi-probe-${{ github.run_number }}
+          path: artifacts/pdde-powerbi-probe/
+          if-no-files-found: warn
+          retention-days: 14
