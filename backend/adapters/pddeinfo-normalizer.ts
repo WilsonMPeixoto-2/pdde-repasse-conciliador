@@ -76,6 +76,11 @@ interface DestinationMapping {
   installmentLabel: string | null;
 }
 
+interface AccountSelection {
+  uniqueByProgram: Map<string, BankAccount>;
+  presentPrograms: Set<string>;
+}
+
 export interface PddeInfoNormalizationResult {
   payments: PddePayment[];
   source: SourceSnapshot;
@@ -186,7 +191,7 @@ function mapDestination(rawDestination: string): DestinationMapping | null {
   return null;
 }
 
-function selectAccounts(school: RawSchool, warnings: string[]): Map<string, BankAccount> {
+function selectAccounts(school: RawSchool, warnings: string[]): AccountSelection {
   const candidates = new Map<string, BankAccount[]>();
   for (const raw of school.accounts) {
     const programCode = mapAccountProgram(raw.programa);
@@ -205,16 +210,21 @@ function selectAccounts(school: RawSchool, warnings: string[]): Map<string, Bank
     candidates.set(programCode, bucket);
   }
 
-  const selected = new Map<string, BankAccount>();
+  const uniqueByProgram = new Map<string, BankAccount>();
   for (const [programCode, accounts] of candidates) {
     const distinct = new Map(accounts.map((account) => [canonicalAccount(account), account]));
     if (distinct.size > 1) {
-      throw new Error(`${school.sme}: o PDDEInfo informou mais de uma conta para o programa ${programCode}; nenhuma foi presumida.`);
+      warnings.push(`${school.sme}: o PDDEInfo informou mais de uma conta para o programa ${programCode}; nenhuma foi presumida no repasse.`);
+      continue;
     }
     const account = distinct.values().next().value as BankAccount | undefined;
-    if (account) selected.set(programCode, account);
+    if (account) uniqueByProgram.set(programCode, account);
   }
-  return selected;
+
+  return {
+    uniqueByProgram,
+    presentPrograms: new Set(candidates.keys()),
+  };
 }
 
 function validateFinancialComponents(finance: RawFinance, school: RawSchool) {
@@ -293,7 +303,7 @@ export function normalizePddeInfoSchools(
     }
     const cnpj = canonicalCnpj(school.cnpj);
     if (!/^\d{14}$/.test(cnpj)) throw new Error(`${school.sme}: CNPJ da UEx inválido: ${school.cnpj}.`);
-    const accounts = selectAccounts(school, warnings);
+    const accountSelection = selectAccounts(school, warnings);
 
     for (const finance of school.finance) {
       const mapping = mapDestination(finance.destinacao);
@@ -306,8 +316,10 @@ export function normalizePddeInfoSchools(
         continue;
       }
       const amounts = validateFinancialComponents(finance, school);
-      const account = accounts.get(mapping.programCode);
-      if (!account) missingAccounts.add(`${school.inep}:${mapping.programCode}`);
+      const account = accountSelection.uniqueByProgram.get(mapping.programCode);
+      if (!account && !accountSelection.presentPrograms.has(mapping.programCode)) {
+        missingAccounts.add(`${school.inep}:${mapping.programCode}`);
+      }
       const installmentId = mapping.installmentCode ?? 'SEM_PARCELA';
       payments.push(pddePaymentSchema.parse({
         id: `PDDEINFO:${school.inep}:${options.fiscalYear}:${mapping.actionCode}:${installmentId}`,
