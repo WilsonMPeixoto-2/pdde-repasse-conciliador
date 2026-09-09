@@ -183,16 +183,23 @@ describe('normalizePddeInfoSchools', () => {
     });
   });
 
-  test('rejeita duas contas diferentes para o mesmo programa', async () => {
-    const conflictingAccounts = {
+  test('preserva múltiplas contas do programa sem atribuir uma delas ao repasse por presunção', async () => {
+    const multipleAccounts = {
       ...school,
       accounts: [
         ...school.accounts,
         { ...school.accounts[0], conta: '00099999X' },
       ],
+      finance: [school.finance[0]],
     };
 
-    await expect(normalize([conflictingAccounts])).rejects.toThrow(/mais de uma conta/i);
+    const result = await normalize([multipleAccounts]);
+
+    expect(result).toMatchObject({
+      statistics: { missingProgramAccounts: 0 },
+      payments: [expect.not.objectContaining({ account: expect.anything() })],
+      warnings: [expect.stringMatching(/mais de uma conta.*programa 02.*nenhuma.*presumida/i)],
+    });
   });
 
   test('rejeita destinação nova com valor relevante em vez de omiti-la', async () => {
