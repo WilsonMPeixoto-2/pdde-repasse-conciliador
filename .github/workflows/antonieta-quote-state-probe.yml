@@ -1,0 +1,124 @@
+name: Antonieta Quote State Probe
+
+on:
+  push:
+    branches:
+      - feat/temporal-coverage-sigef-export-2026-09-05
+    paths:
+      - '.github/workflows/antonieta-quote-state-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose quote state before parser failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Download official Antonieta artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/antonieta-quote-state
+          ROOT=artifacts/antonieta-quote-state
+          BASE='https://www.fnde.gov.br/plataforma-antonieta-de-barros-api/products/data-products/24'
+
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-all-errors --connect-timeout 20 --max-time 120 \
+            -o "$ROOT/metadata.json" "$BASE/artifact-metadata"
+
+          EXPECTED_BYTES=$(python3 -c 'import json; print(json.load(open("artifacts/antonieta-quote-state/metadata.json"))["size"])')
+          for attempt in 1 2 3; do
+            rm -f "$ROOT/artifact.gz"
+            if curl --fail --location --silent --show-error \
+              --retry 5 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 20 --max-time 1200 \
+              -o "$ROOT/artifact.gz" "$BASE/artifact"; then
+              ACTUAL_BYTES=$(stat -c '%s' "$ROOT/artifact.gz")
+              if [ "$ACTUAL_BYTES" = "$EXPECTED_BYTES" ] && gzip -t "$ROOT/artifact.gz"; then
+                echo "Artefato íntegro: $ACTUAL_BYTES bytes"
+                exit 0
+              fi
+              echo "Tentativa $attempt incompleta: $ACTUAL_BYTES/$EXPECTED_BYTES bytes" >&2
+            fi
+          done
+          echo 'Não foi possível obter gzip íntegro.' >&2
+          exit 1
+
+      - name: Locate likely opening quote before known failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import gzip
+          import json
+          import re
+          from collections import deque
+
+          artifact = 'artifacts/antonieta-quote-state/artifact.gz'
+          output = 'artifacts/antonieta-quote-state/quote-state-diagnostic.json'
+          error_line = 2761529
+          recent_quote_rows = deque(maxlen=1000)
+          recent_odd_quote_rows = deque(maxlen=200)
+          recent_field_start_quote_rows = deque(maxlen=200)
+          context = []
+
+          def describe(number, raw):
+              fields = raw.split(';')
+              quote_positions = [i for i, ch in enumerate(raw) if ch == '"']
+              field_start_quote_indexes = [
+                  i for i, field in enumerate(fields)
+                  if field.lstrip().startswith('"')
+              ]
+              return {
+                  'line': number,
+                  'utf8_bytes': len(raw.encode('utf-8')),
+                  'semicolon_count': raw.count(';'),
+                  'quote_count': raw.count('"'),
+                  'quote_positions': quote_positions,
+                  'field_start_quote_indexes': field_start_quote_indexes,
+                  'text': raw,
+              }
+
+          with gzip.open(artifact, 'rt', encoding='utf-8', errors='replace', newline='') as source:
+              for number, line in enumerate(source, start=1):
+                  raw = line.rstrip('\r\n')
+                  if raw.count('"'):
+                      item = describe(number, raw)
+                      if number < error_line:
+                          recent_quote_rows.append(item)
+                          if item['quote_count'] % 2:
+                              recent_odd_quote_rows.append(item)
+                          if item['field_start_quote_indexes']:
+                              recent_field_start_quote_rows.append(item)
+                  if error_line - 5 <= number <= error_line + 5:
+                      context.append(describe(number, raw))
+                  if number > error_line + 5:
+                      break
+
+          diagnostic = {
+              'known_error_line': error_line,
+              'context': context,
+              'last_quote_rows_before_error': list(recent_quote_rows),
+              'last_odd_quote_rows_before_error': list(recent_odd_quote_rows),
+              'last_field_start_quote_rows_before_error': list(recent_field_start_quote_rows),
+              'nearest_odd_quote_row': recent_odd_quote_rows[-1] if recent_odd_quote_rows else None,
+              'nearest_field_start_quote_row': recent_field_start_quote_rows[-1] if recent_field_start_quote_rows else None,
+          }
+          with open(output, 'w', encoding='utf-8') as target:
+              json.dump(diagnostic, target, ensure_ascii=False, indent=2)
+              target.write('\n')
+          PY
+
+      - name: Upload quote-state evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: antonieta-quote-state-diagnostic
+          path: |
+            artifacts/antonieta-quote-state/metadata.json
+            artifacts/antonieta-quote-state/quote-state-diagnostic.json
+          if-no-files-found: warn
+          retention-days: 7

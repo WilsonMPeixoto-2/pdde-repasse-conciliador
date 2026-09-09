@@ -6,16 +6,23 @@ on:
       - 'backend/application/run-financial-intelligence-monitoring.ts'
       - 'backend/application/recover-sigef-release-accounts.ts'
       - 'backend/application/temporary-financial-session.ts'
+      - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
+      - 'backend/adapters/sigef-legacy-releases-html.ts'
       - 'backend/adapters/sigef-releases-html.ts'
       - 'backend/adapters/sigef-public-bulk-extracts.ts'
+      - 'backend/adapters/antonieta-data-product.ts'
       - 'backend/report/human-financial-workbook.ts'
       - 'backend/report/managerial-human-financial-workbook.ts'
+      - 'backend/report/source-observations-worksheet.ts'
+      - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/analyze-payment-data-gaps.ts'
+      - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
       - '.github/workflows/publish-validated-snapshot.yml'
   push:
@@ -26,16 +33,23 @@ on:
       - 'backend/application/run-financial-intelligence-monitoring.ts'
       - 'backend/application/recover-sigef-release-accounts.ts'
       - 'backend/application/temporary-financial-session.ts'
+      - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
+      - 'backend/adapters/sigef-legacy-releases-html.ts'
       - 'backend/adapters/sigef-releases-html.ts'
       - 'backend/adapters/sigef-public-bulk-extracts.ts'
+      - 'backend/adapters/antonieta-data-product.ts'
       - 'backend/report/human-financial-workbook.ts'
       - 'backend/report/managerial-human-financial-workbook.ts'
+      - 'backend/report/source-observations-worksheet.ts'
+      - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/analyze-payment-data-gaps.ts'
+      - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
       - '.github/workflows/publish-validated-snapshot.yml'
   workflow_dispatch:
@@ -68,6 +82,21 @@ jobs:
       - name: Exigir cobertura completa da carteira real
         run: >-
           node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); if(s.status!=='COMPLETE'||s.schoolCount!==163){console.error('Validação 163 incompleta',s);process.exit(2)} console.log(JSON.stringify({status:s.status,schoolCount:s.schoolCount,workbook:s.workbookFilename}))"
+      - name: Materializar diagnóstico nominal das lacunas de pagamento
+        run: >-
+          node --import tsx scripts/analyze-payment-data-gaps.ts
+          .tmp/monitor-all-163/financial-intelligence.json
+          artifacts/full-163-session/payment-data-gaps.json
+      - name: Sondar produto oficial Antonieta de Barros sem tornar a fonte experimental um gate
+        id: antonieta
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/source-probes
+          node --import tsx scripts/probe-antonieta-data-product.ts 24 artifacts/source-probes/antonieta-pdde-product-24.json 2>&1 | tee artifacts/source-probes/antonieta-pdde-product-24.log
+      - name: Registrar resultado da sonda Antonieta
+        if: always()
+        run: echo "antonieta_outcome=${{ steps.antonieta.outcome }}"
       - name: Preservar produto e evidências integrais
         if: always()
         uses: actions/upload-artifact@v7
@@ -75,6 +104,7 @@ jobs:
           name: sigef-full-163-2026
           path: |
             artifacts/full-163-session/
+            artifacts/source-probes/
             .tmp/monitor-all-163/financial-intelligence.json
             .tmp/monitor-all-163/human-financial.json
             .tmp/monitor-all-163/pddeinfo/**/*.html

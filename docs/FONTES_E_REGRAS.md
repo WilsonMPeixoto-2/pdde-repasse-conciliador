@@ -1,6 +1,6 @@
 # Fontes e regras de evidência
 
-**Atualização material:** 04/09/2026  
+**Atualização material:** 08/09/2026  
 **Estado corrente:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
 
 Este documento registra a maturidade das fontes, o que cada uma realmente prova, falhas conhecidas e regras que impedem conclusões financeiras falsas.
@@ -17,7 +17,7 @@ Nenhuma fonte deve “ganhar” apagando silenciosamente outra. O sistema preser
 
 **Ausência não é zero. Fonte indisponível não é ausência. Pagamento informado não é crédito bancário.**
 
-## 2. Estado das fontes em 04/09/2026
+## 2. Estado das fontes em 08/09/2026
 
 | Fonte | Finalidade | Estado | Observação atual |
 |---|---|---|---|
@@ -34,11 +34,11 @@ Nenhuma fonte deve “ganhar” apagando silenciosamente outra. O sistema preser
 | **Browser assistido / Playwright** | fallback permitido para fonte pública quando HTTP direto não basta | **INTEGRADO** | Chromium é instalado no Full 163 desde PR #56. |
 | **Portal da Transparência / CGU** | recursos/documentos federais por favorecido | **CLIENTE EM CÓDIGO; NÃO ATIVO COMO AUTORIDADE CORRENTE** | Exige token oficial e piloto real antes de influenciar conclusões. |
 | **SiGPC Acesso Público** | segunda evidência para prestação/situação UEx | **PESQUISA CONFIRMADA; PILOTO PENDENTE** | Acesso público descrito pelo FNDE; WAF/legado exige estratégia permitida/testável. |
-| **Dados Abertos FNDE / Olinda** | execução financeira, saldos, prestação, backfill/controle | **CANDIDATO FORTE; PILOTO PENDENTE** | Frescor desigual; não promover histórico a corrente. |
+| **Dados Abertos FNDE / Olinda** | execução financeira, saldos, prestação, backfill/controle | **HISTÓRICO/CONTROLE; NÃO PROMOVER A CORRENTE** | Frescor desigual; artefato histórico não fecha lacuna de 2026. Reabrir apenas com prova de material novo e temporalmente aplicável. |
 | **Painéis PDDE Total/Básico/Ações Integradas** | conferência e controle cruzado | **SECUNDÁRIO; PILOTO DE EXPORTAÇÃO PENDENTE** | Não usar como fonte nuclear sem exportação estável por escola/UEx. |
 | **Novo Webservice SIGEF** | potencial consulta institucional de extrato | **PESQUISA CONFIRMADA; NÃO INTEGRADO** | Falta credencial/documentação/homologação. |
 | **BB Gestão Ágil** | potencial visão bancária/documental institucional | **NÃO INTEGRADO** | Preferir API/acesso institucional; não raspar interface autenticada. |
-| **Plataforma Antonieta de Barros** | potenciais produtos/datasets estruturados | **POTENCIAL; NÃO CERTIFICADO** | Exige piloto que prove ganho real para 2026. |
+| **Plataforma Antonieta de Barros** | execução financeira e saldos estruturados | **PILOTO EXECUTADO; SEM COBERTURA 2026 NOS PRODUTOS TESTADOS** | Produtos 66 e 70 foram baixados integralmente: 163/163 UEs localizadas, porém todos os 338.709 registros do produto 66 e os 260.926 do produto 70 pertencem a 2025. Produtos 24/59 também não forneceram evidência segura de 2026. Não reabrir sem mudança material de artefato/hash/metadata/conteúdo. |
 | **SIGPC Ágil** | nova prestação digital com integração bancária | **NÃO APLICÁVEL ÀS 163 UEx NA FASE PESQUISADA** | Fase inicial de 31/08/2026 não inclui UEx. |
 | **PDDEREx** | legado FNDE | **HISTÓRICO; NÃO USAR COMO FONTE CORRENTE** | Só investigação histórica específica. |
 
@@ -276,17 +276,19 @@ Uma fonte só influencia conclusão corrente quando houver:
 
 Pesquisa, protótipo ou existência de API não equivalem a integração produtiva.
 
-## 17. Pesquisa de 03/09 — prioridades que não devem ser esquecidas
+## 17. Pesquisa de fontes — prioridades após as provas de 08/09
 
-Ordem de investigação sugerida e ainda válida como ponto de partida, salvo evidência posterior:
+A ordem abaixo substitui a fila genérica de 03/09 quando o objetivo específico for reduzir as lacunas correntes de 2026:
 
-1. **SiGPC Acesso Público** para segunda evidência de prestação;
-2. **Portal da Transparência/CGU** para recursos/documentos, após token oficial;
-3. **Dados Abertos FNDE** para piloto de frescor/backfill;
-4. **painéis PDDE** como controle secundário;
-5. **novo Webservice SIGEF/BB Gestão Ágil** somente com condições institucionais adequadas.
+1. **SiGPC Acesso Público**, somente se surgir rota pública permitida que ultrapasse o bloqueio atual e forneça granularidade útil por UEx;
+2. **painéis PDDE**, apenas como controle secundário e somente se houver exportação reproduzível por escola/UEx;
+3. **Portal da Transparência/CGU**, após token oficial, para documentos/recursos que possam oferecer evidência independente;
+4. **novo Webservice SIGEF/BB Gestão Ágil**, somente com condições institucionais adequadas;
+5. **Antonieta/Dados Abertos**, reabrir apenas mediante mudança material dos artefatos ou prova explícita de competência 2026.
 
-Antes de repetir essas pesquisas, consultar também `CONHECIMENTO_ACUMULADO.md` e o histórico consolidado.
+Não repetir como investigação aberta os produtos Antonieta já esgotados no checkpoint `EVIDENCIA_ANTONIETA_PRODUTOS_66_70_2026-09-08.md`. Metadado atualizado em 2026, nome de arquivo ou descrição “a partir de 2025” não substituem prova de competência no conteúdo.
+
+Antes de repetir qualquer pesquisa, consultar também `CONHECIMENTO_ACUMULADO.md`, o histórico consolidado e os checkpoints posteriores a 04/09.
 
 ## 18. Evidência e rastreabilidade
 

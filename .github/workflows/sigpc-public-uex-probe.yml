@@ -1,0 +1,172 @@
+name: SiGPC Public UEx Diagnostic Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/temporal-coverage-sigef-export-2026-09-05
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigpc-public-uex-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnostic-probe:
+    name: Probe público UEx (diagnostic only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SIGPC_PUBLIC_UEX_URL: https://www.fnde.gov.br/sigpcadm/actionPublico.pu?tilesPublico=ConsultarSituacao
+      PROBE_DIR: artifacts/sigpc-public-uex-probe
+
+    steps:
+      - name: Obter código-fonte
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências imutáveis
+        run: npm ci
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Executar probe diagnóstico no navegador
+        id: browser_probe
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p "$PROBE_DIR"
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const targetUrl = process.env.SIGPC_PUBLIC_UEX_URL;
+          const outputDir = resolve(process.env.PROBE_DIR);
+          await mkdir(outputDir, { recursive: true });
+
+          const diagnostic = {
+            targetUrl,
+            queriedAt: new Date().toISOString(),
+            browser: 'playwright/chromium',
+            purpose: 'diagnostic public-source probe',
+            navigation: null,
+            finalUrl: null,
+            title: null,
+            bodyPreview: null,
+            htmlBytes: null,
+            challengeSignals: [],
+            error: null,
+          };
+
+          let browser;
+          try {
+            browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              locale: 'pt-BR',
+              viewport: { width: 1440, height: 1100 },
+            });
+            const page = await context.newPage();
+
+            let response = null;
+            try {
+              response = await page.goto(targetUrl, {
+                waitUntil: 'domcontentloaded',
+                timeout: 60_000,
+              });
+            } catch (error) {
+              diagnostic.error = `navigation: ${error instanceof Error ? error.message : String(error)}`;
+            }
+
+            await page.waitForTimeout(2_000).catch(() => undefined);
+            const html = await page.content().catch(() => '');
+            const bodyText = await page.locator('body').innerText({ timeout: 5_000 }).catch(() => '');
+            const title = await page.title().catch(() => '');
+            const finalUrl = page.url();
+            const normalized = `${finalUrl}\n${title}\n${bodyText}`.toLowerCase();
+            const markers = [
+              'captcha',
+              'recaptcha',
+              'hcaptcha',
+              'não sou um robô',
+              'nao sou um robo',
+              'verificação de segurança',
+              'verificacao de seguranca',
+              'access denied',
+              'forbidden',
+              'request rejected',
+              'cloudflare',
+              'imperva',
+            ];
+
+            diagnostic.navigation = response
+              ? { status: response.status(), statusText: response.statusText(), ok: response.ok() }
+              : null;
+            diagnostic.finalUrl = finalUrl;
+            diagnostic.title = title;
+            diagnostic.bodyPreview = bodyText.slice(0, 8_000);
+            diagnostic.htmlBytes = Buffer.byteLength(html, 'utf8');
+            diagnostic.challengeSignals = markers.filter((marker) => normalized.includes(marker));
+
+            await writeFile(resolve(outputDir, 'page.html'), html, 'utf8');
+            await page.screenshot({
+              path: resolve(outputDir, 'page.png'),
+              fullPage: true,
+            }).catch(async (error) => {
+              await writeFile(
+                resolve(outputDir, 'screenshot-error.txt'),
+                error instanceof Error ? error.stack ?? error.message : String(error),
+                'utf8',
+              );
+            });
+            await context.close();
+          } catch (error) {
+            diagnostic.error = diagnostic.error
+              ? `${diagnostic.error}; browser: ${error instanceof Error ? error.message : String(error)}`
+              : `browser: ${error instanceof Error ? error.message : String(error)}`;
+          } finally {
+            await browser?.close().catch(() => undefined);
+            await writeFile(
+              resolve(outputDir, 'diagnostic.json'),
+              `${JSON.stringify(diagnostic, null, 2)}\n`,
+              'utf8',
+            );
+          }
+
+          console.log(JSON.stringify(diagnostic, null, 2));
+          NODE
+
+      - name: Registrar resumo diagnóstico
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## SiGPC Public UEx diagnostic probe'
+            echo
+            echo "Target: \`$SIGPC_PUBLIC_UEX_URL\`"
+            echo
+            if [ -f "$PROBE_DIR/diagnostic.json" ]; then
+              echo '```json'
+              cat "$PROBE_DIR/diagnostic.json"
+              echo '```'
+            else
+              echo 'O navegador não chegou a produzir diagnostic.json; consulte os logs do job.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar evidências do probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigpc-public-uex-probe-${{ github.run_number }}
+          path: artifacts/sigpc-public-uex-probe/
+          if-no-files-found: warn
+          retention-days: 14

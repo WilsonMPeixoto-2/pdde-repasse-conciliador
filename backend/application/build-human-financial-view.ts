@@ -766,7 +766,10 @@ function buildIndicators(schools: readonly HumanFinancialSchoolView[]): HumanFin
     indicator('Pagamento informado sem crédito compatível localizado', schools, (school) => (
       school.programs.some((program) => program.installments.some((installment) => (
         installment.paymentInformedCents > 0
-        && installment.creditEvidence.status === 'Crédito não localizado'
+        && (
+          installment.creditEvidence.status === 'Crédito não localizado'
+          || installment.creditEvidence.status === 'Consulta inconclusiva'
+        )
       )))
     )),
     indicator('Pagamento informado sem conta do repasse exibida', schools, (school) => (

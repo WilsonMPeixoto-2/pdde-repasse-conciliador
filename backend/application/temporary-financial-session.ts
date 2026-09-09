@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { SourceObservation } from '../../shared/source-observation';
 import type { HumanFinancialPortfolioView } from './build-human-financial-view';
 import {
   prepareCurrentHumanFinancialSnapshot,
@@ -11,6 +12,7 @@ import {
 } from './run-financial-intelligence-monitoring';
 import type { MonitoringSchool } from './run-monitoring';
 import { buildManagerialHumanFinancialWorkbook } from '../report/managerial-human-financial-workbook';
+import { appendSourceObservationsWorksheet } from '../report/source-observations-worksheet';
 
 export type TemporaryFinancialSessionPhase =
   | 'PREPARING'
@@ -25,13 +27,17 @@ export interface TemporaryFinancialSessionProgress {
   message: string;
 }
 
+export type HumanFinancialSessionView = HumanFinancialPortfolioView & {
+  sourceObservations?: SourceObservation[];
+};
+
 export type TemporaryHumanPortfolio = Omit<CurrentHumanFinancialPortfolio, 'runId'>;
 export type TemporaryHumanSchoolSnapshot = Omit<CurrentHumanFinancialSchoolSnapshot, 'runId'>;
 
 export interface TemporaryFinancialSessionResult {
   runId: string;
   status: 'COMPLETE' | 'PARTIAL';
-  human: HumanFinancialPortfolioView;
+  human: HumanFinancialSessionView;
   portfolio: TemporaryHumanPortfolio;
   schools: Array<{
     school: TemporaryHumanSchoolSnapshot['school'];
@@ -46,6 +52,7 @@ type SessionExecutor = (
 ) => Promise<{
   status: 'COMPLETE' | 'PARTIAL';
   human: HumanFinancialPortfolioView;
+  raw?: { sourceObservations?: SourceObservation[] };
 }>;
 
 export interface RunTemporaryFinancialSessionOptions {
@@ -61,7 +68,7 @@ export interface MaterializeTemporaryFinancialSessionInput {
   runId: string;
   status: 'COMPLETE' | 'PARTIAL';
   expectedSchoolCount: number;
-  human: HumanFinancialPortfolioView;
+  human: HumanFinancialSessionView;
 }
 
 function emit(
@@ -75,7 +82,7 @@ function emit(
 function projectForWeb(input: {
   runId: string;
   expectedSchoolCount: number;
-  human: HumanFinancialPortfolioView;
+  human: HumanFinancialSessionView;
 }): Pick<TemporaryFinancialSessionResult, 'portfolio' | 'schools'> {
   const prepared = prepareCurrentHumanFinancialSnapshot(input);
   const { runId: _portfolioRunId, ...portfolio } = prepared.portfolio;
@@ -95,6 +102,7 @@ export async function materializeTemporaryFinancialSession(
     human: input.human,
   });
   const workbook = buildManagerialHumanFinancialWorkbook(input.human);
+  appendSourceObservationsWorksheet(workbook, input.human.sourceObservations);
   const workbookBytes = Buffer.from(await workbook.xlsx.writeBuffer());
 
   return {
@@ -129,13 +137,16 @@ export async function runTemporaryFinancialSession(
       manageExecutionLifecycle: false,
       ...(options.signal ? { signal: options.signal } : {}),
     });
+    const human: HumanFinancialSessionView = result.raw?.sourceObservations
+      ? { ...result.human, sourceObservations: structuredClone(result.raw.sourceObservations) }
+      : result.human;
 
     emit(options.onProgress, 'EXPORTING', 'Organizando a visualização e o arquivo Excel.');
     const session = await materializeTemporaryFinancialSession({
       runId,
       status: result.status,
       expectedSchoolCount: options.schools.length,
-      human: result.human,
+      human,
     });
     const terminalPhase = result.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIAL';
     emit(

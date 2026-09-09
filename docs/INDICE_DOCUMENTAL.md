@@ -1,8 +1,7 @@
 # Índice documental canônico — PDDE Repasse Conciliador
 
-**Atualização:** 04/09/2026  
-**Repositório:** `WilsonMPeixoto-2/pdde-repasse-conciliador`  
-**Branch do trabalho documental:** `docs/consolidacao-global-2026-09-04`
+**Atualização:** 06/09/2026  
+**Repositório:** `WilsonMPeixoto-2/pdde-repasse-conciliador`
 
 ## 1. Objetivo deste índice
 
@@ -12,7 +11,8 @@ Este arquivo existe para impedir que um novo chat, agente ou ferramenta:
 - execute novamente uma tarefa já resolvida por hotfix/PR posterior;
 - misture documentação histórica com regras vigentes;
 - conclua estado de produção sem conferir `main`, workflows e Vercel;
-- repita pesquisas de fontes já feitas e classificadas.
+- repita pesquisas de fontes já feitas e classificadas;
+- perca o ponto exato de uma investigação prática em andamento.
 
 A porta de entrada obrigatória é [`LEIA_PRIMEIRO.md`](LEIA_PRIMEIRO.md).
 
@@ -22,11 +22,12 @@ A porta de entrada obrigatória é [`LEIA_PRIMEIRO.md`](LEIA_PRIMEIRO.md).
 2. `docs/LEIA_PRIMEIRO.md`;
 3. `docs/ESTADO_ATUAL_2026-09-04.md`;
 4. `docs/CONTINUIDADE_WORK.md`;
-5. `docs/DECISOES.md`;
-6. `docs/FONTES_E_REGRAS.md` quando houver dados/coleta/Excel;
-7. `docs/ARCHITECTURE.md` quando houver código/runtime/publicação;
-8. código, testes, workflows, `main`, CI e produção reais;
-9. somente depois, auditorias/baselines/planos históricos necessários à investigação.
+5. **se a tarefa envolver ampliação de fontes ou PR #58, ler `docs/INVESTIGACAO_PRATICA_FONTES_2026-09-06.md`;**
+6. `docs/DECISOES.md`;
+7. `docs/FONTES_E_REGRAS.md` quando houver dados/coleta/Excel;
+8. `docs/ARCHITECTURE.md` quando houver código/runtime/publicação;
+9. código, testes, workflows, `main`, CI e produção reais;
+10. somente depois, auditorias/baselines/planos históricos necessários à investigação.
 
 ## 3. Hierarquia de autoridade
 
@@ -37,9 +38,10 @@ Em caso de divergência:
 3. `LEIA_PRIMEIRO` + `ESTADO_ATUAL` soberano;
 4. `CONTINUIDADE_WORK`;
 5. `DECISOES`, `FONTES_E_REGRAS`, `ARCHITECTURE`, `PROJETO`;
-6. conhecimento acumulado classificado;
-7. auditorias, baselines, checkpoints, specs e planos datados;
-8. handoffs, prompts, fontes brutas e resumos de chat.
+6. checkpoint prático corrente de investigação de fontes, quando a questão for o estado de testes externos ainda não incorporados à produção;
+7. conhecimento acumulado classificado;
+8. auditorias, baselines, checkpoints, specs e planos datados;
+9. handoffs, prompts, fontes brutas e resumos de chat.
 
 Um documento histórico pode conter frases corretas para a data dele e incompatíveis com o estado atual. Isso não é autoridade para regressão.
 
@@ -49,8 +51,9 @@ Um documento histórico pode conter frases corretas para a data dele e incompat�
 |---|---|---|
 | `AGENTS.md` | Protocolo automático de retomada/anti-regressão | **Soberano para agentes** |
 | `docs/LEIA_PRIMEIRO.md` | Porta de entrada e hierarquia documental | **Soberano** |
-| `docs/ESTADO_ATUAL_2026-09-04.md` | Estado factual corrente | **Soberano de estado** |
+| `docs/ESTADO_ATUAL_2026-09-04.md` | Estado factual corrente em produção | **Soberano de estado** |
 | `docs/CONTINUIDADE_WORK.md` | Próximo ponto operacional e regras de retomada | **Vigente** |
+| `docs/INVESTIGACAO_PRATICA_FONTES_2026-09-06.md` | Testes reais de novas fontes, bloqueios, URLs e ponto exato de retomada | **Checkpoint vigente da investigação de fontes no PR #58** |
 | `docs/DECISOES.md` | Decisões estabilizadas | **Vigente** |
 | `docs/FONTES_E_REGRAS.md` | Fontes, maturidade e semântica financeira | **Vigente** |
 | `docs/ARCHITECTURE.md` | Arquitetura corrente | **Vigente** |
@@ -115,12 +118,29 @@ Esses IDs não são constantes: uma coleta posterior válida deve substituir o c
 
 ## 9. Pesquisa de fontes: onde consultar antes de repetir trabalho
 
+Para o estado **mais recente dos testes práticos** de novas fontes, ler primeiro:
+
+- `docs/INVESTIGACAO_PRATICA_FONTES_2026-09-06.md`.
+
+Depois consultar:
+
 - estado e regras: `docs/FONTES_E_REGRAS.md`;
 - oportunidades e limitações: `docs/CONHECIMENTO_ACUMULADO.md`;
-- cronologia das descobertas: `docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md`;
+- cronologia anterior: `docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md`;
 - fontes brutas antigas: `docs/history/source-material/`.
 
-Antes de pesquisar novamente SiGPC, Portal da Transparência/CGU, Dados Abertos FNDE, painéis PDDE, BB Gestão Ágil, novo Webservice SIGEF, SIGPC Ágil, PDDEREx ou Antonieta de Barros, ler esses três documentos e identificar o ponto realmente pendente.
+O checkpoint de 06/09 registra resultados práticos já obtidos para:
+
+- Dados Abertos FNDE 2025+;
+- Antonieta de Barros / produto 59;
+- SIMEC;
+- Power BI PDDE;
+- SiGPC Acesso Público;
+- Portal da Transparência/CGU;
+- BB Ágil;
+- D.O. Rio/SME.
+
+Não recomeçar essas pesquisas por páginas institucionais genéricas. Retomar do ponto técnico explicitamente registrado no checkpoint.
 
 ## 10. Regra para planos antigos
 
@@ -155,3 +175,5 @@ Quando houver mudança material em produção, fonte, regra financeira ou arquit
 - atualizar `DECISOES`/`FONTES_E_REGRAS`/`ARCHITECTURE` quando aplicável;
 - atualizar este índice;
 - não deixar o novo estado existindo apenas em conversa.
+
+Quando a investigação do PR #58 produzir uma fonte realmente incorporável, promover a conclusão do checkpoint prático para `FONTES_E_REGRAS.md` e, se houver mudança produtiva, para um novo `ESTADO_ATUAL` soberano.
