@@ -15,6 +15,13 @@ describe('SiGPC public UEx probe workflow', () => {
     expect(workflow).toContain('upload-artifact');
   });
 
+  test('classifies the rejection page observed in the real public probe as an access-control signal', () => {
+    if (!existsSync(workflowUrl)) return;
+    const workflow = readFileSync(workflowUrl, 'utf8');
+
+    expect(workflow).toMatch(/request rejected/i);
+  });
+
   test('keeps the probe diagnostic-only and does not attempt to bypass access controls', () => {
     if (!existsSync(workflowUrl)) return;
     const workflow = readFileSync(workflowUrl, 'utf8');
