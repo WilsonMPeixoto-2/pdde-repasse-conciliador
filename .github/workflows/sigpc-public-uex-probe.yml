@@ -102,6 +102,7 @@ jobs:
               'verificacao de seguranca',
               'access denied',
               'forbidden',
+              'request rejected',
               'cloudflare',
               'imperva',
             ];
