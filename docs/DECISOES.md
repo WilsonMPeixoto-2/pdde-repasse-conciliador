@@ -1,6 +1,28 @@
 # Decisões consolidadas
 
-Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é changelog nem estado operacional.** O estado corrente está em [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md).
+Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é changelog nem estado operacional.** O estado corrente está em [`ESTADO_ATUAL_2026-09-11.md`](ESTADO_ATUAL_2026-09-11.md).
+
+## 2026-09-11 — Motor produz evidência; PDDE Online decide publicação operacional
+
+**Decisão:** a fronteira entre os projetos permanece explícita. O `pdde-repasse-conciliador` coleta, cruza, valida e publica o snapshot; o PDDE Online confronta proveniência, avalia maturidade e publica no próprio Supabase.
+
+**Regra:** o conciliador não recebe `PDDE_SUPABASE_SERVICE_ROLE_KEY`, não chama a RPC do PDDE Online e não ganha permissão de escrita direta no banco operacional externo.
+
+**Motivo:** manter separadas produção de evidência e promoção institucional reduz acoplamento, superfície de credencial e risco de uma fonte externa contornar o gate de maturidade do consumidor.
+
+## 2026-09-11 — Snapshot publicado dispara handoff, cron é fallback
+
+**Decisão:** depois que um snapshot novo for efetivamente validado e commitado em `main`, o publisher tenta emitir `repository_dispatch` `financial-snapshot-published-v1` ao PDDE Online.
+
+O evento carrega somente proveniência: `sourceRepository`, `workflowRunId`, `artifactId`, `artifactName` e `publishedAt`. O PDDE Online precisa confrontar esses valores com o manifesto público; evento não é prova suficiente por si só.
+
+**Regra:** falha/ausência de `PDDE_ONLINE_DISPATCH_TOKEN` gera warning e não invalida o snapshot já publicado. O fallback do PDDE Online permanece disponível.
+
+## 2026-09-11 — Coleta Full 163 recorrente nasce desligada
+
+**Decisão:** o Full 163 possui schedule diário, mas a execução automática só ocorre com `PDDE_FULL_163_SCHEDULE_ENABLED=true`.
+
+**Motivo:** código implantado e automação operacionalmente autorizada são estados diferentes. O kill-switch permite homologação antes de recorrência contínua.
 
 ## 2026-09-04 — Qualidade e confiança prevalecem sobre velocidade
 
@@ -8,15 +30,11 @@ Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é ch
 
 **Regra:** execução longa saudável não é falha. Falha é timeout, cancelamento, fonte quebrada, cobertura insuficiente ou resultado `PARTIAL`.
 
-**Motivo:** o objetivo do sistema é produzir a melhor informação possível, não terminar rapidamente com lacunas ou falsos zeros.
-
 ## 2026-09-04 — Ausência, zero e incoerência são estados diferentes
 
 **Decisão:** ausência de valor não pode ser renderizada nem exportada como zero sem evidência de que a fonte publicou zero. Se uma fonte informa pagamento e outra não localiza crédito/saldo, a divergência permanece explícita e deve acionar investigação/cobertura complementar.
 
 **Regra:** conta corrente igual a zero não significa recurso total zero quando aplicações ou saldo total são positivos. Toda posição de saldo deve carregar data de referência.
-
-**Motivo:** a confiança do produto depende de explicar contradições, não de fazê-las desaparecer visualmente.
 
 ## 2026-09-04 — Coleta só é “atualizada em produção” quando o snapshot novo é servido
 
@@ -26,41 +44,29 @@ Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é ch
 
 O publisher deve consumir exatamente o artefato da execução validada e registrar `workflowRunId`/`artifactId`. Uma execução mais antiga não pode sobrescrever uma mais nova.
 
-**Motivo:** foi comprovado que o sistema conseguia coletar novamente enquanto produção continuava servindo o snapshot histórico `32164281411 / 9335143477`.
-
 ## 2026-09-04 — Gate financeiro não será enfraquecido para compensar falha de ambiente
 
 **Decisão:** se uma execução fica `PARTIAL` por problema de runtime, corrigir o runtime em vez de relaxar a regra financeira.
 
-O incidente da run #213 foi resolvido instalando Chromium no runner para o fallback Playwright. O gate `COMPLETE` + 163/163 permaneceu intacto e a run #216 passou integralmente.
+O incidente da run #213 foi resolvido instalando Chromium no runner para o fallback Playwright. O gate `COMPLETE` + 163/163 permaneceu intacto.
 
 ## 2026-09-04 — Falha de fonte complementar não vira prova negativa
 
-**Decisão:** a falha `ACCOUNT_OPENING` causada pelo erro Oracle do relatório FNDE é preservada como indisponibilidade/cobertura da fonte. Ela não significa que a escola não possui conta.
-
-**Motivo:** uma fonte suplementar quebrada não pode apagar evidência de fontes nucleares nem fabricar ausência.
+**Decisão:** falha/indisponibilidade de relatório suplementar permanece como cobertura da fonte. Não significa inexistência do fato e não apaga evidência de fontes nucleares.
 
 ## 2026-09-04 — Documentação possui porta de entrada e hierarquia obrigatórias
 
 **Decisão:** `AGENTS.md`, `docs/LEIA_PRIMEIRO.md`, o `ESTADO_ATUAL_YYYY-MM-DD.md` soberano e `CONTINUIDADE_WORK.md` formam a cadeia obrigatória de retomada.
 
-Planos, auditorias, baselines, handoffs e prompts datados são históricos. Antes de executar uma tarefa antiga, é obrigatório conferir se hotfixes/PRs posteriores já a resolveram ou mudaram a regra.
+Planos, auditorias, baselines, handoffs e prompts datados são históricos. Antes de executar tarefa antiga, conferir hotfixes/PRs posteriores.
 
-**Motivo:** impedir que novos chats andem em círculos ou causem regressão por ler documentos corretos para uma data antiga como se fossem instruções atuais.
+## 2026-09-02 — Site e Excel compartilham arquitetura operacional ampliada
 
-## 2026-09-02 — Site e Excel compartilham uma arquitetura operacional ampliada
-
-**Decisão:** o produto não se limita ao núcleo de repasse/saldo. O mesmo read model humano preserva cadastro/mandato, composição custeio-capital, abertura/ocorrência de conta, suspensões/motivos, prestação de contas e cobertura das fontes.
-
-A navegação global e o Excel passam a refletir dez dimensões: **Visão geral, Escolas, Repasses, Contas e saldos, Evolução mensal, Movimentações, Cadastro e habilitação, Pendências e suspensões, Prestação de contas e Cobertura das fontes**.
-
-Fato estruturado não deve ser duplicado como mensagem genérica. Ausência de registro permanece distinta de fonte indisponível.
+**Decisão:** o produto não se limita ao núcleo de repasse/saldo. O read model humano preserva cadastro/mandato, composição custeio-capital, abertura/ocorrência de conta, suspensões/motivos, prestação de contas e cobertura das fontes.
 
 ## 2026-08-30 — Manutenção de dependências é isolada de mudanças financeiras
 
 **Decisão:** atualizações de toolchain, CI e infraestrutura de testes são promovidas em PR próprio, sem transportar silenciosamente mudanças de regra financeira.
-
-Playwright Test, Axe e MSW entram como gates de experiência/integração. Dependências com potencial impacto semântico continuam sujeitas a critérios adicionais de maturação/benchmark.
 
 ## 2026-08-19 — Encontrabilidade é parte do produto financeiro
 
@@ -68,11 +74,11 @@ Playwright Test, Axe e MSW entram como gates de experiência/integração. Depen
 
 ## 2026-08-19 — A consulta ao vivo não cria duas verdades na mesma sessão
 
-**Decisão:** quando uma consulta integral válida é promovida, um prontuário já aberto acompanha a nova versão do retrato. Resultado parcial/falho não substitui o retrato anterior.
+**Decisão:** quando uma consulta integral válida é promovida, um prontuário já aberto acompanha a nova versão do retrato. Resultado parcial/falho não substitui retrato anterior.
 
 ## 2026-08-19 — Documentos datados são fotografias, não status corrente
 
-**Decisão:** baseline, auditoria, checkpoint e plano datados preservam o estado daquela data. Para estado corrente prevalecem código/testes/produção e a cadeia documental soberana indicada em `LEIA_PRIMEIRO.md`.
+**Decisão:** baseline, auditoria, checkpoint e plano datados preservam o estado daquela data. Para estado corrente prevalecem código/testes/produção e a cadeia documental soberana.
 
 ## 2026-08-16 — Relatórios públicos complementares integram a visão financeira
 
@@ -84,7 +90,7 @@ Playwright Test, Axe e MSW entram como gates de experiência/integração. Depen
 
 ## 2026-08-14 — A visão operacional corrente é 2026
 
-**Decisão:** para as 163 UEs, a visão operacional trabalha com **2026**. Dados anteriores podem ser preservados ou investigados separadamente, mas não completam lacunas correntes.
+**Decisão:** para as 163 UEs, a visão operacional trabalha com 2026. Dados anteriores podem ser preservados ou investigados separadamente, mas não completam lacunas correntes.
 
 ## 2026-08-14 — Código existente não significa sistema implantado
 
