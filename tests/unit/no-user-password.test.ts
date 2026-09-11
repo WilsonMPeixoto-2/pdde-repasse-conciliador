@@ -64,4 +64,35 @@ describe('experiência pública da carteira financeira', () => {
     expect(publisher).toContain('sigef-full-163-2026');
     expect(publisher).toContain('git push origin HEAD:main');
   });
+
+  test('a coleta integral agendada nasce protegida por kill-switch', async () => {
+    const fullValidation = await readFile(
+      new URL('../../.github/workflows/sigef-full-163-validation.yml', import.meta.url),
+      'utf8',
+    );
+
+    expect(fullValidation).toContain('schedule:');
+    expect(fullValidation).toContain('cron: "5 10 * * *"');
+    expect(fullValidation).toContain('PDDE_FULL_163_SCHEDULE_ENABLED');
+    expect(fullValidation).toContain("github.event_name != 'schedule'");
+  });
+
+  test('snapshot novo notifica o PDDE Online sem compartilhar credenciais do Supabase', async () => {
+    const publisher = await readFile(
+      new URL('../../.github/workflows/publish-validated-snapshot.yml', import.meta.url),
+      'utf8',
+    );
+
+    expect(publisher).toContain('PDDE_ONLINE_DISPATCH_TOKEN');
+    expect(publisher).toContain('financial-snapshot-published-v1');
+    expect(publisher).toContain('WilsonMPeixoto-2/pddeonlinesme-rj/dispatches');
+    expect(publisher).toContain('sourceRepository');
+    expect(publisher).toContain('workflowRunId');
+    expect(publisher).toContain('artifactId');
+    expect(publisher).toContain('artifactName');
+    expect(publisher).toContain('publishedAt');
+    expect(publisher).toContain('::warning::');
+    expect(publisher).not.toContain('PDDE_SUPABASE_SERVICE_ROLE_KEY');
+    expect(publisher).not.toContain('PDDE_SUPABASE_URL');
+  });
 });
