@@ -205,6 +205,7 @@ jobs:
           PY
 
       - name: Publicar na main sem permitir regressão de fonte
+        id: publish-main
         if: ${{ hashFiles('.snapshot-skip') == '' }}
         run: |
           set -euo pipefail
@@ -213,8 +214,52 @@ jobs:
           git add -A public/data
           if git diff --cached --quiet; then
             echo 'Nenhuma alteração de snapshot para publicar.'
+            echo 'published=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "data: publica snapshot financeiro validado run ${RUN_ID}"
           git pull --rebase origin main
           git push origin HEAD:main
+          echo 'published=true' >> "$GITHUB_OUTPUT"
+
+      - name: Notificar PDDE Online sobre snapshot publicado
+        if: steps.publish-main.outputs.published == 'true'
+        env:
+          PDDE_ONLINE_DISPATCH_TOKEN: ${{ secrets.PDDE_ONLINE_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PDDE_ONLINE_DISPATCH_TOKEN:-}" ]; then
+            echo '::warning::PDDE_ONLINE_DISPATCH_TOKEN não configurado; snapshot foi publicado e será reconciliado pelo fallback do PDDE Online.'
+            exit 0
+          fi
+
+          source_repository='WilsonMPeixoto-2/pdde-repasse-conciliador'
+          workflow_run_id="$(jq -r '.source.workflowRunId' public/data/pdde-2026-snapshot.json)"
+          artifact_id="$(jq -r '.source.artifactId' public/data/pdde-2026-snapshot.json)"
+          artifact_name="$(jq -r '.source.artifactName' public/data/pdde-2026-snapshot.json)"
+          published_at="$(jq -r '.publishedAt' public/data/pdde-2026-snapshot.json)"
+          payload="$(jq -nc \
+            --arg sourceRepository "$source_repository" \
+            --argjson workflowRunId "$workflow_run_id" \
+            --argjson artifactId "$artifact_id" \
+            --arg artifactName "$artifact_name" \
+            --arg publishedAt "$published_at" \
+            '{event_type:"financial-snapshot-published-v1",client_payload:{sourceRepository:$sourceRepository,workflowRunId:$workflowRunId,artifactId:$artifactId,artifactName:$artifactName,publishedAt:$publishedAt}}')"
+
+          http_code="$(curl --silent --show-error \
+            --output /tmp/pdde-online-dispatch-response.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${PDDE_ONLINE_DISPATCH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            --data "$payload" \
+            'https://api.github.com/repos/WilsonMPeixoto-2/pddeonlinesme-rj/dispatches' || true)"
+
+          if [ "$http_code" != '204' ]; then
+            echo "::warning::Snapshot publicado, mas o handoff para o PDDE Online retornou HTTP ${http_code}; o fallback diário permanece disponível."
+            cat /tmp/pdde-online-dispatch-response.txt || true
+            exit 0
+          fi
+
+          echo "PDDE Online notificado: run=${workflow_run_id} artifact=${artifact_id}."
