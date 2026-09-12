@@ -1,7 +1,7 @@
 # Arquitetura atual e direção de evolução
 
-**Estado corrente:** 04/09/2026  
-**Resumo factual:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
+**Estado corrente:** 11/09/2026  
+**Resumo factual:** [`ESTADO_ATUAL_2026-09-11.md`](ESTADO_ATUAL_2026-09-11.md)
 
 ## 1. Princípio arquitetural
 
@@ -15,23 +15,17 @@ IA, agentes e navegador automatizado podem auxiliar coleta/diagnóstico, mas nã
 
 ```text
 fontes públicas/autorizadas
-        │
-        ▼
+        ↓
 evidência bruta / observações
-        │
-        ▼
+        ↓
 normalização por fonte
-        │
-        ▼
+        ↓
 conciliação determinística
-        │
-        ├────────► auditoria/evidência técnica
-        │
-        ▼
+        ├── auditoria/evidência técnica
+        ↓
 read model humano
-        │
-        ├────────► Excel gerencial
-        └────────► site React/Vite
+        ├── Excel gerencial
+        └── site React/Vite
 ```
 
 ## 2. Fontes materializadas
@@ -58,22 +52,17 @@ Lista-mestre · 163 UEs · exercício 2026
               └── extrato/movimentações/crédito compatível
 ```
 
-Quando HTTP direto não basta para uma fonte pública, existe fallback de navegador controlado. O workflow integral instala Chromium explicitamente desde o PR #56.
+Quando HTTP direto não basta para uma fonte pública, existe fallback de navegador controlado. O workflow integral instala Chromium explicitamente.
 
 ## 3. Orquestração financeira
 
 `backend/application/run-financial-intelligence-monitoring.ts` coordena a inteligência financeira e distingue falhas bloqueantes de falhas suplementares.
 
-Princípio:
+- falha em dado nuclear pode tornar a execução `PARTIAL`;
+- falha em fonte suplementar permanece como cobertura/erro, sem inventar ausência e sem apagar evidência nuclear;
+- resultado `PARTIAL` nunca substitui retrato válido.
 
-- uma falha em dado nuclear pode tornar a execução `PARTIAL`;
-- falha em fonte suplementar deve ser preservada como cobertura/erro, sem inventar ausência e sem apagar evidência nuclear.
-
-No checkpoint de 04/09, o relatório de abertura de conta do FNDE apresentou erro Oracle para as 163 UEx; `ACCOUNT_OPENING` permaneceu suplementar. Falhas de `BALANCE`, por exemplo, continuam bloqueantes.
-
-## 4. Fluxo integral de publicação do retrato
-
-A arquitetura de produção foi alterada em 04/09 para eliminar o desacoplamento entre “coletar” e “publicar”.
+## 4. Cadeia integral de snapshot
 
 ### 4.1. Gate Full 163
 
@@ -81,70 +70,117 @@ Workflow: `.github/workflows/sigef-full-163-validation.yml`.
 
 Propriedades:
 
-- roda em mudanças relevantes e na `main`;
-- Node 24;
-- `npm ci`;
-- instala Chromium/dependências;
-- executa a sessão para `all`;
-- timeout de segurança: 120 minutos;
+- Node 24 + `npm ci`;
+- Chromium para fallbacks públicos;
+- coleta `all` para 163 unidades;
+- timeout superior de 120 minutos;
 - exige `session.status === COMPLETE`;
 - exige `schoolCount === 163`;
-- preserva artefato/evidências mesmo quando a execução falha.
+- preserva artefato/evidências;
+- continua disponível em PR, push relevante e `workflow_dispatch`;
+- possui schedule diário às 10:05 UTC (07:05 BRT), inerte até `PDDE_FULL_163_SCHEDULE_ENABLED=true`.
 
-**O timeout não é meta de velocidade.** Ele existe como proteção superior. Coletas longas são aceitáveis quando continuam saudáveis.
+O timeout não é meta de velocidade. Qualidade e cobertura continuam prevalecendo sobre duração.
 
 ### 4.2. Publisher do snapshot
 
 Workflow: `.github/workflows/publish-validated-snapshot.yml`.
 
-Dispara somente após conclusão do Full 163 e só publica quando:
-
-- a run terminou `success`;
-- a branch da run é `main`.
+Só processa Full 163 `success` cuja `head_branch` seja `main`.
 
 O publisher:
 
-1. encontra o artefato `sigef-full-163-2026` da **mesma run**;
+1. encontra `sigef-full-163-2026` da mesma run;
 2. baixa o artefato;
 3. exige `COMPLETE` + 163;
 4. exige portfólio com 163 escolas;
 5. exige 163 prontuários distintos por INEP;
-6. registra `workflowRunId`, `artifactId` e nome do artefato;
-7. impede uma run mais antiga de substituir uma mais nova;
+6. registra `workflowRunId`, `artifactId` e `artifactName`;
+7. impede run antiga de substituir run mais nova;
 8. serializa, comprime gzip e codifica base64;
-9. divide o snapshot em partes estáticas;
-10. reidrata e valida o conteúdo antes do push;
+9. divide em partes estáticas;
+10. reidrata/valida antes do push;
 11. cria commit automático em `main`;
-12. deixa a integração Git do Vercel publicar a nova versão.
+12. deixa a integração Git/Vercel publicar a nova versão.
 
-Essa arquitetura garante que o snapshot público tenha proveniência verificável.
+## 5. Handoff orientado a evento para PDDE Online
 
-## 5. Prova do circuito em 04/09
+Depois de um snapshot novo ser efetivamente publicado em `main`, o publisher tenta um `repository_dispatch` para:
 
-- Full 163 run #216 / id `33906605579`: `success`;
-- artefato `9950830049`;
-- publisher run `33909648939`: `success`;
-- commit de dados `6004178a0394dfe011baa6dda7c4f6e87f028180`;
-- Vercel `dpl_pvNye9gTntZ7a18W3rcGmuW6SYVv`: `READY`;
-- manifesto público servindo `33906605579 / 9950830049`.
+`WilsonMPeixoto-2/pddeonlinesme-rj`
 
-O snapshot histórico `32164281411 / 9335143477` foi supersedido.
+Evento:
 
-## 6. Consulta/coleta disparada pelo site
+`financial-snapshot-published-v1`
 
-A experiência web mantém o retrato anterior enquanto a atualização trabalha. A coleta pode realizar múltiplas consultas, retries e fallbacks.
+Payload:
 
-Propriedades obrigatórias:
+- `sourceRepository`;
+- `workflowRunId`;
+- `artifactId`;
+- `artifactName`;
+- `publishedAt`.
 
-- exibir progresso sem tratar demora normal como falha;
-- não substituir o retrato anterior por resultado `PARTIAL`;
-- não transformar timeout/falha de uma fonte em zero;
-- um prontuário aberto deve acompanhar o retrato válido promovido na sessão;
-- o produto deve privilegiar qualidade/completude, não duração curta.
+O segredo `PDDE_ONLINE_DISPATCH_TOKEN` serve somente para autenticar esse handoff GitHub→GitHub.
 
-Uma futura evolução pode tornar a orquestração de longa duração ainda mais persistente, mas **não é aceitável reduzir a profundidade de coleta apenas para caber em uma janela menor**.
+### Fronteira de confiança
 
-## 7. Fronteiras de responsabilidade
+O conciliador **não** recebe:
+
+- `PDDE_SUPABASE_URL`;
+- `PDDE_SUPABASE_SERVICE_ROLE_KEY`.
+
+Ele também não chama a RPC do PDDE Online. A responsabilidade do motor termina ao publicar evidência/snapshot e notificar o destino.
+
+O PDDE Online então:
+
+1. confronta o payload do evento com o manifesto público;
+2. reidrata o snapshot;
+3. transforma o contrato;
+4. avalia maturidade;
+5. usa suas próprias credenciais para publicar no Supabase.
+
+## 6. Falha do handoff e fallback
+
+O snapshot é o produto primário deste repositório. Portanto, falha de notificação externa não deve invalidar um snapshot já aprovado e publicado.
+
+Se `PDDE_ONLINE_DISPATCH_TOKEN` estiver ausente ou o endpoint de dispatch falhar:
+
+- workflow registra warning;
+- snapshot permanece publicado;
+- o PDDE Online possui schedule de reconciliação/fallback às 13:30 UTC (10:30 BRT), protegido por kill-switch próprio.
+
+Essa separação evita acoplamento frágil entre disponibilidade dos dois repositórios.
+
+## 7. Kill-switches
+
+### Motor
+
+`PDDE_FULL_163_SCHEDULE_ENABLED=true`
+
+Controla somente a coleta Full 163 agendada.
+
+### PDDE Online
+
+`PDDE_FINANCIAL_SYNC_ENABLED=true`
+
+Controla ingestão automática por evento/fallback no destino.
+
+A separação permite homologar cada metade sem dar ao motor poder de escrita direta no banco operacional.
+
+## 8. Prova recente do circuito do motor
+
+Referência validada antes desta evolução:
+
+- Full 163 run `34355577593`;
+- artefato `10107480089`;
+- snapshot publicado em `2026-09-09T13:50:50.872Z`;
+- cobertura 163/163;
+- duração integral observada de aproximadamente 44 minutos.
+
+Esses IDs são checkpoint, não constantes. O manifesto real prevalece quando houver execução posterior.
+
+## 9. Fronteiras de responsabilidade internas
 
 ### `backend/core/`
 
@@ -152,7 +188,7 @@ Contratos e invariantes: dinheiro em centavos, exercício, identidade, evidênci
 
 ### `backend/adapters/`
 
-Acesso às fontes. Cada adaptador preserva semântica/cobertura próprias. Uma fonte não reescreve outra silenciosamente.
+Acesso às fontes. Cada adaptador preserva semântica/cobertura próprias.
 
 ### `backend/application/`
 
@@ -164,41 +200,17 @@ Fronteira comum entre backend e frontend para a projeção humana.
 
 ### `backend/report/`
 
-Geração de Excel humano/gerencial e saídas técnicas correspondentes.
+Excel humano/gerencial e saídas técnicas.
 
 ### `src/product/`
 
-Experiência fiscal. Organiza a informação; não reinterpreta o bruto nem decide conciliação.
+Experiência humana. Organiza a informação; não redefine regra financeira.
 
 ### `public/data/`
 
-Snapshot público materializado após gate integral validado. O manifesto registra proveniência da run/artefato.
+Snapshot público promovido após gate integral validado.
 
-### `supabase/migrations/`
-
-Infraestrutura institucional planejada/testada. Código existente não significa implantação definitiva.
-
-## 8. Produto web atual
-
-O produto inclui visões para:
-
-- visão geral;
-- escolas;
-- repasses;
-- contas e saldos;
-- evolução mensal;
-- movimentações;
-- cadastro e habilitação;
-- pendências e suspensões;
-- prestação de contas;
-- cobertura das fontes;
-- prontuário por escola;
-- leitura operacional do PDDE Básico;
-- indicadores acionáveis.
-
-Site e Excel compartilham o mesmo domínio de informação, mas têm densidades diferentes.
-
-## 9. Regras que a arquitetura não pode violar
+## 10. Regras que a arquitetura não pode violar
 
 1. exercício operacional corrente = 2026;
 2. ausência não vira zero;
@@ -215,51 +227,33 @@ Site e Excel compartilham o mesmo domínio de informação, mas têm densidades 
 13. resultado parcial não substitui retrato válido;
 14. coleta nova só vira snapshot oficial após `COMPLETE 163/163`;
 15. duração longa não autoriza cortar investigação/retries;
-16. interface humana não expõe ruído técnico como conteúdo comum.
-
-## 10. Persistência: o que já existe e o que ainda falta
-
-### Já durável/publicado
-
-- snapshot integral validado via commit em `main`;
-- proveniência run/artifact;
-- distribuição Vercel;
-- artefato temporário da execução no GitHub Actions;
-- produto web e Excel derivados do retrato.
-
-### Ainda não institucionalizado definitivamente
-
-- Supabase dedicado permanentemente conectado;
-- histórico durável de execuções/evidências no banco institucional;
-- fila/worker persistente ligada ao frontend de forma definitiva;
-- consulta histórica das execuções pelo próprio produto.
-
-A promoção automática via Git/Vercel resolveu a durabilidade do **retrato público aprovado**, mas não substitui a futura camada institucional de histórico operacional.
+16. interface humana não expõe ruído técnico como conteúdo comum;
+17. credencial de banco do PDDE Online nunca cruza para o motor.
 
 ## 11. Gates de engenharia
 
-A validação inclui, conforme o fluxo:
+Conforme o fluxo:
 
 - Vitest;
 - TypeScript/typecheck;
 - build Vite;
-- MSW para integrações controladas;
-- Playwright em navegador real;
-- Axe para acessibilidade;
+- MSW;
+- Playwright;
+- Axe;
 - smoke desktop/mobile;
 - Full 163 com fontes reais;
 - reidratação do snapshot publicado.
 
-CI verde de testes locais não substitui prova de fontes reais quando a mudança afeta dados.
+CI local verde não substitui prova de fontes reais quando a mudança afeta coleta/publicação.
 
-## 12. Próxima fronteira arquitetural
+## 12. Próxima fronteira
 
-Evoluções futuras devem ocorrer sobre a arquitetura atual, preservando os gates e a semântica já conquistados. Prioridades possíveis:
+Depois da ativação/homologação do handoff ponta a ponta, as evoluções devem priorizar:
 
-1. persistência institucional dedicada;
-2. histórico durável de coletas e proveniência consultável;
-3. integração de fontes adicionais apenas após piloto/credencial;
-4. reforço da orquestração longa sem reduzir profundidade;
-5. melhorias de UX que não alterem silenciosamente as regras financeiras.
+1. histórico durável de coletas/proveniência;
+2. novas dimensões apenas com cobertura/semântica próprias;
+3. reforço da orquestração longa sem reduzir profundidade;
+4. fontes adicionais somente após piloto/credencial;
+5. manter a fronteira clara entre motor de evidência e sistema operacional consumidor.
 
-Antes de qualquer mudança, ler `AGENTS.md` e `docs/LEIA_PRIMEIRO.md`.
+Antes de qualquer alteração, ler `AGENTS.md` e `docs/LEIA_PRIMEIRO.md`.

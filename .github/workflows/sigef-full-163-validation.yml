@@ -53,6 +53,9 @@ on:
       - '.github/workflows/sigef-full-163-validation.yml'
       - '.github/workflows/publish-validated-snapshot.yml'
   workflow_dispatch:
+  schedule:
+    # 10:05 UTC = 07:05 America/Sao_Paulo. Nasce inerte até habilitação explícita.
+    - cron: "5 10 * * *"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -60,6 +63,7 @@ permissions:
   contents: read
 jobs:
   full-163:
+    if: github.event_name != 'schedule' || vars.PDDE_FULL_163_SCHEDULE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

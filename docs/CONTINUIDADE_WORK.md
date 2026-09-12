@@ -1,162 +1,117 @@
-# Continuidade do projeto — checkpoint soberano de 04/09/2026
+# Continuidade do projeto — 11/09/2026
 
 **Repositório canônico:** `WilsonMPeixoto-2/pdde-repasse-conciliador`  
 **Escopo:** 163 UEs da 4ª CRE, exercício 2026  
-**Estado corrente:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
+**Estado corrente:** [`ESTADO_ATUAL_2026-09-11.md`](ESTADO_ATUAL_2026-09-11.md)
 
-## 1. Como retomar sem depender do chat anterior
+## 1. Retomada obrigatória
 
 Ler, nesta ordem:
 
 1. `AGENTS.md`;
 2. `docs/LEIA_PRIMEIRO.md`;
-3. `docs/ESTADO_ATUAL_2026-09-04.md`;
+3. `docs/ESTADO_ATUAL_2026-09-11.md`;
 4. este documento;
 5. `docs/DECISOES.md`;
-6. `docs/FONTES_E_REGRAS.md` para coleta/dados/Excel;
-7. `docs/ARCHITECTURE.md` para runtime/publicação;
-8. `docs/HISTORICO_CONSOLIDADO_2026-08-12_A_2026-09-04.md` somente quando for necessário reconstruir origem de uma solução;
-9. código, testes, workflows, `main`, CI e produção reais.
+6. `docs/FONTES_E_REGRAS.md`;
+7. `docs/ARCHITECTURE.md`;
+8. código, testes, workflows, `main`, CI e produção reais.
 
-Não usar `ESTADO_ATUAL_2026-08-30.md` como estado corrente. Ele é histórico.
+Documentos de 04/09 e agosto são checkpoints históricos.
 
-## 2. Estado fechado em produção
+## 2. Estado consolidado
 
-A extração integral deste checkpoint foi concluída e publicada ponta a ponta:
+O motor já possui cadeia automática de snapshot:
 
-- Full 163 run #216;
-- run id `33906605579`;
-- `COMPLETE` 163/163;
-- artefato `9950830049`, `sigef-full-163-2026`;
-- publisher run `33909648939`, `success`;
-- commit automático `6004178a0394dfe011baa6dda7c4f6e87f028180`;
-- Vercel `dpl_pvNye9gTntZ7a18W3rcGmuW6SYVv`, `READY`;
-- manifesto público confirmado com `workflowRunId=33906605579` e `artifactId=9950830049`.
+`Full 163 → COMPLETE 163/163 → artefato da mesma run → publisher → snapshot em main → Vercel/manifesto`.
 
-Os IDs históricos `32164281411 / 9335143477` foram supersedidos na produção.
+Última referência validada antes desta frente:
 
-## 3. Problemas recentes encerrados
+- run `34355577593`;
+- artefato `10107480089`;
+- `publishedAt=2026-09-09T13:50:50.872Z`;
+- 163/163 escolas.
 
-### 3.1. Coleta nova sem snapshot novo
+O manifesto real prevalece caso uma execução posterior já tenha sido promovida.
 
-Problema: o pipeline conseguia coletar dados atuais, mas o site continuava iniciando com snapshot histórico.
+## 3. Nova fronteira com o PDDE Online
 
-Solução: PR #55 criou promoção automática baseada **no artefato exato da execução Full 163 aprovada**, com validação 163/163, proveniência e proteção contra regressão.
+O PDDE Online passou a receber snapshots publicados por evento na PR #134, commit `83f069a1f1f0d38c3937fc76fa001bb602bf315b`.
 
-### 3.2. Run #213 ficou PARTIAL
+A responsabilidade permanece separada:
 
-Problema: três coletas de saldo precisaram do fallback Playwright e o runner não possuía Chromium.
+- **conciliador:** coleta, evidência, validação integral e snapshot;
+- **PDDE Online:** valida proveniência do evento/manifesto, avalia maturidade e publica no próprio Supabase.
 
-Solução: PR #56 adicionou `npx playwright install --with-deps chromium`. O gate financeiro não foi relaxado.
+O conciliador não recebe `service_role` do PDDE Online.
 
-### 3.3. Abertura de conta retornando erro para 163 UEx
+## 4. Agendamento da coleta integral
 
-Causa observada: erro Oracle do relatório FNDE:
+`SIGEF Full 163 Validation` possui schedule diário às 10:05 UTC (07:05 BRT), mas a execução automática depende de:
 
-`ORA-00904: "REPASSE"."NU_SEQ_UNIDADE_EXECUTORA": invalid identifier`.
+`PDDE_FULL_163_SCHEDULE_ENABLED=true`
 
-Tratamento: preservar como falha `ACCOUNT_OPENING` suplementar. Não converter em “sem conta” e não derrubar uma coleta nuclear completa por uma fonte complementar quebrada.
+A variável funciona como kill-switch. O schedule deve permanecer desligado até a ativação operacional deliberada.
 
-## 4. Decisão de desempenho que deve ser preservada
+## 5. Handoff após snapshot novo
 
-**Qualidade > velocidade.**
+`publish-validated-snapshot.yml` notifica o PDDE Online somente depois de um snapshot novo ser efetivamente commitado.
 
-Uma coleta integral pode demorar muitos minutos. Não otimizar o tempo às custas de:
+Evento:
 
-- retries;
-- fallbacks;
-- cruzamento de fontes;
-- investigação de divergências;
-- busca de cobertura mensal;
-- validação 163/163.
+`financial-snapshot-published-v1`
 
-Tempo longo é normal quando há progresso. Erro é timeout, cancelamento, falha bloqueante, cobertura insuficiente ou estado `PARTIAL`.
+Secret dedicado:
 
-## 5. Regra central de confiança dos dados
+`PDDE_ONLINE_DISPATCH_TOKEN`
 
-Não voltar ao comportamento que motivou a revisão de setembro:
+Se o token estiver ausente ou a chamada falhar:
 
-- pagamento informado ≠ crédito observado;
-- conta corrente zero ≠ recurso total zero;
-- saldo datado ≠ saldo de hoje;
+- o snapshot não é revertido;
+- o workflow registra warning;
+- o fallback diário do PDDE Online permanece capaz de reconciliar a publicação.
+
+## 6. Ativação operacional ainda externa ao código
+
+Para ligar a cadeia inteira:
+
+### conciliador
+
+- configurar `PDDE_ONLINE_DISPATCH_TOKEN`;
+- configurar `PDDE_FULL_163_SCHEDULE_ENABLED=true` quando a coleta recorrente for autorizada.
+
+### PDDE Online
+
+- configurar `PDDE_SUPABASE_URL`;
+- configurar `PDDE_SUPABASE_SERVICE_ROLE_KEY`;
+- executar homologação manual;
+- somente depois configurar `PDDE_FINANCIAL_SYNC_ENABLED=true`.
+
+Nunca registrar valores de secrets em documentação, PRs ou logs.
+
+## 7. Regras preservadas
+
+- qualidade > velocidade;
+- `COMPLETE 163/163` não é negociável;
 - ausência ≠ zero;
-- fonte indisponível ≠ dado ausente;
-- divergência entre fontes deve aparecer e ser investigada;
-- histórico não completa 2026;
-- resultado parcial não substitui retrato válido.
+- pagamento informado ≠ crédito observado;
+- fonte complementar quebrada ≠ ausência;
+- resultado `PARTIAL` não substitui retrato válido;
+- run antiga não substitui snapshot novo;
+- CAPTCHA/restrições não são contornados.
 
-## 6. Fontes já pesquisadas: não começar do zero
+## 8. Critério do primeiro ciclo ponta a ponta
 
-Antes de nova pesquisa, consultar `FONTES_E_REGRAS.md` e `CONHECIMENTO_ACUMULADO.md`.
+Depois da configuração segura das variáveis/secrets:
 
-Estado resumido:
+1. Full 163 controlado;
+2. `COMPLETE 163/163`;
+3. publisher encontra o artefato da mesma run;
+4. snapshot novo entra em `main`;
+5. dispatch chega ao PDDE Online;
+6. receiver confronta proveniência com manifesto;
+7. dry-run confirma dimensões maduras;
+8. RPC publica ou retorna idempotente;
+9. repetição/fallback não duplica dados.
 
-- PDDEInfo principal: integrado;
-- SIGEF extrato público: integrado;
-- relatórios FNDE de atendimento/prestação/saldos: integrados;
-- cadastro/mandato/suspensão/abertura: complementares, com cobertura dependente da fonte;
-- Portal da Transparência/CGU: cliente em código, operacionalmente condicionado a credencial oficial;
-- SiGPC Acesso Público: candidato prioritário para segunda evidência de prestação;
-- Dados Abertos FNDE: candidato para backfill/controle, frescor a validar;
-- painéis PDDE: controle secundário;
-- novo Webservice SIGEF: pesquisa confirmada, integração institucional pendente;
-- BB Gestão Ágil: potencial, não integrado;
-- SIGPC Ágil: UEx fora da fase inicial pesquisada;
-- PDDEREx: legado, não usar como fonte corrente.
-
-## 7. O que está em produção versus o que ainda é fronteira institucional
-
-### Em produção
-
-- frontend React/Vite;
-- snapshot integral validado e automaticamente promovido;
-- consulta ao vivo/coleta do site;
-- Excel humano/gerencial;
-- rotas de escola, repasses, saldos, evolução, movimentações, cadastro, pendências, prestação e cobertura de fontes;
-- proteção contra promoção de resultado `PARTIAL`.
-
-### Ainda não institucionalizado de forma definitiva
-
-- Supabase dedicado permanentemente conectado;
-- histórico durável de execuções e artefatos no banco institucional;
-- fila/worker persistente ligada de forma definitiva ao frontend;
-- integrações adicionais de fontes que ainda exigem piloto/credencial.
-
-A promoção via Git/Vercel já garante um retrato público durável após a coleta integral aprovada, mas não substitui o histórico institucional completo.
-
-## 8. Próximas ações legítimas
-
-Não existe pendência para “terminar a extração de 04/09”: ela está fechada em produção.
-
-As próximas tarefas devem partir de uma necessidade nova e, antes de alterar código:
-
-1. verificar a `main` atual e commits posteriores a este checkpoint;
-2. verificar se alguma coleta nova já substituiu os IDs deste documento;
-3. ler a área de código afetada;
-4. comparar qualquer plano antigo com hotfixes/decisões posteriores;
-5. executar somente o que ainda falta;
-6. manter documentação e estado de produção sincronizados.
-
-## 9. O que não reabrir como hipótese
-
-- não voltar a discutir se a coleta integral deve ser rápida;
-- não enfraquecer `COMPLETE 163/163`;
-- não tratar o erro `ACCOUNT_OPENING` como prova de inexistência de conta;
-- não reintroduzir snapshot fixo histórico;
-- não voltar a preencher ausência com zero;
-- não usar documento antigo para sobrescrever solução posterior;
-- não escrever no repositório do Manus.
-
-## 10. Regra de encerramento de futuras coletas
-
-Uma coleta só pode ser declarada “concluída em produção” após verificar:
-
-1. execução real completa;
-2. gate 163/163;
-3. artefato correto;
-4. publisher correto;
-5. commit do snapshot;
-6. Vercel `READY`;
-7. manifesto público servindo a nova proveniência.
-
-Esse é o ponto de continuidade a partir de 04/09/2026.
+Até esse ciclo real ser comprovado, comunicar **automação implementada**, não “automação plenamente ativada”.
