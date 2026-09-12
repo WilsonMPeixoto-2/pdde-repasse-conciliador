@@ -31,7 +31,7 @@ jobs:
         product_id: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.product_id)) || fromJSON('["66","70"]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v7
