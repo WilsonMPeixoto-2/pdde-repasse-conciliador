@@ -164,7 +164,7 @@ jobs:
 
       - name: Publicar evidências do probe
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sigpc-public-uex-probe-${{ github.run_number }}
           path: artifacts/sigpc-public-uex-probe/
