@@ -87,12 +87,33 @@ async function abortableSleep(
   }
 }
 
+function htmlDeclaredCharset(bytes: Buffer): string | null {
+  // Charset em <meta> é composto por bytes ASCII; latin1 permite inspecionar a
+  // declaração sem decidir antecipadamente como o restante do documento foi codificado.
+  const head = bytes.subarray(0, Math.min(bytes.length, 16_384)).toString('latin1');
+  const direct = head.match(/<meta[^>]+charset\s*=\s*["']?\s*([^\s"'/>;]+)/i)?.[1];
+  if (direct) return direct.toLowerCase();
+  const httpEquiv = head.match(
+    /<meta[^>]+http-equiv\s*=\s*["']?content-type["']?[^>]+content\s*=\s*["'][^"']*charset\s*=\s*([^\s"'/>;]+)/i,
+  )?.[1];
+  return httpEquiv?.toLowerCase() ?? null;
+}
+
 function decodeHtml(bytes: Buffer, contentType: string | null): string {
-  const charset = contentType?.match(/charset\s*=\s*["']?([^;"'\s]+)/i)?.[1]?.toLowerCase();
+  const metaCharset = htmlDeclaredCharset(bytes);
+  const headerCharset = contentType?.match(/charset\s*=\s*["']?([^;"'\s]+)/i)?.[1]?.toLowerCase();
+  const charset = metaCharset ?? headerCharset;
+
   if (charset === 'utf-8' || charset === 'utf8') return bytes.toString('utf8');
-  // O PDDEInfo legado normalmente entrega ISO-8859-1. Latin1 evita corromper
-  // cabeçalhos como Programa/Ação e Destinação, usados pelo parser estrito.
-  return bytes.toString('latin1');
+
+  // O layout legado usou ISO-8859-1/Windows-1252. A página GOV.BR atual,
+  // porém, declara UTF-8 no próprio HTML mesmo quando o cabeçalho HTTP legado
+  // ainda informa ISO-8859-1; por isso o <meta> tem precedência acima.
+  try {
+    return new TextDecoder('windows-1252').decode(bytes);
+  } catch {
+    return bytes.toString('latin1');
+  }
 }
 
 class PddeInfoResponseTooLargeError extends Error {}
