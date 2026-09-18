@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
-import { fetchPddeInfoSchoolHtml } from '../backend/adapters/pddeinfo-http';
-import { parsePddeInfoSchoolHtml } from '../backend/adapters/pddeinfo-html';
+import { collectPddeInfoSchoolWithFallback } from '../backend/application/collect-pddeinfo-school-with-fallback';
 import { loadMasterSchools } from '../backend/application/school-catalog';
 
 export async function probePddeInfoLive(inep = process.env.PDDE_CANARY_INEP?.trim() || '33069247') {
@@ -9,18 +8,11 @@ export async function probePddeInfoLive(inep = process.env.PDDE_CANARY_INEP?.tri
   const school = schools.find((item) => item.inep === inep);
   if (!school) throw new Error(`INEP canário ${inep} não pertence à lista-mestre da 4ª CRE.`);
 
-  const response = await fetchPddeInfoSchoolHtml({
+  const result = await collectPddeInfoSchoolWithFallback({
+    school,
     fiscalYear: 2026,
-    inep: school.inep,
-    maxAttempts: 2,
-    timeoutMs: 20_000,
-    retryBackoffMs: 500,
   });
-  const parsed = parsePddeInfoSchoolHtml(response.html, {
-    expectedSchool: school,
-    sourceUrl: response.sourceUrl,
-  });
-  if (parsed.finance.length < 1) {
+  if (result.school.finance.length < 1) {
     throw new Error(`Canário PDDEInfo sem destinações financeiras para ${school.inep}.`);
   }
 
@@ -28,10 +20,11 @@ export async function probePddeInfoLive(inep = process.env.PDDE_CANARY_INEP?.tri
     status: 'OK',
     inep: school.inep,
     sme: school.sme,
-    financeRows: parsed.finance.length,
-    accountsOnIndividualPage: parsed.accounts.length,
+    financeRows: result.school.finance.length,
+    accountsOnIndividualPage: result.school.accounts.length,
+    acquisitionVia: result.via,
     parserAcceptedCurrentLayout: true,
-    queriedAt: response.queriedAt,
+    queriedAt: result.queriedAt,
   };
 }
 
