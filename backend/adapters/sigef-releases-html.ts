@@ -175,7 +175,11 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
   if (programCode === '0B') {
     if (text.includes('EDUCACAO CONECTADA')) return { programName: 'PDDE Qualidade', actionCode: 'EDUCACAO_CONECTADA', installmentCode };
     if (text.includes('ESCOLA E COMUNIDADE')) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_E_COMUNIDADE', installmentCode };
-    if (text.includes('ESCOLA DAS ADOLESCENCIAS')) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_DAS_ADOLESCENCIAS', installmentCode };
+    if (
+      text.includes('ESCOLA DAS ADOLESCENCIAS')
+      || text.includes('FORTALECIMENTO DOS ANOS FINAIS DO EF')
+      || text.includes('FORTALECIMENTO DOS ANOS FINAIS DO ENSINO FUNDAMENTAL')
+    ) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_DAS_ADOLESCENCIAS', installmentCode };
     if (text.includes('CANTINHO DA LEITURA')) return { programName: 'PDDE Qualidade', actionCode: 'CANTINHO_DA_LEITURA', installmentCode };
   }
   if (programCode === '0A' && (text.includes('PDDE SRM') || text.includes('SALA DE RECURSOS MULTIFUNCIONAIS'))) {
