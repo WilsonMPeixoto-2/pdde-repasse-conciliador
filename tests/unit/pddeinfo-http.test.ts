@@ -63,6 +63,56 @@ describe('cliente HTTP do PDDEInfo', () => {
     expect(sleep).toHaveBeenCalledTimes(2);
   });
 
+  test('prioriza meta UTF-8 quando o cabeçalho HTTP legado anuncia ISO-8859-1', async () => {
+    const subject = await loadSubject();
+    expect(subject).not.toBeNull();
+    if (!subject) return;
+
+    const html = '<!doctype html><html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body><span>Identificação</span><span>Destinação</span></body></html>';
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(Buffer.from(html, 'utf8'), {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=ISO-8859-1' },
+    }));
+
+    const result = await (subject.fetchPddeInfoSchoolHtml as (
+      options: Record<string, unknown>,
+    ) => Promise<{ html: string }>)({
+      fiscalYear: 2026,
+      inep: '33069247',
+      fetchImpl,
+      maxAttempts: 1,
+    });
+
+    expect(result.html).toContain('Identificação');
+    expect(result.html).toContain('Destinação');
+    expect(result.html).not.toContain('IdentificaÃ');
+  });
+
+  test('continua decodificando resposta legada windows-1252 sem meta UTF-8', async () => {
+    const subject = await loadSubject();
+    expect(subject).not.toBeNull();
+    if (!subject) return;
+
+    const html = '<html><body>Programa/Ação · Destinação</body></html>';
+    const bytes = Buffer.from(html, 'latin1');
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(bytes, {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=ISO-8859-1' },
+    }));
+
+    const result = await (subject.fetchPddeInfoSchoolHtml as (
+      options: Record<string, unknown>,
+    ) => Promise<{ html: string }>)({
+      fiscalYear: 2026,
+      inep: '33069247',
+      fetchImpl,
+      maxAttempts: 1,
+    });
+
+    expect(result.html).toContain('Programa/Ação');
+    expect(result.html).toContain('Destinação');
+  });
+
   test('não mascara erro HTTP definitivo como indisponibilidade transitória', async () => {
     const subject = await loadSubject();
     expect(subject, 'o cliente HTTP do PDDEInfo ainda não foi implementado').not.toBeNull();
