@@ -136,7 +136,11 @@ export function SchoolContent({ school }: { school: HumanSchool }) {
                             <div>
                               <div className="installment-row__title">{installment.installment ?? 'Repasse'}</div>
                               <div className="installment-row__date">
-                                {installment.paymentInformedDate ? `Pagamento informado ${formatDate(installment.paymentInformedDate)}` : 'Pagamento ainda não informado'}
+                                {installment.paymentInformedCents > 0
+                                  ? installment.paymentInformedDate
+                                    ? `Pagamento informado ${formatDate(installment.paymentInformedDate)}`
+                                    : 'Pagamento informado no PDDEInfo'
+                                  : 'Pagamento ainda não informado'}
                                 {installment.paymentOrderDate ? ` · Ordem FNDE ${formatDate(installment.paymentOrderDate)}` : ''}
                               </div>
                               {creditLocated ? <div className="installment-row__date">Crédito compatível localizado {installment.creditEvidence.date ? `em ${formatDate(installment.creditEvidence.date)}` : ''}</div> : null}
