@@ -82,6 +82,113 @@ const html = `<!doctype html>
   </body>
 </html>`;
 
+const modernExpectedSchool = {
+  inep: '33136947',
+  sme: '0410601',
+  nome: 'CM MANGUINHOS',
+};
+
+const modernHtml = `<!doctype html>
+<html lang="pt-BR">
+  <body>
+    <div class="govbr-subcard">
+      <div class="govbr-subcard-title">Dados da escola</div>
+      <div class="govbr-subcard-content">
+        <div class="grid-dados-escola">
+          <div class="grid-dados-escola-item grid-dados-escola-full">
+            <span class="label">Identificação:</span>
+            <span class="value">0410601 CM MANGUINHOS - 33136947</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="govbr-subcard">
+      <div class="govbr-subcard-title">Unidade Executora Própria (UEx)</div>
+      <div class="govbr-subcard-content">
+        <div class="grid-dados-escola">
+          <div class="grid-dados-escola-item grid-dados-escola-full">
+            <span class="label">Executora:</span>
+            <span class="value">CONSELHO ESCOLA COMUNIDADE DA CRECHE MUNICIPAL MANGUINHOS</span>
+          </div>
+          <div class="grid-dados-escola-item">
+            <span class="label">CNPJ:</span>
+            <span class="value">12.558.497/0001-47</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="govbr-subcard">
+      <div class="govbr-subcard-title">
+        <span>PDDE</span>
+        <span>Data Ord. Pagamento: 22/05/2026</span>
+      </div>
+      <div class="govbr-subcard-content">
+        <table class="govbr-table">
+          <thead>
+            <tr>
+              <th>Destinação</th>
+              <th>Vl Devido Custeio</th><th>Vl Devido Capital</th><th>Vl Devido Total</th>
+              <th>Vl Ajuste Custeio</th><th>Vl Ajuste Capital</th><th>Vl Ajuste Total</th>
+              <th>Vl Final Devido Total</th>
+              <th>Vl Pago Custeio</th><th>Vl Pago Capital</th><th>Valor Pago Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>PDDE Básico - Primeira Infância - P1</td>
+              <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+              <td>0,00</td><td>0,00</td><td>0,00</td><td>2.775,00</td>
+              <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+            </tr>
+            <tr>
+              <td>PDDE Básico - Primeira Infância - P2</td>
+              <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+              <td>0,00</td><td>0,00</td><td>0,00</td><td>2.775,00</td>
+              <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+            </tr>
+            <tr class="govbr-table-subtotal">
+              <td>Subtotal</td>
+              <td>2.220,00</td><td>3.330,00</td><td>5.550,00</td>
+              <td>0,00</td><td>0,00</td><td>0,00</td><td>5.550,00</td>
+              <td>2.220,00</td><td>3.330,00</td><td>5.550,00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="govbr-subcard">
+      <div class="govbr-subcard-title">
+        <span>PDDE QUALIDADE</span>
+        <span>Data Ord. Pagamento: </span>
+      </div>
+      <div class="govbr-subcard-content">
+        <table class="govbr-table">
+          <thead>
+            <tr>
+              <th>Destinação</th>
+              <th>Vl Devido Custeio</th><th>Vl Devido Capital</th><th>Vl Devido Total</th>
+              <th>Vl Ajuste Custeio</th><th>Vl Ajuste Capital</th><th>Vl Ajuste Total</th>
+              <th>Vl Final Devido Total</th>
+              <th>Vl Pago Custeio</th><th>Vl Pago Capital</th><th>Valor Pago Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Educação Conectada 2026</td>
+              <td>2.451,00</td><td>0,00</td><td>2.451,00</td>
+              <td>0,00</td><td>0,00</td><td>0,00</td><td>2.451,00</td>
+              <td>0,00</td><td>0,00</td><td>0,00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>`;
+
 async function parse(rawHtml = html, school = expectedSchool) {
   const subject = await loadSubject();
   expect(subject, 'o parser HTML do PDDEInfo ainda não foi implementado').not.toBeNull();
@@ -181,5 +288,52 @@ describe('parsePddeInfoSchoolHtml', () => {
   test('rejeita página sem tabela financeira em vez de produzir coleta aparentemente vazia', async () => {
     const withoutFinance = html.replace(/<table class="financeiro">[\s\S]*?<\/table>/, '');
     await expect(parse(withoutFinance)).rejects.toThrow(/financeir|destina/i);
+  });
+
+  test('aceita o layout GOV.BR atual sem inventar data por parcela', async () => {
+    const result = await parse(modernHtml, modernExpectedSchool);
+
+    expect(result).toMatchObject({
+      inep: '33136947',
+      sme: '0410601',
+      nome: 'CM MANGUINHOS',
+      denominacaoFnde: '0410601 CM MANGUINHOS',
+      uex: 'CONSELHO ESCOLA COMUNIDADE DA CRECHE MUNICIPAL MANGUINHOS',
+      cnpj: '12.558.497/0001-47',
+      accounts: [],
+      finance: [
+        {
+          destinacao: 'PDDE / PDDE Básico - Primeira Infância - P1',
+          pagoTotal: '2.775,00',
+          data: '',
+        },
+        {
+          destinacao: 'PDDE / PDDE Básico - Primeira Infância - P2',
+          pagoTotal: '2.775,00',
+          data: '',
+        },
+        {
+          destinacao: 'PDDE QUALIDADE / Educação Conectada 2026',
+          pagoTotal: '0,00',
+          data: '',
+        },
+      ],
+      sourceIdentity: {
+        inep: '33136947',
+        sme: '0410601',
+        denominacao: '0410601 CM MANGUINHOS',
+      },
+    });
+  });
+
+  test('não atribui a data genérica do cabeçalho GOV.BR às linhas P1/P2', async () => {
+    const result = await parse(modernHtml, modernExpectedSchool) as { finance: Array<{ data: string }> };
+    expect(result.finance).toHaveLength(3);
+    expect(result.finance.every((row) => row.data === '')).toBe(true);
+  });
+
+  test('continua rejeitando identidade divergente no layout GOV.BR atual', async () => {
+    const wrongSchool = modernHtml.replace('33136947', '33069247');
+    await expect(parse(wrongSchool, modernExpectedSchool)).rejects.toThrow(/INEP.*diverge|identidade.*diverge/i);
   });
 });
