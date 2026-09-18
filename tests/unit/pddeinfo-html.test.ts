@@ -82,6 +82,122 @@ const html = `<!doctype html>
   </body>
 </html>`;
 
+
+const currentLayoutHtml = `<!doctype html>
+<html lang="pt-BR">
+  <body>
+    <div class="govbr-school-card-body" id="escola-details-33136947">
+      <div class="govbr-subcard">
+        <div class="govbr-subcard-title">Dados da escola</div>
+        <div class="govbr-subcard-content">
+          <div class="grid-dados-escola">
+            <div class="grid-dados-escola-item grid-dados-escola-full">
+              <span class="label">Identificação:</span>
+              <span class="value">0410601 EM EXEMPLO PRIMEIRA INFANCIA - 33136947</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Dados Bancários -->
+
+      <div class="govbr-subcard">
+        <div class="govbr-subcard-title">Unidade Executora Própria (UEx)</div>
+        <div class="govbr-subcard-content">
+          <div class="grid-dados-escola">
+            <div class="grid-dados-escola-item grid-dados-escola-full">
+              <span class="label">Executora:</span>
+              <span class="value">CONSELHO ESCOLA COMUNIDADE DA EM EXEMPLO</span>
+            </div>
+            <div class="grid-dados-escola-item">
+              <span class="label">CNPJ:</span>
+              <span class="value">12.345.678/0001-90</span>
+            </div>
+          </div>
+          <div><strong>Início do Mandato:</strong> 01/01/2026 | <strong>Fim do Mandato:</strong> 31/12/2029</div>
+          <div class="govbr-text-success"><strong>Dados Cadastrais:</strong> Cadastro vigente.</div>
+          <div class="govbr-text-success"><strong>Prestação de Contas:</strong> Sem pendência informada.</div>
+        </div>
+      </div>
+
+      <div class="govbr-subcard">
+        <div class="govbr-subcard-title">Situação da Unidade Executora - EEx</div>
+        <div class="govbr-subcard-content">
+          <div class="govbr-text-success"><strong>Adesão ao PDDE:</strong> Aderiu neste exercício.</div>
+          <div class="govbr-text-success"><strong>Prestação de Contas:</strong> Sem pendência informada para a EEx.</div>
+        </div>
+      </div>
+
+      <div class="govbr-subcard">
+        <div class="govbr-subcard-title">
+          <span>PDDE</span>
+          <span>Data Ord. Pagamento: 22/05/2026</span>
+        </div>
+        <div class="govbr-subcard-content">
+          <table class="govbr-table">
+            <thead>
+              <tr>
+                <th>Destinação</th>
+                <th>Vl Devido Custeio</th><th>Vl Devido Capital</th><th>Vl Devido Total</th>
+                <th>Vl Ajuste Custeio</th><th>Vl Ajuste Capital</th><th>Vl Ajuste Total</th>
+                <th>Vl Final Devido Total</th>
+                <th>Vl Pago Custeio</th><th>Vl Pago Capital</th><th>Valor Pago Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>PDDE Básico - Primeira Infância - P1</td>
+                <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+                <td>0,00</td><td>0,00</td><td>0,00</td><td>2.775,00</td>
+                <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+              </tr>
+              <tr>
+                <td>PDDE Básico - Primeira Infância - P2</td>
+                <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+                <td>0,00</td><td>0,00</td><td>0,00</td><td>2.775,00</td>
+                <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td>
+              </tr>
+              <tr class="govbr-table-subtotal">
+                <td>Subtotal</td><td>2.220,00</td><td>3.330,00</td><td>5.550,00</td>
+                <td>0,00</td><td>0,00</td><td>0,00</td><td>5.550,00</td>
+                <td>2.220,00</td><td>3.330,00</td><td>5.550,00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="govbr-subcard">
+        <div class="govbr-subcard-title">
+          <span>PDDE QUALIDADE</span>
+          <span>Data Ord. Pagamento:</span>
+        </div>
+        <div class="govbr-subcard-content">
+          <table class="govbr-table">
+            <thead>
+              <tr>
+                <th>Destinação</th>
+                <th>Vl Devido Custeio</th><th>Vl Devido Capital</th><th>Vl Devido Total</th>
+                <th>Vl Ajuste Custeio</th><th>Vl Ajuste Capital</th><th>Vl Ajuste Total</th>
+                <th>Vl Final Devido Total</th>
+                <th>Vl Pago Custeio</th><th>Vl Pago Capital</th><th>Valor Pago Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Educação Conectada 2026</td>
+                <td>2.451,00</td><td>0,00</td><td>2.451,00</td>
+                <td>0,00</td><td>0,00</td><td>0,00</td><td>2.451,00</td>
+                <td>0,00</td><td>0,00</td><td>0,00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
 async function parse(rawHtml = html, school = expectedSchool) {
   const subject = await loadSubject();
   expect(subject, 'o parser HTML do PDDEInfo ainda não foi implementado').not.toBeNull();
@@ -182,4 +298,65 @@ describe('parsePddeInfoSchoolHtml', () => {
     const withoutFinance = html.replace(/<table class="financeiro">[\s\S]*?<\/table>/, '');
     await expect(parse(withoutFinance)).rejects.toThrow(/financeir|destina/i);
   });
+
+  test('aceita o layout gov.br atual sem tabela bancária e preserva destinações por programa', async () => {
+    const result = await parse(currentLayoutHtml, {
+      inep: '33136947',
+      sme: '0410601',
+      nome: 'EM EXEMPLO PRIMEIRA INFANCIA',
+    });
+
+    expect(result).toMatchObject({
+      inep: '33136947',
+      sme: '0410601',
+      nome: 'EM EXEMPLO PRIMEIRA INFANCIA',
+      denominacaoFnde: '0410601 EM EXEMPLO PRIMEIRA INFANCIA',
+      uex: 'CONSELHO ESCOLA COMUNIDADE DA EM EXEMPLO',
+      cnpj: '12.345.678/0001-90',
+      accounts: [],
+      status: {
+        uexRegistration: 'Cadastro vigente.',
+        mandateStartDate: '01/01/2026',
+        mandateEndDate: '31/12/2029',
+        uexAccounting: 'Sem pendência informada.',
+        eexAdhesion: 'Aderiu neste exercício.',
+        eexAccounting: 'Sem pendência informada para a EEx.',
+      },
+    });
+
+    expect((result?.finance as Array<Record<string, unknown>>)).toEqual([
+      expect.objectContaining({
+        destinacao: 'PDDE / PDDE Básico - Primeira Infância - P1',
+        devidoCusteio: '1.110,00',
+        devidoCapital: '1.665,00',
+        pagoTotal: '2.775,00',
+        data: '',
+      }),
+      expect.objectContaining({
+        destinacao: 'PDDE / PDDE Básico - Primeira Infância - P2',
+        devidoCusteio: '1.110,00',
+        devidoCapital: '1.665,00',
+        pagoTotal: '2.775,00',
+        data: '',
+      }),
+      expect.objectContaining({
+        destinacao: 'PDDE QUALIDADE / Educação Conectada 2026',
+        devidoCusteio: '2.451,00',
+        pagoTotal: '0,00',
+        data: '',
+      }),
+    ]);
+  });
+
+  test('não replica a data única do cabeçalho atual para P1 e P2', async () => {
+    const result = await parse(currentLayoutHtml, {
+      inep: '33136947',
+      sme: '0410601',
+      nome: 'EM EXEMPLO PRIMEIRA INFANCIA',
+    });
+    const finance = result?.finance as Array<{ destinacao: string; data: string }>;
+    expect(finance.filter((item) => item.destinacao.includes('Primeira Infância')).map((item) => item.data))
+      .toEqual(['', '']);
+  });
+
 });
