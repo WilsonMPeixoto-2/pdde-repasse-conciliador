@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import {
+  buildPddeInfoSchoolUrl,
   fetchPddeInfoSchoolHtml,
   type PddeInfoHttpResult,
 } from '../adapters/pddeinfo-http';
@@ -86,19 +87,54 @@ export async function collectPddeInfoSchoolWithFallback(
     })
   ));
   const sleep = options.sleep ?? defaultSleep;
+  const deterministicUrl = buildPddeInfoSchoolUrl({
+    fiscalYear: options.fiscalYear,
+    inep: options.school.inep,
+  });
   let lastError: Error | null = null;
+
+  const collectRendered = async (url: string): Promise<PddeInfoSchoolCollectionResult> => {
+    const rendered = await fetchBrowser({
+      url,
+      timeoutMs: 60_000,
+      readySelector: '.govbr-school-card-body',
+    });
+    return parsedResult({
+      html: rendered.html,
+      sourceUrl: rendered.sourceUrl,
+      queriedAt: rendered.queriedAt,
+      rawBytes: Buffer.from(rendered.html, 'utf8'),
+      via: 'BROWSER_ASSISTED',
+      school: options.school,
+    });
+  };
 
   for (let round = 1; round <= 2; round += 1) {
     options.signal?.throwIfAborted();
     try {
-      const http = await fetchHttp({
-        fiscalYear: options.fiscalYear,
-        inep: options.school.inep,
-        maxAttempts: 2,
-        timeoutMs: 25_000,
-        retryBackoffMs: 750,
-        ...(options.signal ? { signal: options.signal } : {}),
-      });
+      let http: PddeInfoHttpResult;
+      try {
+        http = await fetchHttp({
+          fiscalYear: options.fiscalYear,
+          inep: options.school.inep,
+          maxAttempts: 2,
+          timeoutMs: 25_000,
+          retryBackoffMs: 750,
+          ...(options.signal ? { signal: options.signal } : {}),
+        });
+      } catch (cause) {
+        options.signal?.throwIfAborted();
+        // Timeout/indisponibilidade do HTTP não é evidência de ausência.
+        // O navegador é uma estratégia de aquisição independente e deve ser
+        // tentado antes de declarar falha da escola.
+        try {
+          return await collectRendered(deterministicUrl);
+        } catch (browserCause) {
+          throw browserCause instanceof Error
+            ? browserCause
+            : new Error(String(browserCause));
+        }
+      }
 
       try {
         return parsedResult({
@@ -113,19 +149,7 @@ export async function collectPddeInfoSchoolWithFallback(
         if (!pddeInfoNeedsRenderedDom(cause)) throw cause;
       }
 
-      const rendered = await fetchBrowser({
-        url: http.sourceUrl,
-        timeoutMs: 60_000,
-        readySelector: '.govbr-school-card-body',
-      });
-      return parsedResult({
-        html: rendered.html,
-        sourceUrl: rendered.sourceUrl,
-        queriedAt: rendered.queriedAt,
-        rawBytes: Buffer.from(rendered.html, 'utf8'),
-        via: 'BROWSER_ASSISTED',
-        school: options.school,
-      });
+      return await collectRendered(http.sourceUrl || deterministicUrl);
     } catch (cause) {
       options.signal?.throwIfAborted();
       lastError = cause instanceof Error ? cause : new Error(String(cause));
