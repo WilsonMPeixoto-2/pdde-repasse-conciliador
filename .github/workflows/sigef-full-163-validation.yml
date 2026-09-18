@@ -82,8 +82,10 @@ jobs:
       - run: npm ci
       - name: Instalar Chromium para os fallbacks de coleta pública
         run: npx playwright install --with-deps chromium
-      - name: Validar canário live do PDDEInfo antes da carteira completa
-        run: node --import tsx scripts/probe-pddeinfo-live.ts
+      - name: Validar canários live do PDDEInfo antes da carteira completa
+        run: |
+          node --import tsx scripts/probe-pddeinfo-live.ts
+          PDDE_CANARY_INEP=33167478 node --import tsx scripts/probe-pddeinfo-live.ts
       - name: Extrair, conciliar e materializar o produto para as 163 UEs
         env:
           PDDE_SESSION_ID: full-163-${{ github.run_id }}
