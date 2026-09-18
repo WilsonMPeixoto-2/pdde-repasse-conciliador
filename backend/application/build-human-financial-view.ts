@@ -356,7 +356,7 @@ function schoolPrograms(
       programmedCents: installment.amountProgrammedCents,
       paymentInformedCents: installment.amountPaidInformedCents,
       breakdown: installment.breakdown ? { ...installment.breakdown } : null,
-      paymentInformedDate: installment.pddeInfoDate,
+      paymentInformedDate: null,
       paymentOrderDate: publicOrderDateFor({
         schoolInep: school.school.inep,
         action: repasse.action,
@@ -365,7 +365,7 @@ function schoolPrograms(
         programmedCusteioCents: installment.breakdown?.programmedCusteioCents ?? null,
         programmedCapitalCents: installment.breakdown?.programmedCapitalCents ?? null,
         publicReports,
-      }),
+      }) ?? installment.pddeInfoDate,
       account: installment.account,
       creditEvidence: {
         status: creditStatusLabel(installment.bankCredit.presentationStatus),
