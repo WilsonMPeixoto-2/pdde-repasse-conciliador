@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildHumanFinancialView } from '../../backend/application/build-human-financial-view';
 
 describe('datas financeiras na visão humana', () => {
-  it('não chama a data do pagamento informado de ordem FNDE', () => {
+  it('não transforma a data interna da ordem em data de pagamento informado', () => {
     const view = buildHumanFinancialView({
       fiscalView: {
         fiscalYear: 2026,
@@ -49,9 +49,8 @@ describe('datas financeiras na visão humana', () => {
     });
 
     const installment = view.schools[0].programs[0].installments[0];
-    expect(installment.paymentInformedDate).toBe('2026-08-05');
+    expect(installment.paymentInformedDate).toBeNull();
     expect(installment.paymentOrderDate).toBe('2026-08-04');
-    expect(installment.paymentInformedDate).not.toBe(installment.paymentOrderDate);
   });
 
   it('reconhece ordem P2 sem inventar pagamento quando atendimento confirma total e composição', () => {
