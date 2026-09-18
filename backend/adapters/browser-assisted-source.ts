@@ -40,6 +40,7 @@ export interface AssistedBrowserCollectionOptions {
   challengeSelectors?: string[];
   maxHumanAttempts?: number;
   timeoutMs?: number;
+  readySelector?: string;
   now?: () => string;
 }
 
@@ -166,6 +167,12 @@ export async function collectWithAssistedBrowser(
       },
     },
     async requestHandler({ page }) {
+      if (options.readySelector) {
+        await page.locator(options.readySelector).first().waitFor({
+          state: 'attached',
+          timeout: Math.min(timeoutMs, 30_000),
+        });
+      }
       const initialSnapshot = await snapshotPage(page, selectors);
       const resolution = await resolveInteractiveChallenge({
         initialSnapshot,
