@@ -590,7 +590,7 @@ function sourceCoverageFor(
     {
       dataset: 'PDDEInfo · Consulta por Escola',
       status: 'AVAILABLE',
-      detail: 'Repasses, componentes financeiros, contas e situação textual da escola.',
+      detail: 'Repasses, componentes financeiros e situação textual exibida; contas podem depender das fontes complementares.',
     },
     {
       dataset: 'PDDEInfo · Atendimento',
