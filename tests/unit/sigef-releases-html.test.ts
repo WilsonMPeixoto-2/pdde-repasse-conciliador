@@ -130,7 +130,7 @@ describe('parseSigefReleaseHtml', () => {
   });
 
   test('mapeia a nomenclatura real 1ª Infância - 2ª Parcela como Primeira Infância P2', async () => {
-    const row = '<tr><td>15/SET/26</td><td>023987</td><td>1.985,00</td><td>PDDE -PDDE Básico – 1ª Infância - 2ª Parcela</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
+    const row = '<tr><td>15/SET/26</td><td>023987</td><td>1.985,00</td><td>PDDE -PDDE Básico \x96 1ª Infância - 2ª Parcela</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
 
     const result = await parse(releaseHtml(row), {
       fiscalYear: 2026,
