@@ -9,6 +9,8 @@ on:
       - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/browser-assisted-source.ts'
+      - 'backend/application/collect-pddeinfo-school-with-fallback.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
@@ -37,6 +39,8 @@ on:
       - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/browser-assisted-source.ts'
+      - 'backend/application/collect-pddeinfo-school-with-fallback.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
@@ -76,10 +80,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Validar canário live do PDDEInfo antes da carteira completa
-        run: node --import tsx scripts/probe-pddeinfo-live.ts
       - name: Instalar Chromium para os fallbacks de coleta pública
         run: npx playwright install --with-deps chromium
+      - name: Validar canário live do PDDEInfo antes da carteira completa
+        run: node --import tsx scripts/probe-pddeinfo-live.ts
       - name: Extrair, conciliar e materializar o produto para as 163 UEs
         env:
           PDDE_SESSION_ID: full-163-${{ github.run_id }}
