@@ -21,6 +21,7 @@ on:
       - 'backend/report/source-observations-worksheet.ts'
       - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/probe-pddeinfo-live.ts'
       - 'scripts/analyze-payment-data-gaps.ts'
       - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
@@ -48,6 +49,7 @@ on:
       - 'backend/report/source-observations-worksheet.ts'
       - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/probe-pddeinfo-live.ts'
       - 'scripts/analyze-payment-data-gaps.ts'
       - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
@@ -74,6 +76,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Validar canário live do PDDEInfo antes da carteira completa
+        run: node --import tsx scripts/probe-pddeinfo-live.ts
       - name: Instalar Chromium para os fallbacks de coleta pública
         run: npx playwright install --with-deps chromium
       - name: Extrair, conciliar e materializar o produto para as 163 UEs
