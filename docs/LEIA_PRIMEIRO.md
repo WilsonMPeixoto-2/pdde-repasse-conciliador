@@ -64,9 +64,9 @@ O `pdde-repasse-conciliador` produz evidência e snapshot. Ele **não recebe ser
 
 ### Coleta integral
 
-O schedule Full 163 existe, mas só executa automaticamente com:
+O schedule Full 163 executa automaticamente por padrão. Para interromper a recorrência de forma explícita, configure:
 
-`PDDE_FULL_163_SCHEDULE_ENABLED=true`
+`PDDE_FULL_163_SCHEDULE_ENABLED=false`
 
 ### Handoff ao PDDE Online
 
