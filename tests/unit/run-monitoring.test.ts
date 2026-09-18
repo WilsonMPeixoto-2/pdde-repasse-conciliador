@@ -154,6 +154,35 @@ describe('runMonitoring', () => {
       .toEqual(['2026-05-12']);
   });
 
+  test('recupera em série timeout transitório do PDDEInfo antes de marcar a carteira como parcial', async () => {
+    const collectPddeInfoSchool = vi.fn()
+      .mockRejectedValueOnce(new Error('The operation was aborted due to timeout'))
+      .mockResolvedValueOnce({
+        school: rawSchool,
+        queriedAt: '2026-09-18T18:58:00Z',
+        rawBytes: Buffer.from('<html>pddeinfo recuperado</html>'),
+      });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    const result = await runMonitoring({
+      schools: [school],
+      workspacePath: await workspace(),
+      fiscalYear: 2026,
+      runId: 'monitoring-retry-pddeinfo',
+      collectPddeInfoSchool,
+      collectSigefAccount: sigefCollector(),
+      sleep,
+      now: () => '2026-09-18T18:59:00Z',
+    } as never) as any;
+
+    expect(collectPddeInfoSchool).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(1_500);
+    expect(result.status).toBe('COMPLETE');
+    expect(result.raw.coverage.pddeInfoSchoolsCollected).toBe(1);
+    expect(result.raw.coverage.pddeInfoFailures).toEqual([]);
+    expect(result.raw.schools).toHaveLength(1);
+  });
+
   test('propaga cobertura parcial do SIGEF sem transformar ausência em zero conclusivo', async () => {
     const result = await runMonitoring({
       schools: [school],
