@@ -162,7 +162,7 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
   const installmentCode = columnInstallment ?? describedInstallment;
 
   if (programCode === '02') {
-    if (text.includes('PRIMEIRA INFANCIA') || /\\b1 INFANCIA\\b/.test(text)) {
+    if (text.includes('PRIMEIRA INFANCIA') || /\b1 INFANCIA\b/.test(text)) {
       const infancyInstallment = installmentCode === '1'
         ? 'P1'
         : installmentCode === '2'
