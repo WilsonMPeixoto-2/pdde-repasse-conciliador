@@ -1,7 +1,7 @@
 import { load, type CheerioAPI } from 'cheerio';
 import { canonicalText } from '../core/normalization';
 
-export const PDDEINFO_HTML_PARSER_VERSION = '0.3.0';
+export const PDDEINFO_HTML_PARSER_VERSION = '0.4.0';
 
 export interface PddeInfoExpectedSchool {
   inep: string;
@@ -117,6 +117,44 @@ function requiredLabelValue(
   return value;
 }
 
+function findSubcard(
+  $: CheerioAPI,
+  matcher: (title: string) => boolean,
+): Parameters<CheerioAPI>[0] | null {
+  for (const subcard of $('.govbr-subcard').toArray()) {
+    const title = canonicalText($(subcard).find('.govbr-subcard-title').first().text());
+    if (matcher(title)) return subcard;
+  }
+  return null;
+}
+
+function containerLabelValue(
+  $: CheerioAPI,
+  container: Parameters<CheerioAPI>[0],
+  wantedLabel: string,
+): string | null {
+  const wanted = canonicalText(wantedLabel);
+  for (const item of $(container).find('.grid-dados-escola-item').toArray()) {
+    const label = canonicalText($(item).find('.label').first().text());
+    if (label === wanted) {
+      const value = clean($(item).find('.value').first().text());
+      return value || null;
+    }
+  }
+  return null;
+}
+
+function requiredContainerLabelValue(
+  $: CheerioAPI,
+  container: Parameters<CheerioAPI>[0],
+  label: string,
+  context: string,
+): string {
+  const value = containerLabelValue($, container, label);
+  if (!value) throw new Error(`PDDEInfo: ${context} não contém ${label}.`);
+  return value;
+}
+
 function column(headers: string[], matcher: (header: string) => boolean, label: string): number {
   const index = headers.findIndex(matcher);
   if (index < 0) throw new Error(`PDDEInfo: coluna financeira/bancária ausente: ${label}.`);
@@ -164,14 +202,17 @@ function parseInstitutionalStatus($: CheerioAPI): PddeInfoRawSchoolStatus {
   };
 }
 
-function parseAccounts($: CheerioAPI): PddeInfoRawAccount[] {
+function parseAccounts($: CheerioAPI, allowMissing = false): PddeInfoRawAccount[] {
   const table = findTable($, (headers) => (
     headers.some((header) => header.includes('PROGRAMA ACAO'))
     && headers.includes('BANCO')
     && headers.includes('AGENCIA')
     && headers.includes('CONTA')
   ));
-  if (!table) throw new Error('PDDEInfo: tabela de dados bancários não localizada.');
+  if (!table) {
+    if (allowMissing) return [];
+    throw new Error('PDDEInfo: tabela de dados bancários não localizada.');
+  }
 
   const headers = tableHeaders($, table);
   const programIndex = column(headers, (header) => header.includes('PROGRAMA ACAO'), 'Programa/Ação');
@@ -199,50 +240,75 @@ function parseAccounts($: CheerioAPI): PddeInfoRawAccount[] {
 }
 
 function parseFinance($: CheerioAPI): PddeInfoRawFinance[] {
-  const table = findTable($, (headers, text) => (
-    headers.includes('DESTINACAO')
-    && headers.some((header) => header.includes('VL FINAL DEVIDO TOTAL'))
-    && text.includes('PAGO')
-  ));
-  if (!table) throw new Error('PDDEInfo: tabela financeira de destinações não localizada.');
-
-  const headers = tableHeaders($, table);
-  const indexes = {
-    destinacao: column(headers, (header) => header === 'DESTINACAO', 'Destinação'),
-    devidoCusteio: column(headers, (header) => header.includes('DEVIDO CUSTEIO'), 'Vl Devido Custeio'),
-    devidoCapital: column(headers, (header) => header.includes('DEVIDO CAPITAL'), 'Vl Devido Capital'),
-    devidoTotal: column(headers, (header) => header.includes('DEVIDO TOTAL') && !header.includes('FINAL'), 'Vl Devido Total'),
-    ajusteCusteio: column(headers, (header) => header.includes('AJUSTE CUSTEIO'), 'Vl Ajuste Custeio'),
-    ajusteCapital: column(headers, (header) => header.includes('AJUSTE CAPITAL'), 'Vl Ajuste Capital'),
-    ajusteTotal: column(headers, (header) => header.includes('AJUSTE TOTAL'), 'Vl Ajuste Total'),
-    finalDevidoTotal: column(headers, (header) => header.includes('FINAL DEVIDO TOTAL'), 'Vl Final Devido Total'),
-    pagoCusteio: column(headers, (header) => header.includes('PAGO CUSTEIO'), 'Vl Pago Custeio'),
-    pagoCapital: column(headers, (header) => header.includes('PAGO CAPITAL'), 'Vl Pago Capital'),
-    pagoTotal: column(headers, (header) => header.includes('PAGO TOTAL'), 'Valor Pago Total'),
-    data: column(headers, (header) => header.startsWith('DATA ORD'), 'Data Ord. Pagamento'),
-  };
+  const tables = $('table').toArray().filter((table) => {
+    const headers = tableHeaders($, table);
+    const text = canonicalText($(table).text());
+    return headers.includes('DESTINACAO')
+      && headers.some((header) => header.includes('VL FINAL DEVIDO TOTAL'))
+      && text.includes('PAGO');
+  });
+  if (tables.length === 0) throw new Error('PDDEInfo: tabela financeira de destinações não localizada.');
 
   const finance: PddeInfoRawFinance[] = [];
-  for (const row of $(table).find('tr').slice(1).toArray()) {
-    const cells = rowCells($, row);
-    const destinacao = cells[indexes.destinacao] ?? '';
-    const destination = canonicalText(destinacao);
-    if (!destinacao || destination.includes('SUBTOTAL') || destination.includes('TOTAL GERAL')) continue;
-    finance.push({
-      destinacao,
-      devidoCusteio: cells[indexes.devidoCusteio] ?? '',
-      devidoCapital: cells[indexes.devidoCapital] ?? '',
-      devidoTotal: cells[indexes.devidoTotal] ?? '',
-      ajusteCusteio: cells[indexes.ajusteCusteio] ?? '',
-      ajusteCapital: cells[indexes.ajusteCapital] ?? '',
-      ajusteTotal: cells[indexes.ajusteTotal] ?? '',
-      finalDevidoTotal: cells[indexes.finalDevidoTotal] ?? '',
-      pagoCusteio: cells[indexes.pagoCusteio] ?? '',
-      pagoCapital: cells[indexes.pagoCapital] ?? '',
-      pagoTotal: cells[indexes.pagoTotal] ?? '',
-      data: cells[indexes.data] ?? '',
-    });
+  for (const table of tables) {
+    const headers = tableHeaders($, table);
+    const indexes = {
+      destinacao: column(headers, (header) => header === 'DESTINACAO', 'Destinação'),
+      devidoCusteio: column(headers, (header) => header.includes('DEVIDO CUSTEIO'), 'Vl Devido Custeio'),
+      devidoCapital: column(headers, (header) => header.includes('DEVIDO CAPITAL'), 'Vl Devido Capital'),
+      devidoTotal: column(headers, (header) => header.includes('DEVIDO TOTAL') && !header.includes('FINAL'), 'Vl Devido Total'),
+      ajusteCusteio: column(headers, (header) => header.includes('AJUSTE CUSTEIO'), 'Vl Ajuste Custeio'),
+      ajusteCapital: column(headers, (header) => header.includes('AJUSTE CAPITAL'), 'Vl Ajuste Capital'),
+      ajusteTotal: column(headers, (header) => header.includes('AJUSTE TOTAL'), 'Vl Ajuste Total'),
+      finalDevidoTotal: column(headers, (header) => header.includes('FINAL DEVIDO TOTAL'), 'Vl Final Devido Total'),
+      pagoCusteio: column(headers, (header) => header.includes('PAGO CUSTEIO'), 'Vl Pago Custeio'),
+      pagoCapital: column(headers, (header) => header.includes('PAGO CAPITAL'), 'Vl Pago Capital'),
+      pagoTotal: column(headers, (header) => header.includes('PAGO TOTAL'), 'Valor Pago Total'),
+    };
+    const dateIndex = headers.findIndex((header) => header.startsWith('DATA ORD'));
+
+    const subcard = $(table).closest('.govbr-subcard').get(0) ?? null;
+    let sectionProgram = '';
+    if (subcard) {
+      const title = $(subcard).find('.govbr-subcard-title').first();
+      sectionProgram = clean(title.find('span').first().text());
+      if (!sectionProgram) {
+        sectionProgram = clean(title.clone().children().remove().end().text());
+      }
+    }
+
+    for (const row of $(table).find('tr').slice(1).toArray()) {
+      const cells = rowCells($, row);
+      const rawDestination = cells[indexes.destinacao] ?? '';
+      const destination = canonicalText(rawDestination);
+      if (!rawDestination || destination.includes('SUBTOTAL') || destination.includes('TOTAL GERAL')) continue;
+
+      // No layout GOV.BR atual, o programa saiu da célula "Destinação" e passou
+      // para o título do card. Prefixamos apenas nesse layout (sem coluna de data).
+      const destinacao = dateIndex < 0 && sectionProgram
+        ? `${sectionProgram} / ${rawDestination}`
+        : rawDestination;
+
+      finance.push({
+        destinacao,
+        devidoCusteio: cells[indexes.devidoCusteio] ?? '',
+        devidoCapital: cells[indexes.devidoCapital] ?? '',
+        devidoTotal: cells[indexes.devidoTotal] ?? '',
+        ajusteCusteio: cells[indexes.ajusteCusteio] ?? '',
+        ajusteCapital: cells[indexes.ajusteCapital] ?? '',
+        ajusteTotal: cells[indexes.ajusteTotal] ?? '',
+        finalDevidoTotal: cells[indexes.finalDevidoTotal] ?? '',
+        pagoCusteio: cells[indexes.pagoCusteio] ?? '',
+        pagoCapital: cells[indexes.pagoCapital] ?? '',
+        pagoTotal: cells[indexes.pagoTotal] ?? '',
+        // O layout GOV.BR atual exibe uma única "Data Ord. Pagamento" no
+        // cabeçalho do programa, embora haja várias parcelas na mesma tabela.
+        // Não é seguro atribuí-la a cada linha como data de pagamento.
+        data: dateIndex >= 0 ? cells[dateIndex] ?? '' : '',
+      });
+    }
   }
+
   if (finance.length === 0) {
     throw new Error('PDDEInfo: tabela financeira localizada, mas nenhuma destinação foi extraída.');
   }
@@ -276,17 +342,48 @@ export function parsePddeInfoSchoolHtml(
   const schoolTable = findTable($, (_headers, text) => (
     text.includes('COD ESCOLA') && text.includes('NOME ESCOLA')
   ));
-  if (!schoolTable) throw new Error('PDDEInfo: bloco de identificação da escola não localizado.');
-  const rawInep = requiredLabelValue($, schoolTable, 'Cod. Escola', 'identificação da escola');
-  const rawDenomination = requiredLabelValue($, schoolTable, 'Nome Escola', 'identificação da escola');
+
+  let rawInep: string;
+  let rawDenomination: string;
+  let currentGovBrLayout = false;
+
+  if (schoolTable) {
+    rawInep = requiredLabelValue($, schoolTable, 'Cod. Escola', 'identificação da escola');
+    rawDenomination = requiredLabelValue($, schoolTable, 'Nome Escola', 'identificação da escola');
+  } else {
+    const schoolCard = findSubcard($, (title) => title === 'DADOS DA ESCOLA');
+    if (!schoolCard) throw new Error('PDDEInfo: bloco de identificação da escola não localizado.');
+    const identification = requiredContainerLabelValue(
+      $,
+      schoolCard,
+      'Identificação',
+      'identificação da escola',
+    );
+    const match = identification.match(/^(\d{7})\s+(.+?)\s*-\s*(\d{8})$/);
+    if (!match) {
+      throw new Error(`PDDEInfo: identificação da escola em formato inesperado: ${identification}.`);
+    }
+    rawInep = match[3];
+    rawDenomination = `${match[1]} ${match[2]}`;
+    currentGovBrLayout = true;
+  }
+
   const identity = validateIdentity(rawInep, rawDenomination, options.expectedSchool);
 
   const uexTable = findTable($, (_headers, text) => text.includes('EXECUTORA') && text.includes('CNPJ'));
-  if (!uexTable) throw new Error('PDDEInfo: bloco da Unidade Executora Própria não localizado.');
-  const uex = requiredLabelValue($, uexTable, 'Executora', 'Unidade Executora Própria');
-  const cnpj = requiredLabelValue($, uexTable, 'CNPJ', 'Unidade Executora Própria');
+  let uex: string;
+  let cnpj: string;
+  if (uexTable) {
+    uex = requiredLabelValue($, uexTable, 'Executora', 'Unidade Executora Própria');
+    cnpj = requiredLabelValue($, uexTable, 'CNPJ', 'Unidade Executora Própria');
+  } else {
+    const uexCard = findSubcard($, (title) => title.includes('UNIDADE EXECUTORA PROPRIA'));
+    if (!uexCard) throw new Error('PDDEInfo: bloco da Unidade Executora Própria não localizado.');
+    uex = requiredContainerLabelValue($, uexCard, 'Executora', 'Unidade Executora Própria');
+    cnpj = requiredContainerLabelValue($, uexCard, 'CNPJ', 'Unidade Executora Própria');
+  }
 
-  const accounts = parseAccounts($);
+  const accounts = parseAccounts($, currentGovBrLayout);
   const finance = parseFinance($);
   const status = parseInstitutionalStatus($);
 
