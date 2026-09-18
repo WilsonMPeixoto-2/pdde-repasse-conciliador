@@ -162,8 +162,17 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
   const installmentCode = columnInstallment ?? describedInstallment;
 
   if (programCode === '02') {
-    if (text.includes('PRIMEIRA INFANCIA')) {
-      return { programName: 'PDDE', actionCode: 'PDDE_PRIMEIRA_INFANCIA', installmentCode: installmentCode ?? 'P1' };
+    if (text.includes('PRIMEIRA INFANCIA') || /\\b1 INFANCIA\\b/.test(text)) {
+      const infancyInstallment = installmentCode === '1'
+        ? 'P1'
+        : installmentCode === '2'
+          ? 'P2'
+          : installmentCode ?? 'P1';
+      return {
+        programName: 'PDDE',
+        actionCode: 'PDDE_PRIMEIRA_INFANCIA',
+        installmentCode: infancyInstallment,
+      };
     }
     if (text.includes('MANUTENCAO ESCOLAR') || text.includes('PDDE ED BASICA') || text.includes('PDDE BASICO')) {
       return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
