@@ -1,5 +1,4 @@
-import { PlaywrightCrawler } from 'crawlee';
-import type { Page } from 'playwright';
+import { chromium, type Page } from 'playwright';
 
 export interface InteractiveChallengeSnapshot {
   url: string;
@@ -155,47 +154,50 @@ export async function collectWithAssistedBrowser(
     throw new RangeError('timeoutMs do browser deve estar entre 1000 e 600000.');
   }
   const now = options.now ?? (() => new Date().toISOString());
-  let result: AssistedBrowserCollectionResult | null = null;
 
-  const crawler = new PlaywrightCrawler({
-    maxConcurrency: 1,
-    maxRequestsPerCrawl: 1,
-    requestHandlerTimeoutSecs: Math.ceil(timeoutMs / 1_000),
-    launchContext: {
-      launchOptions: {
-        headless: options.interactive !== true,
-      },
-    },
-    async requestHandler({ page }) {
-      if (options.readySelector) {
-        await page.locator(options.readySelector).first().waitFor({
-          state: 'attached',
-          timeout: Math.min(timeoutMs, 30_000),
-        });
-      }
-      const initialSnapshot = await snapshotPage(page, selectors);
-      const resolution = await resolveInteractiveChallenge({
-        initialSnapshot,
-        ...(options.onIntervention ? { onIntervention: options.onIntervention } : {}),
-        refreshSnapshot: async () => snapshotPage(page, selectors),
-        maxHumanAttempts: options.maxHumanAttempts,
-      });
-      if (!resolution.resolved) {
-        throw new HumanInterventionRequiredError(
-          `O desafio permaneceu ativo após ${resolution.interventions} intervenção(ões) humana(s).`,
-        );
-      }
-      result = {
-        html: await page.content(),
-        sourceUrl: page.url(),
-        queriedAt: now(),
-        humanInterventionUsed: resolution.interventions > 0,
-        interventions: resolution.interventions,
-      };
-    },
+  // Esta função abre exatamente uma URL. Usar PlaywrightCrawler aqui fazia
+  // chamadas paralelas compartilharem a RequestQueue "default" do Crawlee:
+  // uma instância podia consumir a requisição da outra e terminar com
+  // requestsTotal=0. Playwright direto mantém cada coleta isolada.
+  const browser = await chromium.launch({
+    headless: options.interactive !== true,
   });
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(parsedUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: timeoutMs,
+    });
 
-  await crawler.run([parsedUrl]);
-  if (!result) throw new Error(`Browser assistido não produziu resultado para ${parsedUrl}.`);
-  return result;
+    const initialSnapshot = await snapshotPage(page, selectors);
+    const resolution = await resolveInteractiveChallenge({
+      initialSnapshot,
+      ...(options.onIntervention ? { onIntervention: options.onIntervention } : {}),
+      refreshSnapshot: async () => snapshotPage(page, selectors),
+      maxHumanAttempts: options.maxHumanAttempts,
+    });
+    if (!resolution.resolved) {
+      throw new HumanInterventionRequiredError(
+        `O desafio permaneceu ativo após ${resolution.interventions} intervenção(ões) humana(s).`,
+      );
+    }
+
+    if (options.readySelector) {
+      await page.locator(options.readySelector).first().waitFor({
+        state: 'attached',
+        timeout: Math.min(timeoutMs, 30_000),
+      });
+    }
+
+    return {
+      html: await page.content(),
+      sourceUrl: page.url(),
+      queriedAt: now(),
+      humanInterventionUsed: resolution.interventions > 0,
+      interventions: resolution.interventions,
+    };
+  } finally {
+    await browser.close();
+  }
 }
