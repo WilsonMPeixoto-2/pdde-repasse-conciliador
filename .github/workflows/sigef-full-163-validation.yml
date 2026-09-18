@@ -54,7 +54,8 @@ on:
       - '.github/workflows/publish-validated-snapshot.yml'
   workflow_dispatch:
   schedule:
-    # 10:05 UTC = 07:05 America/Sao_Paulo. Nasce inerte até habilitação explícita.
+    # 10:05 UTC = 07:05 America/Sao_Paulo. Ativo por padrão; use
+    # PDDE_FULL_163_SCHEDULE_ENABLED=false como kill-switch explícito.
     - cron: "5 10 * * *"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -63,7 +64,7 @@ permissions:
   contents: read
 jobs:
   full-163:
-    if: github.event_name != 'schedule' || vars.PDDE_FULL_163_SCHEDULE_ENABLED == 'true'
+    if: github.event_name != 'schedule' || vars.PDDE_FULL_163_SCHEDULE_ENABLED != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
