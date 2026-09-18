@@ -2,15 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import {
-  fetchPddeInfoSchoolHtml,
-  type PddeInfoHttpResult,
-} from '../adapters/pddeinfo-http';
-import {
-  parsePddeInfoSchoolHtml,
-  type PddeInfoExpectedSchool,
-  type PddeInfoRawSchool,
-} from '../adapters/pddeinfo-html';
+import type { PddeInfoRawSchool } from '../adapters/pddeinfo-html';
+import { collectPddeInfoSchoolWithFallback } from './collect-pddeinfo-school-with-fallback';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import {
   collectSigefPublicAccount,
@@ -166,34 +159,12 @@ async function defaultCollectPddeInfoSchool(
   signal?: AbortSignal,
   sleep: (milliseconds: number) => Promise<void> = defaultSleep,
 ): Promise<MonitoringPddeInfoSchoolResult> {
-  let lastError: Error | null = null;
-  for (let round = 1; round <= 2; round += 1) {
-    signal?.throwIfAborted();
-    try {
-      const http: PddeInfoHttpResult = await fetchPddeInfoSchoolHtml({
-        fiscalYear,
-        inep: school.inep,
-        maxAttempts: 4,
-        timeoutMs: 30_000,
-        retryBackoffMs: 1_000,
-        ...(signal ? { signal } : {}),
-      });
-      const parsed = parsePddeInfoSchoolHtml(http.html, {
-        expectedSchool: school as PddeInfoExpectedSchool,
-        sourceUrl: http.sourceUrl,
-      });
-      return {
-        school: parsed,
-        queriedAt: http.queriedAt,
-        rawBytes: http.rawBytes ?? Buffer.from(http.html, 'utf8'),
-      };
-    } catch (cause) {
-      signal?.throwIfAborted();
-      lastError = cause instanceof Error ? cause : new Error(String(cause));
-      if (round < 2) await sleep(2_000);
-    }
-  }
-  throw lastError ?? new Error(`Falha desconhecida no PDDEInfo para ${school.inep}.`);
+  return collectPddeInfoSchoolWithFallback({
+    school,
+    fiscalYear,
+    ...(signal ? { signal } : {}),
+    sleep,
+  });
 }
 
 async function appendEvidence(
