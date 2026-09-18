@@ -129,6 +129,27 @@ describe('parseSigefReleaseHtml', () => {
     ]);
   });
 
+  test('mapeia Fortalecimento dos anos finais do EF como Escola das Adolescências no PDDE Qualidade', async () => {
+    const row = '<tr><td>17/SET/26</td><td>024298</td><td>5.200,00</td><td>PDDE EB-Fortalecimento dos anos finais do EF</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
+
+    const result = await parse(releaseHtml(row), {
+      fiscalYear: 2026,
+      programCode: '0B',
+    });
+
+    expect(result?.releases).toEqual([
+      expect.objectContaining({
+        programCode: '0B',
+        programName: 'PDDE Qualidade',
+        actionCode: 'ESCOLA_DAS_ADOLESCENCIAS',
+        installmentCode: null,
+        amountCents: 520_000,
+        paymentDate: '2026-09-17',
+        orderBank: '024298',
+      }),
+    ]);
+  });
+
   test('rejeita arquivo de entidade fora da relação autorizada', async () => {
     await expect(parse(releaseHtml(basicRows), {
       targetCnpjs: ['00000000000000'],
