@@ -135,6 +135,28 @@ describe('collectPddeInfoSchoolWithFallback', () => {
     });
   });
 
+  test('usa navegador quando a aquisição HTTP expira', async () => {
+    const fetchBrowser = vi.fn(async () => ({
+      html: currentHtml(),
+      sourceUrl: 'https://www.fnde.gov.br/pddeinfo/escola/33069247',
+      queriedAt: '2026-09-18T16:02:00.000Z',
+    }));
+
+    const result = await collectPddeInfoSchoolWithFallback({
+      school,
+      fiscalYear: 2026,
+      fetchHttp: vi.fn(async () => {
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      }),
+      fetchBrowser,
+      sleep: async () => undefined,
+    });
+
+    expect(result.via).toBe('BROWSER_ASSISTED');
+    expect(fetchBrowser).toHaveBeenCalledTimes(1);
+    expect(result.school.inep).toBe(school.inep);
+  });
+
   test('não usa navegador para contornar divergência de identidade', async () => {
     const fetchBrowser = vi.fn();
     await expect(collectPddeInfoSchoolWithFallback({
