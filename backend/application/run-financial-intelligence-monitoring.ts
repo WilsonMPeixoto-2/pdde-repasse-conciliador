@@ -246,6 +246,12 @@ function annotateRecoveredAccounts(
       && item.paymentInformedCents === recovery.amountCents
     ));
     if (!installment) continue;
+    if (
+      recovery.paymentDate
+      && (recovery.status === 'RECOVERED' || recovery.status === 'CONFIRMED')
+    ) {
+      installment.paymentInformedDate = recovery.paymentDate;
+    }
     installment.note = installment.note ? `${installment.note} ${evidence}` : evidence;
   }
 }

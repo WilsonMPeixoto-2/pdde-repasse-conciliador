@@ -9,6 +9,8 @@ on:
       - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/browser-assisted-source.ts'
+      - 'backend/application/collect-pddeinfo-school-with-fallback.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
@@ -21,6 +23,7 @@ on:
       - 'backend/report/source-observations-worksheet.ts'
       - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/probe-pddeinfo-live.ts'
       - 'scripts/analyze-payment-data-gaps.ts'
       - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
@@ -36,6 +39,8 @@ on:
       - 'backend/application/analyze-payment-data-gaps.ts'
       - 'backend/adapters/pddeinfo-http.ts'
       - 'backend/adapters/pddeinfo-html.ts'
+      - 'backend/adapters/browser-assisted-source.ts'
+      - 'backend/application/collect-pddeinfo-school-with-fallback.ts'
       - 'backend/adapters/pddeinfo-normalizer.ts'
       - 'backend/adapters/sigef-public-statement.ts'
       - 'backend/adapters/sigef-public-releases.ts'
@@ -48,13 +53,15 @@ on:
       - 'backend/report/source-observations-worksheet.ts'
       - 'shared/human-financial-contract.ts'
       - 'scripts/run-temporary-session.ts'
+      - 'scripts/probe-pddeinfo-live.ts'
       - 'scripts/analyze-payment-data-gaps.ts'
       - 'scripts/probe-antonieta-data-product.ts'
       - '.github/workflows/sigef-full-163-validation.yml'
       - '.github/workflows/publish-validated-snapshot.yml'
   workflow_dispatch:
   schedule:
-    # 10:05 UTC = 07:05 America/Sao_Paulo. Nasce inerte até habilitação explícita.
+    # 10:05 UTC = 07:05 America/Sao_Paulo. Ativo por padrão; use
+    # PDDE_FULL_163_SCHEDULE_ENABLED=false como kill-switch explícito.
     - cron: "5 10 * * *"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -63,7 +70,7 @@ permissions:
   contents: read
 jobs:
   full-163:
-    if: github.event_name != 'schedule' || vars.PDDE_FULL_163_SCHEDULE_ENABLED == 'true'
+    if: github.event_name != 'schedule' || vars.PDDE_FULL_163_SCHEDULE_ENABLED != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -75,6 +82,10 @@ jobs:
       - run: npm ci
       - name: Instalar Chromium para os fallbacks de coleta pública
         run: npx playwright install --with-deps chromium
+      - name: Validar canários live do PDDEInfo antes da carteira completa
+        run: |
+          node --import tsx scripts/probe-pddeinfo-live.ts
+          PDDE_CANARY_INEP=33167478 node --import tsx scripts/probe-pddeinfo-live.ts
       - name: Extrair, conciliar e materializar o produto para as 163 UEs
         env:
           PDDE_SESSION_ID: full-163-${{ github.run_id }}

@@ -78,7 +78,7 @@ Propriedades:
 - exige `schoolCount === 163`;
 - preserva artefato/evidências;
 - continua disponível em PR, push relevante e `workflow_dispatch`;
-- possui schedule diário às 10:05 UTC (07:05 BRT), inerte até `PDDE_FULL_163_SCHEDULE_ENABLED=true`.
+- possui schedule diário às 10:05 UTC (07:05 BRT), ativo por padrão; `PDDE_FULL_163_SCHEDULE_ENABLED=false` funciona como kill-switch explícito.
 
 O timeout não é meta de velocidade. Qualidade e cobertura continuam prevalecendo sobre duração.
 

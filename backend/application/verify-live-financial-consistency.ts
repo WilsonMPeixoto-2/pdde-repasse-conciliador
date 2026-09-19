@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { buildMonitoringOperationalView } from './build-monitoring-operational-view';
-import { canonicalAccount } from '../core/normalization';
+import { canonicalAccount, canonicalText } from '../core/normalization';
 import { assessPaymentTemporalCoverage } from '../core/payment-temporal-coverage';
 import type { RunFinancialIntelligenceMonitoringResult } from './run-financial-intelligence-monitoring';
 
@@ -92,8 +92,10 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
     const expectedAccount = canonicalAccount(recovery.account);
     const repasse = school.repasses.find((candidate) => (
       candidate.programCode === recovery.programCode
+      && canonicalText(candidate.action) === canonicalText(recovery.action)
+      && canonicalText(candidate.installment ?? '') === canonicalText(recovery.installment ?? '')
       && candidate.pagoInformadoCents === recovery.amountCents
-      && candidate.dataOrdem === recovery.paymentDate
+      && (candidate.dataOrdem === null || candidate.dataOrdem === recovery.paymentDate)
       && candidate.account !== null
       && canonicalAccount(candidate.account) === expectedAccount
     ));

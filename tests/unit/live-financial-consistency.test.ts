@@ -24,10 +24,23 @@ function rawFixture(temporal: unknown): any {
 }
 const staleTemporal = { status: 'UNKNOWN', evaluatedPaymentCount: 1, sufficientCount: 0, outOfCoverageCount: 0, unknownCount: 1, latestKnownPaymentDate: '2026-08-05', maxObservedCoverageThrough: null, rows: [{ schoolInep: '33069247', programCode: '02', paymentDate: '2026-08-05', coverageThrough: null, status: 'UNKNOWN', reason: 'STRONG_ACCOUNT_MISSING' }] };
 const currentTemporal = { status: 'SUFFICIENT', evaluatedPaymentCount: 1, sufficientCount: 1, outOfCoverageCount: 0, unknownCount: 0, latestKnownPaymentDate: '2026-08-05', maxObservedCoverageThrough: '2026-08-18', rows: [{ schoolInep: '33069247', programCode: '02', paymentDate: '2026-08-05', coverageThrough: '2026-08-18', status: 'SUFFICIENT', reason: 'COVERAGE_REACHES_PAYMENT' }] };
+const missingDateTemporal = { status: 'UNKNOWN', evaluatedPaymentCount: 1, sufficientCount: 0, outOfCoverageCount: 0, unknownCount: 1, latestKnownPaymentDate: null, maxObservedCoverageThrough: '2026-08-18', rows: [{ schoolInep: '33069247', programCode: '02', paymentDate: null, coverageThrough: null, status: 'UNKNOWN', reason: 'PAYMENT_DATE_MISSING' }] };
 
 describe('consistência do produto financeiro live', () => {
   test('reprova resumo temporal stale depois que a conta foi recuperada', () => { const report = analyzeLiveFinancialConsistency(rawFixture(staleTemporal)); expect(report.status).toBe('FAIL'); expect(report.errors).toContain('TEMPORAL_SUMMARY_STALE'); });
   test('aprova o mesmo caso quando cobertura temporal reflete a conta final recuperada', () => { const report = analyzeLiveFinancialConsistency(rawFixture(currentTemporal)); expect(report.status).toBe('PASS'); expect(report.errors).toEqual([]); expect(report.recoveredAccounts).toBe(1); expect(report.paymentsAfterBalanceReference).toBe(1); });
+  test('aceita conta recuperada sem promover a data da liberação para data do repasse', () => {
+    const raw = rawFixture(missingDateTemporal);
+    raw.schools[0].repasses[0].dataOrdem = null;
+    const report = analyzeLiveFinancialConsistency(raw);
+    expect(report.status).toBe('PASS');
+    expect(report.errors).toEqual([]);
+    expect(report.recoveredAccounts).toBe(1);
+    expect(report.temporalStatus).toBe('UNKNOWN');
+    expect(report.unknownPayments).toBe(1);
+    expect(report.paymentsAfterBalanceReference).toBe(0);
+  });
+
   test('reprova fonte usada sem observação estruturada', () => { const raw = rawFixture(currentTemporal); raw.sourceObservations = raw.sourceObservations.filter((item: any) => item.source !== 'SIGEF_LIBERACOES'); const report = analyzeLiveFinancialConsistency(raw); expect(report.status).toBe('FAIL'); expect(report.errors).toContain('SOURCE_OBSERVATION_MISSING:SIGEF_LIBERACOES'); });
   test('reprova observação de extrato congelada antes das contas recuperadas', () => { const raw = rawFixture(currentTemporal); raw.sourceObservations.find((item: any) => item.source === 'SIGEF_EXTRATO').metrics.accountsQueried = 0; const report = analyzeLiveFinancialConsistency(raw); expect(report.status).toBe('FAIL'); expect(report.errors).toContain('SIGEF_STATEMENT_OBSERVATION_STALE:0:1'); });
 });

@@ -48,13 +48,23 @@ function actionCode(programCode: string, action: string): string | null {
 }
 function installmentCode(value: string | null): string | null { const text = canonicalText(value ?? ''); if (/\bP1\b/.test(text)) return 'P1'; if (/\bP2\b/.test(text)) return 'P2'; if (/\b(?:1|PRIMEIRA) PARC(?:ELA)?\b/.test(text)) return '1'; if (/\b(?:2|SEGUNDA) PARC(?:ELA)?\b/.test(text)) return '2'; return null; }
 function releaseCandidates(repasse: RawRepasse, releases: readonly SigefRelease[]): SigefRelease[] {
-  const wantedAction = actionCode(repasse.programCode, repasse.action); const wantedInstallment = installmentCode(repasse.installment);
-  return releases.filter((release) => release.programCode === repasse.programCode && release.amountCents === repasse.pagoInformadoCents && (!wantedAction || release.actionCode === wantedAction) && (!wantedInstallment || !release.installmentCode || release.installmentCode === wantedInstallment) && (!repasse.dataOrdem || release.paymentDate === repasse.dataOrdem) && (wantedAction !== null || repasse.dataOrdem !== null));
+  const wantedAction = actionCode(repasse.programCode, repasse.action);
+  const wantedInstallment = installmentCode(repasse.installment);
+  const wantedAccount = repasse.account ? canonicalAccount(repasse.account) : null;
+  return releases.filter((release) => (
+    release.programCode === repasse.programCode
+    && release.amountCents === repasse.pagoInformadoCents
+    && (!wantedAction || release.actionCode === wantedAction)
+    && (!wantedInstallment || !release.installmentCode || release.installmentCode === wantedInstallment)
+    && (!wantedAccount || canonicalAccount(release.destinationAccount) === wantedAccount)
+    && (!repasse.dataOrdem || release.paymentDate >= repasse.dataOrdem)
+    && (wantedAction !== null || repasse.dataOrdem !== null)
+  ));
 }
 function uniqueRelease(repasse: RawRepasse, releases: readonly SigefRelease[]): { status: 'RECOVERED'|'NOT_FOUND'|'AMBIGUOUS'; release: SigefRelease | null } {
   const candidates = releaseCandidates(repasse, releases);
-  if (repasse.dataOrdem) { const exactDate = candidates.filter((release) => release.paymentDate === repasse.dataOrdem); if (exactDate.length === 1) return { status:'RECOVERED', release:exactDate[0] }; if (exactDate.length > 1) return { status:'AMBIGUOUS', release:null }; }
-  if (candidates.length === 1) return { status:'RECOVERED', release:candidates[0] }; return { status: candidates.length === 0 ? 'NOT_FOUND' : 'AMBIGUOUS', release:null };
+  if (candidates.length === 1) return { status:'RECOVERED', release:candidates[0] };
+  return { status: candidates.length === 0 ? 'NOT_FOUND' : 'AMBIGUOUS', release:null };
 }
 function accountKey(programCode: string, account: BankAccount): string { return `${programCode}|${canonicalAccount(account)}`; }
 function repasseKey(input: { schoolInep:string; programCode:string; action:string; installment:string|null; amountCents:number; orderDate:string|null }): string { return [input.schoolInep,input.programCode,canonicalText(input.action),canonicalText(input.installment ?? ''),String(input.amountCents),input.orderDate ?? ''].join('|'); }

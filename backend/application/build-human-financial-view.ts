@@ -314,6 +314,8 @@ function publicOrderDateFor(input: {
   action: string;
   installment: string | null;
   programmedCents: number;
+  programmedCusteioCents: number | null;
+  programmedCapitalCents: number | null;
   publicReports: PddeInfoPublicPortfolioResult;
 }): string | null {
   const marker = installmentMarker(input.installment);
@@ -321,17 +323,26 @@ function publicOrderDateFor(input: {
   const candidates = input.publicReports.attendance.filter((item) => {
     if (item.schoolInep !== input.schoolInep) return false;
     if (item.totalCents !== input.programmedCents) return false;
+    if (
+      input.programmedCusteioCents !== null
+      && item.costCents !== input.programmedCusteioCents
+    ) return false;
+    if (
+      input.programmedCapitalCents !== null
+      && item.capitalCents !== input.programmedCapitalCents
+    ) return false;
     if (!item.paymentOrderDate) return false;
     if (marker && destinationInstallmentMarker(item.destination) !== marker) return false;
     const destination = normalizedMatchText(item.destination);
     return actionTokens.every((token) => destination.includes(token));
   });
-  const dates = [...new Set(
-    candidates
-      .map((item) => item.paymentOrderDate)
-      .filter((date): date is string => Boolean(date)),
-  )];
-  return dates.length === 1 ? dates[0] : null;
+  const evidence = [...new Set(candidates.map((item) => [
+    item.paymentOrderDate,
+    item.totalCents,
+    item.costCents,
+    item.capitalCents,
+  ].join('|')))];
+  return evidence.length === 1 ? candidates[0]?.paymentOrderDate ?? null : null;
 }
 
 function schoolPrograms(
@@ -345,14 +356,16 @@ function schoolPrograms(
       programmedCents: installment.amountProgrammedCents,
       paymentInformedCents: installment.amountPaidInformedCents,
       breakdown: installment.breakdown ? { ...installment.breakdown } : null,
-      paymentInformedDate: installment.pddeInfoDate,
+      paymentInformedDate: null,
       paymentOrderDate: publicOrderDateFor({
         schoolInep: school.school.inep,
         action: repasse.action,
         installment: installment.installment,
         programmedCents: installment.amountProgrammedCents,
+        programmedCusteioCents: installment.breakdown?.programmedCusteioCents ?? null,
+        programmedCapitalCents: installment.breakdown?.programmedCapitalCents ?? null,
         publicReports,
-      }),
+      }) ?? installment.pddeInfoDate,
       account: installment.account,
       creditEvidence: {
         status: creditStatusLabel(installment.bankCredit.presentationStatus),
@@ -577,7 +590,7 @@ function sourceCoverageFor(
     {
       dataset: 'PDDEInfo · Consulta por Escola',
       status: 'AVAILABLE',
-      detail: 'Repasses, componentes financeiros, contas e situação textual da escola.',
+      detail: 'Repasses, componentes financeiros e situação textual exibida; contas podem depender das fontes complementares.',
     },
     {
       dataset: 'PDDEInfo · Atendimento',

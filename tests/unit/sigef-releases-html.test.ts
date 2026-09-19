@@ -129,6 +129,51 @@ describe('parseSigefReleaseHtml', () => {
     ]);
   });
 
+  test('mapeia a nomenclatura real 1ª Infância - 2ª Parcela como Primeira Infância P2', async () => {
+    const row = '<tr><td>15/SET/26</td><td>023987</td><td>1.985,00</td><td>PDDE -PDDE Básico \x96 1ª Infância - 2ª Parcela</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
+
+    const result = await parse(releaseHtml(row), {
+      fiscalYear: 2026,
+      programCode: '02',
+    });
+
+    expect(result?.releases).toEqual([
+      expect.objectContaining({
+        programCode: '02',
+        programName: 'PDDE',
+        actionCode: 'PDDE_PRIMEIRA_INFANCIA',
+        installmentCode: 'P2',
+        amountCents: 198_500,
+        paymentDate: '2026-09-15',
+        orderBank: '023987',
+        sourceReference: expect.objectContaining({
+          rawProgram: 'PDDE -PDDE Básico – 1ª Infância - 2ª Parcela',
+        }),
+      }),
+    ]);
+  });
+
+  test('mapeia Fortalecimento dos anos finais do EF como Escola das Adolescências no PDDE Qualidade', async () => {
+    const row = '<tr><td>17/SET/26</td><td>024298</td><td>5.200,00</td><td>PDDE EB-Fortalecimento dos anos finais do EF</td><td>BANCO DO BRASIL</td><td>0249</td><td>00012345X</td></tr>';
+
+    const result = await parse(releaseHtml(row), {
+      fiscalYear: 2026,
+      programCode: '0B',
+    });
+
+    expect(result?.releases).toEqual([
+      expect.objectContaining({
+        programCode: '0B',
+        programName: 'PDDE Qualidade',
+        actionCode: 'ESCOLA_DAS_ADOLESCENCIAS',
+        installmentCode: null,
+        amountCents: 520_000,
+        paymentDate: '2026-09-17',
+        orderBank: '024298',
+      }),
+    ]);
+  });
+
   test('rejeita arquivo de entidade fora da relação autorizada', async () => {
     await expect(parse(releaseHtml(basicRows), {
       targetCnpjs: ['00000000000000'],

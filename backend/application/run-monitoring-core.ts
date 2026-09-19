@@ -2,15 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
-import {
-  fetchPddeInfoSchoolHtml,
-  type PddeInfoHttpResult,
-} from '../adapters/pddeinfo-http';
-import {
-  parsePddeInfoSchoolHtml,
-  type PddeInfoExpectedSchool,
-  type PddeInfoRawSchool,
-} from '../adapters/pddeinfo-html';
+import type { PddeInfoRawSchool } from '../adapters/pddeinfo-html';
+import { collectPddeInfoSchoolWithFallback } from './collect-pddeinfo-school-with-fallback';
 import { normalizePddeInfoSchools } from '../adapters/pddeinfo-normalizer';
 import {
   collectSigefPublicAccount,
@@ -166,34 +159,12 @@ async function defaultCollectPddeInfoSchool(
   signal?: AbortSignal,
   sleep: (milliseconds: number) => Promise<void> = defaultSleep,
 ): Promise<MonitoringPddeInfoSchoolResult> {
-  let lastError: Error | null = null;
-  for (let round = 1; round <= 2; round += 1) {
-    signal?.throwIfAborted();
-    try {
-      const http: PddeInfoHttpResult = await fetchPddeInfoSchoolHtml({
-        fiscalYear,
-        inep: school.inep,
-        maxAttempts: 4,
-        timeoutMs: 30_000,
-        retryBackoffMs: 1_000,
-        ...(signal ? { signal } : {}),
-      });
-      const parsed = parsePddeInfoSchoolHtml(http.html, {
-        expectedSchool: school as PddeInfoExpectedSchool,
-        sourceUrl: http.sourceUrl,
-      });
-      return {
-        school: parsed,
-        queriedAt: http.queriedAt,
-        rawBytes: http.rawBytes ?? Buffer.from(http.html, 'utf8'),
-      };
-    } catch (cause) {
-      signal?.throwIfAborted();
-      lastError = cause instanceof Error ? cause : new Error(String(cause));
-      if (round < 2) await sleep(2_000);
-    }
-  }
-  throw lastError ?? new Error(`Falha desconhecida no PDDEInfo para ${school.inep}.`);
+  return collectPddeInfoSchoolWithFallback({
+    school,
+    fiscalYear,
+    ...(signal ? { signal } : {}),
+    sleep,
+  });
 }
 
 async function appendEvidence(
@@ -454,36 +425,40 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
       rawOptions.sleep ?? defaultSleep,
     ));
   const sigefCollector = rawOptions.collectSigefAccount ?? collectSigefPublicAccount;
-  const pddeFailures: Array<{ inep: string; name: string; error: string }> = [];
+  const pddeFailureByInep = new Map<string, { inep: string; name: string; error: string }>();
   const pddeMeta: Record<string, { queriedAt: string; rawSha256: string }> = {};
 
-  const collected = await mapConcurrent(parsed.schools, 2, async (school) => {
+  async function collectAndPreserveSchool(school: MonitoringSchool): Promise<PddeInfoRawSchool> {
     rawOptions.signal?.throwIfAborted();
+    const result = await collector(school, parsed.fiscalYear, rawOptions.signal);
+    const rawPath = join(workspacePath, 'pddeinfo', `${school.inep}.html`);
+    await mkdir(dirname(rawPath), { recursive: true });
+    await writeFile(rawPath, result.rawBytes);
+    const rawSha256 = sha256(result.rawBytes);
+    pddeMeta[school.inep] = { queriedAt: result.queriedAt, rawSha256 };
+    await preserveArtifact({
+      store: rawOptions.artifactStore,
+      evidenceStore: rawOptions.evidenceStore,
+      runId: parsed.runId,
+      fiscalYear: parsed.fiscalYear,
+      source: 'PDDEINFO',
+      schoolInep: school.inep,
+      relativePath: institutionalPath(parsed.institutionalPathPrefix, `pddeinfo/${school.inep}.html`),
+      kind: 'RAW_HTML',
+      bytes: result.rawBytes,
+      mediaType: 'text/html',
+      metadata: { queriedAt: result.queriedAt, localPath: rawPath },
+      occurredAt: generatedAt,
+    });
+    return result.school;
+  }
+
+  const collected = await mapConcurrent(parsed.schools, 2, async (school) => {
     try {
-      const result = await collector(school, parsed.fiscalYear, rawOptions.signal);
-      const rawPath = join(workspacePath, 'pddeinfo', `${school.inep}.html`);
-      await mkdir(dirname(rawPath), { recursive: true });
-      await writeFile(rawPath, result.rawBytes);
-      const rawSha256 = sha256(result.rawBytes);
-      pddeMeta[school.inep] = { queriedAt: result.queriedAt, rawSha256 };
-      await preserveArtifact({
-        store: rawOptions.artifactStore,
-        evidenceStore: rawOptions.evidenceStore,
-        runId: parsed.runId,
-        fiscalYear: parsed.fiscalYear,
-        source: 'PDDEINFO',
-        schoolInep: school.inep,
-        relativePath: institutionalPath(parsed.institutionalPathPrefix, `pddeinfo/${school.inep}.html`),
-        kind: 'RAW_HTML',
-        bytes: result.rawBytes,
-        mediaType: 'text/html',
-        metadata: { queriedAt: result.queriedAt, localPath: rawPath },
-        occurredAt: generatedAt,
-      });
-      return result.school;
+      return await collectAndPreserveSchool(school);
     } catch (cause) {
       rawOptions.signal?.throwIfAborted();
-      pddeFailures.push({
+      pddeFailureByInep.set(school.inep, {
         inep: school.inep,
         name: school.nome,
         error: cause instanceof Error ? cause.message : String(cause),
@@ -492,6 +467,35 @@ export async function runMonitoring(rawOptions: RunMonitoringOptions): Promise<R
     }
   });
 
+  // Uma falha transitória isolada não deve invalidar 162 coletas válidas.
+  // Reprocessamos somente as escolas que falharam, em série, depois que a
+  // primeira passagem concorrente terminou. O gate 163/163 continua estrito:
+  // se a recuperação também falhar, a escola permanece em pddeInfoFailures.
+  const retryIndexes = collected
+    .map((item, index) => item === null ? index : -1)
+    .filter((index) => index >= 0);
+  if (retryIndexes.length > 0) {
+    await (rawOptions.sleep ?? defaultSleep)(1_500);
+  }
+  for (const index of retryIndexes) {
+    const school = parsed.schools[index];
+    try {
+      collected[index] = await collectAndPreserveSchool(school);
+      pddeFailureByInep.delete(school.inep);
+    } catch (cause) {
+      rawOptions.signal?.throwIfAborted();
+      pddeFailureByInep.set(school.inep, {
+        inep: school.inep,
+        name: school.nome,
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+  }
+
+  const pddeFailures = parsed.schools.flatMap((school) => {
+    const failure = pddeFailureByInep.get(school.inep);
+    return failure ? [failure] : [];
+  });
   const schools = collected.filter((item): item is PddeInfoRawSchool => item !== null);
   const unknownProgramAccounts: Array<{
     inep: string;

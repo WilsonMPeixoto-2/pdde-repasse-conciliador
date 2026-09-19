@@ -15,6 +15,7 @@ on:
       - 'tests/unit/live-financial-consistency.test.ts'
       - 'tests/unit/sigef-public-statement-compact.test.ts'
       - 'tests/unit/sigef-public-releases-legacy.test.ts'
+      - '.github/workflows/sigef-live-monitor.yml'
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -32,6 +33,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Instalar Chromium para o fallback Playwright
+        run: npx playwright install --with-deps chromium
       - name: Teste live de 10 UEs reais da 4ª CRE
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
       - name: Exigir consistência semântica do produto financeiro live

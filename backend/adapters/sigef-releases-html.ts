@@ -162,8 +162,17 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
   const installmentCode = columnInstallment ?? describedInstallment;
 
   if (programCode === '02') {
-    if (text.includes('PRIMEIRA INFANCIA')) {
-      return { programName: 'PDDE', actionCode: 'PDDE_PRIMEIRA_INFANCIA', installmentCode: installmentCode ?? 'P1' };
+    if (text.includes('PRIMEIRA INFANCIA') || /\b1 INFANCIA\b/.test(text)) {
+      const infancyInstallment = installmentCode === '1'
+        ? 'P1'
+        : installmentCode === '2'
+          ? 'P2'
+          : installmentCode ?? 'P1';
+      return {
+        programName: 'PDDE',
+        actionCode: 'PDDE_PRIMEIRA_INFANCIA',
+        installmentCode: infancyInstallment,
+      };
     }
     if (text.includes('MANUTENCAO ESCOLAR') || text.includes('PDDE ED BASICA') || text.includes('PDDE BASICO')) {
       return { programName: 'PDDE', actionCode: 'PDDE_BASICO', installmentCode };
@@ -175,7 +184,11 @@ function mapReleaseAction(programCode: string, rawProgram: string, explicitInsta
   if (programCode === '0B') {
     if (text.includes('EDUCACAO CONECTADA')) return { programName: 'PDDE Qualidade', actionCode: 'EDUCACAO_CONECTADA', installmentCode };
     if (text.includes('ESCOLA E COMUNIDADE')) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_E_COMUNIDADE', installmentCode };
-    if (text.includes('ESCOLA DAS ADOLESCENCIAS')) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_DAS_ADOLESCENCIAS', installmentCode };
+    if (
+      text.includes('ESCOLA DAS ADOLESCENCIAS')
+      || text.includes('FORTALECIMENTO DOS ANOS FINAIS DO EF')
+      || text.includes('FORTALECIMENTO DOS ANOS FINAIS DO ENSINO FUNDAMENTAL')
+    ) return { programName: 'PDDE Qualidade', actionCode: 'ESCOLA_DAS_ADOLESCENCIAS', installmentCode };
     if (text.includes('CANTINHO DA LEITURA')) return { programName: 'PDDE Qualidade', actionCode: 'CANTINHO_DA_LEITURA', installmentCode };
   }
   if (programCode === '0A' && (text.includes('PDDE SRM') || text.includes('SALA DE RECURSOS MULTIFUNCIONAIS'))) {
