@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { buildMonitoringOperationalView } from './build-monitoring-operational-view';
-import { canonicalAccount } from '../core/normalization';
+import { canonicalAccount, canonicalText } from '../core/normalization';
 import { assessPaymentTemporalCoverage } from '../core/payment-temporal-coverage';
 import type { RunFinancialIntelligenceMonitoringResult } from './run-financial-intelligence-monitoring';
 
