@@ -92,8 +92,10 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
     const expectedAccount = canonicalAccount(recovery.account);
     const repasse = school.repasses.find((candidate) => (
       candidate.programCode === recovery.programCode
+      && canonicalText(candidate.action) === canonicalText(recovery.action)
+      && canonicalText(candidate.installment ?? '') === canonicalText(recovery.installment ?? '')
       && candidate.pagoInformadoCents === recovery.amountCents
-      && candidate.dataOrdem === recovery.paymentDate
+      && (candidate.dataOrdem === null || candidate.dataOrdem === recovery.paymentDate)
       && candidate.account !== null
       && canonicalAccount(candidate.account) === expectedAccount
     ));
