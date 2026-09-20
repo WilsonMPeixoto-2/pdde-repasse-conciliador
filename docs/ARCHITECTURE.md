@@ -146,7 +146,7 @@ O snapshot é o produto primário deste repositório. Portanto, falha de notific
 
 Se `PDDE_ONLINE_DISPATCH_TOKEN` estiver ausente ou o endpoint de dispatch falhar:
 
-- workflow registra warning;
+- a etapa de handoff registra erro e falha explicitamente;
 - snapshot permanece publicado;
 - o PDDE Online possui schedule de reconciliação/fallback às 13:30 UTC (10:30 BRT), protegido por kill-switch próprio.
 
