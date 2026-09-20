@@ -229,8 +229,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${PDDE_ONLINE_DISPATCH_TOKEN:-}" ]; then
-            echo '::warning::PDDE_ONLINE_DISPATCH_TOKEN não configurado; snapshot foi publicado e será reconciliado pelo fallback do PDDE Online.'
-            exit 0
+            echo '::error::PDDE_ONLINE_DISPATCH_TOKEN não configurado. O snapshot permanece publicado, mas o handoff automático para o PDDE Online não ocorreu.'
+            exit 2
           fi
 
           source_repository='WilsonMPeixoto-2/pdde-repasse-conciliador'
@@ -257,9 +257,9 @@ jobs:
             'https://api.github.com/repos/WilsonMPeixoto-2/pddeonlinesme-rj/dispatches' || true)"
 
           if [ "$http_code" != '204' ]; then
-            echo "::warning::Snapshot publicado, mas o handoff para o PDDE Online retornou HTTP ${http_code}; o fallback diário permanece disponível."
+            echo "::error::Snapshot publicado, mas o handoff para o PDDE Online retornou HTTP ${http_code}."
             cat /tmp/pdde-online-dispatch-response.txt || true
-            exit 0
+            exit 3
           fi
 
           echo "PDDE Online notificado: run=${workflow_run_id} artifact=${artifact_id}."
