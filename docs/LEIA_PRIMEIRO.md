@@ -74,7 +74,7 @@ O publisher tenta `repository_dispatch` depois que um snapshot novo é realmente
 
 `PDDE_ONLINE_DISPATCH_TOKEN`
 
-Ausência/falha do token gera warning e preserva o snapshot. O PDDE Online mantém fallback próprio.
+Ausência/falha do token **não invalida o snapshot já publicado**, mas faz a etapa de handoff falhar explicitamente. O PDDE Online mantém fallback próprio; ele não deve ser confundido com confirmação de entrega do evento.
 
 **Nunca versionar ou documentar o valor desses secrets.**
 
