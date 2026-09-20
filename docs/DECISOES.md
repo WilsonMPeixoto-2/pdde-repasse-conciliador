@@ -16,7 +16,7 @@ Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é ch
 
 O evento carrega somente proveniência: `sourceRepository`, `workflowRunId`, `artifactId`, `artifactName` e `publishedAt`. O PDDE Online precisa confrontar esses valores com o manifesto público; evento não é prova suficiente por si só.
 
-**Regra:** falha/ausência de `PDDE_ONLINE_DISPATCH_TOKEN` gera warning e não invalida o snapshot já publicado. O fallback do PDDE Online permanece disponível.
+**Regra:** falha/ausência de `PDDE_ONLINE_DISPATCH_TOKEN` não invalida o snapshot já publicado, porém a etapa de handoff deve falhar explicitamente para impedir falso verde operacional. O fallback do PDDE Online permanece disponível.
 
 ## 2026-09-11 — Coleta Full 163 recorrente nasce desligada
 
