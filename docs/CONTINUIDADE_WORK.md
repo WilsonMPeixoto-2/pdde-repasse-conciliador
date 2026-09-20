@@ -65,7 +65,7 @@ Secret dedicado:
 
 `PDDE_ONLINE_DISPATCH_TOKEN`
 
-Se o token estiver ausente ou a chamada falhar:
+Se o token estiver ausente ou a chamada falhar, o snapshot permanece publicado, mas a etapa de handoff falha explicitamente:
 
 - o snapshot não é revertido;
 - o workflow registra warning;
