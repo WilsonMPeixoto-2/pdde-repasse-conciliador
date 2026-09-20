@@ -91,7 +91,9 @@ describe('experiência pública da carteira financeira', () => {
     expect(publisher).toContain('artifactId');
     expect(publisher).toContain('artifactName');
     expect(publisher).toContain('publishedAt');
-    expect(publisher).toContain('::warning::');
+    expect(publisher).toContain('::error::PDDE_ONLINE_DISPATCH_TOKEN não configurado');
+    expect(publisher).toContain('exit 2');
+    expect(publisher).toContain('exit 3');
     expect(publisher).not.toContain('PDDE_SUPABASE_SERVICE_ROLE_KEY');
     expect(publisher).not.toContain('PDDE_SUPABASE_URL');
   });
