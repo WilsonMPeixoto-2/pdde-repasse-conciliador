@@ -84,6 +84,33 @@ describe('integridade da associação operacional de crédito', () => {
     });
   });
 
+  test('usa a data de Liberações como referência sem preencher a data de ordem do repasse', () => {
+    const raw = fixture();
+    raw.schools[0].repasses[0].dataOrdem = null;
+    Object.assign(raw, {
+      accountRecoveries: [{
+        schoolInep: '33069271',
+        programCode: '02',
+        action: 'PDDE Básico',
+        installment: '1ª Parcela',
+        amountCents: 100_000,
+        status: 'CONFIRMED',
+        account,
+        paymentDate: '2026-05-01',
+        orderBank: 'OB123',
+      }],
+    });
+
+    const repasse = buildMonitoringOperationalView(raw).repasses[0];
+    expect(repasse).toMatchObject({
+      orderDate: null,
+      bankCreditStatus: 'CREDITO_CONFIRMADO',
+      bankCreditDate: '2026-05-05',
+      bankCreditAmountCents: 100_000,
+      daysAfterOrder: null,
+    });
+  });
+
   test('cobertura apenas até a data do pagamento ainda não permite concluir ausência de crédito', () => {
     const raw = fixture();
     raw.schools[0].accounts[0].coverageThrough = '2026-05-01';
