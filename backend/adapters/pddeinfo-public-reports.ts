@@ -50,12 +50,12 @@ const reportFilterSchema = z.discriminatedUnion('kind', [
 export type PddeInfoPublicReportFilter = z.input<typeof reportFilterSchema>;
 
 const BASE_URLS: Record<PddeInfoPublicReportKind, string> = {
-  ATTENDANCE: 'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/situacaoatendimentoentidade',
-  ACCOUNTING: 'https://www.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta',
-  BALANCE: 'https://www.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
-  ACCOUNT_OPENING: 'https://www.fnde.gov.br/pddeinfo/staberturacontaentidade/staberturacontaentidade/staberturacontaentidade',
-  REGISTRATION: 'https://www.fnde.gov.br/pddeinfo/situacaocadastroentidade/situacaocadastroentidade/situacaocadastroentidade',
-  SUSPENSION: 'https://www.fnde.gov.br/pddeinfo/relatoriosuspensao/relatoriosuspensao/relatoriosuspensao',
+  ATTENDANCE: 'https://webservice.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/situacaoatendimentoentidade',
+  ACCOUNTING: 'https://webservice.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta',
+  BALANCE: 'https://webservice.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
+  ACCOUNT_OPENING: 'https://webservice.fnde.gov.br/pddeinfo/staberturacontaentidade/staberturacontaentidade/staberturacontaentidade',
+  REGISTRATION: 'https://webservice.fnde.gov.br/pddeinfo/situacaocadastroentidade/situacaocadastroentidade/situacaocadastroentidade',
+  SUSPENSION: 'https://webservice.fnde.gov.br/pddeinfo/relatoriosuspensao/relatoriosuspensao/relatoriosuspensao',
 };
 
 export class PddeInfoPublicReportSourceError extends Error {
