@@ -103,6 +103,48 @@ export interface DiscoverPddeInfoBalanceMonthsOptions {
   signal?: AbortSignal;
 }
 
+export interface FetchPddeInfoBulkAttendanceOptions {
+  fiscalYear: 2026;
+  uf?: string;
+  administrationSphere?: number;
+  municipalityFndeCode?: string;
+  programCode?: string;
+  fetchImpl?: typeof fetch;
+  now?: () => string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export interface PddeInfoPlatformVersion {
+  version: string;
+  releasedOn: string;
+  revision: string;
+}
+
+export function parsePddeInfoPlatformVersion(html: string): PddeInfoPlatformVersion | null {
+  const match = html.match(/PDDE\s*Info\s+(\d{2}\.\d{2}\.\d{4})#([0-9a-f]+)/i);
+  if (!match) return null;
+  return {
+    version: `${match[1]}#${match[2]}`,
+    releasedOn: match[1],
+    revision: match[2],
+  };
+}
+
+export function buildPddeInfoMunicipalitiesApiUrl(uf: string): string {
+  const normalized = uf.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) throw new Error(`UF inválida para API de municípios PDDEInfo: ${uf}.`);
+  const url = new URL('https://www.fnde.gov.br/pddeinfo/pddeinfo/corp/get-municipio');
+  url.searchParams.set('sg_uf', normalized);
+  return url.toString();
+}
+
+export function buildPddeInfoDestinationsApiUrl(input: { fiscalYear: 2026; programCode: string }): string {
+  const programCode = input.programCode.trim();
+  if (!programCode) throw new Error('Código de programa vazio para API de destinações PDDEInfo.');
+  return `https://www.fnde.gov.br/pddeinfo/pddeinfo/sae/get-destinacao/ano/${input.fiscalYear}/programa/${encodeURIComponent(programCode)}`;
+}
+
 function appendCommonSchoolParams(url: URL, filter: z.output<typeof yearSchoolFilterSchema>): void {
   url.searchParams.set('ano', String(filter.fiscalYear));
   url.searchParams.set('cnpj', '');
@@ -211,6 +253,38 @@ function attendanceExcelUrl(filter: z.output<typeof attendanceFilterSchema>): st
   url.searchParams.set('sg_uf', '');
   url.searchParams.set('esferaAdm', '');
   url.searchParams.set('co_municipio_fnde', '');
+  return url.toString();
+}
+
+export function buildPddeInfoBulkAttendanceExcelUrl(
+  options: Pick<
+    FetchPddeInfoBulkAttendanceOptions,
+    'fiscalYear' | 'uf' | 'administrationSphere' | 'municipalityFndeCode' | 'programCode'
+  >,
+): string {
+  const uf = (options.uf ?? 'RJ').trim().toUpperCase();
+  const administrationSphere = options.administrationSphere ?? 2;
+  const municipalityFndeCode = options.municipalityFndeCode ?? '330455';
+  if (!/^[A-Z]{2}$/.test(uf)) throw new Error(`UF inválida para exportação PDDEInfo: ${uf}.`);
+  if (!Number.isInteger(administrationSphere) || administrationSphere < 1 || administrationSphere > 3) {
+    throw new Error('Esfera administrativa inválida para exportação PDDEInfo.');
+  }
+  if (!/^\d{6}$/.test(municipalityFndeCode)) {
+    throw new Error(`Código FNDE do município inválido: ${municipalityFndeCode}.`);
+  }
+  const url = new URL(
+    'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
+  );
+  url.searchParams.set('an_exercicio', String(options.fiscalYear));
+  url.searchParams.set('cnpj', '');
+  url.searchParams.set('co_escola', '');
+  url.searchParams.set('destinacao', '');
+  url.searchParams.set('tpRelatorio', '1');
+  url.searchParams.set('stpg', "'1'");
+  url.searchParams.set('programas', options.programCode ?? '');
+  url.searchParams.set('sg_uf', uf);
+  url.searchParams.set('esferaAdm', String(administrationSphere));
+  url.searchParams.set('co_municipio_fnde', municipalityFndeCode);
   return url.toString();
 }
 
@@ -361,6 +435,49 @@ export async function discoverPddeInfoBalanceMonths(
     if (/^(0[1-9]|1[0-2])-2026$/.test(value)) months.add(value);
   });
   return [...months].sort((left, right) => monthRank(right) - monthRank(left));
+}
+
+export async function fetchPddeInfoBulkAttendanceReport(
+  options: FetchPddeInfoBulkAttendanceOptions,
+): Promise<PddeInfoPublicReportResult> {
+  const sourceUrl = buildPddeInfoBulkAttendanceExcelUrl(options);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const now = options.now ?? (() => new Date().toISOString());
+  options.signal?.throwIfAborted();
+  const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 60_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+  const response = await fetchImpl(sourceUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Public-Reports/0.7)',
+      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
+    },
+    signal,
+  });
+  const rawBytes = Buffer.from(await response.arrayBuffer());
+  if (!response.ok) {
+    throw new AcquisitionUnavailableError(
+      `Excel público municipal de atendimento PDDEInfo retornou HTTP ${response.status}.`,
+    );
+  }
+  const parsed = await parsePddeInfoAttendanceWorkbook(rawBytes);
+  return {
+    ...parsed,
+    via: 'HTTP',
+    sourceUrl: response.url || sourceUrl,
+    queriedAt: now(),
+    html: '',
+    rawBytes,
+    httpStatus: response.status,
+    responseBytes: rawBytes.byteLength,
+    coverageThrough: null,
+    artifactKind: 'RAW_FILE',
+    mediaType: response.headers.get('content-type')
+      ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    fileExtension: 'xlsx',
+  };
 }
 
 export async function fetchPddeInfoPublicReport(
