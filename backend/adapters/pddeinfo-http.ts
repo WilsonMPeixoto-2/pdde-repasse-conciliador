@@ -45,14 +45,6 @@ function assertInep(value: string): void {
 export function buildPddeInfoSchoolUrl(options: BuildPddeInfoSchoolUrlOptions): string {
   assertFiscalYear(options.fiscalYear);
   assertInep(options.inep);
-  const sphere = options.administrationSphere ?? 2;
-  const uf = (options.uf ?? 'RJ').trim().toUpperCase();
-  const municipality = options.municipalityFndeCode ?? '330455';
-  if (!Number.isInteger(sphere) || sphere <= 0) throw new Error('Esfera administrativa inválida.');
-  if (!/^[A-Z]{2}$/.test(uf)) throw new Error(`UF inválida para consulta PDDEInfo: ${uf}.`);
-  if (!/^\d{6}$/.test(municipality)) {
-    throw new Error(`Código FNDE do município inválido: ${municipality}.`);
-  }
   const url = new URL(PDDEINFO_BASE_URL);
   url.searchParams.set('ano', String(options.fiscalYear));
   url.searchParams.set('co_escola', options.inep);
