@@ -53,7 +53,12 @@ export function buildPddeInfoSchoolUrl(options: BuildPddeInfoSchoolUrlOptions): 
   if (!/^\d{6}$/.test(municipality)) {
     throw new Error(`Código FNDE do município inválido: ${municipality}.`);
   }
-  return `${PDDEINFO_BASE_URL}/ano/${options.fiscalYear}/co_escola/${options.inep}/cnpj//co_esfera_adm/${sphere}/sg_uf/${uf}/co_municipio_fnde/${municipality}/consultar/Consultar/page/1`;
+  const url = new URL(PDDEINFO_BASE_URL);
+  url.searchParams.set('ano', String(options.fiscalYear));
+  url.searchParams.set('co_escola', options.inep);
+  url.searchParams.set('cnpj', '');
+  url.searchParams.set('consultar', 'Consultar');
+  return url.toString();
 }
 
 function isTransientStatus(status: number): boolean {
