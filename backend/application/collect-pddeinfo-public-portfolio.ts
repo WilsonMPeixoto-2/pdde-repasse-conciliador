@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import {
   discoverPddeInfoBalanceMonths,
+  fetchPddeInfoBulkAttendanceReport,
   fetchPddeInfoPublicReport,
+  type FetchPddeInfoBulkAttendanceOptions,
   type FetchPddeInfoPublicReportOptions,
   type PddeInfoPublicReportKind,
   type PddeInfoPublicReportResult,
@@ -39,11 +41,15 @@ export type PublicPortfolioFetchReport = (
   options: FetchPddeInfoPublicReportOptions,
 ) => Promise<PddeInfoPublicReportResult>;
 
+export type PublicPortfolioFetchBulkAttendance = (
+  options: FetchPddeInfoBulkAttendanceOptions,
+) => Promise<PddeInfoPublicReportResult>;
+
 export type DiscoverBalanceMonths = (signal?: AbortSignal) => Promise<string[]>;
 export type BalanceCollectionMode = 'LATEST' | 'ALL_AVAILABLE_2026';
 
 export interface PublicPortfolioFailure {
-  kind: 'ATTENDANCE' | 'ACCOUNTING' | 'REGISTRATION' | 'ACCOUNT_OPENING' | 'SUSPENSION' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
+  kind: 'ATTENDANCE_BULK' | 'ATTENDANCE' | 'ACCOUNTING' | 'REGISTRATION' | 'ACCOUNT_OPENING' | 'SUSPENSION' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
   schoolInep?: string;
   cnpj?: string;
   month?: string;
@@ -84,6 +90,7 @@ export interface CollectPddeInfoPublicPortfolioOptions {
   schools: PublicPortfolioSchool[];
   fiscalYear: 2026;
   fetchReport?: PublicPortfolioFetchReport;
+  fetchBulkAttendance?: PublicPortfolioFetchBulkAttendance;
   discoverBalanceMonths?: DiscoverBalanceMonths;
   balanceMode?: BalanceCollectionMode;
   browserFallback?: boolean;
@@ -136,6 +143,11 @@ export async function collectPddeInfoPublicPortfolio(
   }
 
   const fetchReport = options.fetchReport ?? fetchPddeInfoPublicReport;
+  // Quando o chamador injeta fetchReport (principalmente testes), não abrimos
+  // uma segunda rota de rede implicitamente. Em produção, o XLSX municipal é
+  // a fonte primária de atendimento e as consultas individuais ficam como fallback.
+  const fetchBulkAttendance = options.fetchBulkAttendance
+    ?? (options.fetchReport ? undefined : fetchPddeInfoBulkAttendanceReport);
   const discoverMonths = options.discoverBalanceMonths
     ?? ((signal?: AbortSignal) => discoverPddeInfoBalanceMonths(signal ? { signal } : {}));
   const browserFallback = options.browserFallback ?? true;
@@ -148,19 +160,48 @@ export async function collectPddeInfoPublicPortfolio(
   const balances: PortfolioBalanceObservation[] = [];
   const failures: PublicPortfolioFailure[] = [];
   const artifacts: PublicPortfolioArtifact[] = [];
+  const attendanceCoveredIneps = new Set<string>();
+
+  if (fetchBulkAttendance) {
+    try {
+      const report = await fetchBulkAttendance({
+        fiscalYear: 2026,
+        uf: 'RJ',
+        administrationSphere: 2,
+        municipalityFndeCode: '330455',
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
+      artifacts.push(artifact(report, {}));
+      for (const row of report.rows) {
+        const normalized = normalizeAttendanceRow(row);
+        if (!uniqueIneps.has(normalized.schoolInep)) continue;
+        attendance.push(normalized);
+        attendanceCoveredIneps.add(normalized.schoolInep);
+      }
+    } catch (cause) {
+      failures.push({ kind: 'ATTENDANCE_BULK', error: errorText(cause) });
+    }
+  }
 
   await runRateLimited(schools, async (school) => {
     options.signal?.throwIfAborted();
-    try {
-      const report = await fetchReport({
-        filter: { kind: 'ATTENDANCE', fiscalYear: 2026, inep: school.inep },
-        browserFallback,
-        ...(options.signal ? { signal: options.signal } : {}),
-      });
-      artifacts.push(artifact(report, { schoolInep: school.inep }));
-      for (const row of report.rows) attendance.push(normalizeAttendanceRow(row));
-    } catch (cause) {
-      failures.push({ kind: 'ATTENDANCE', schoolInep: school.inep, error: errorText(cause) });
+    if (!attendanceCoveredIneps.has(school.inep)) {
+      try {
+        const report = await fetchReport({
+          filter: { kind: 'ATTENDANCE', fiscalYear: 2026, inep: school.inep },
+          browserFallback,
+          ...(options.signal ? { signal: options.signal } : {}),
+        });
+        artifacts.push(artifact(report, { schoolInep: school.inep }));
+        for (const row of report.rows) {
+          const normalized = normalizeAttendanceRow(row);
+          if (!uniqueIneps.has(normalized.schoolInep)) continue;
+          attendance.push(normalized);
+          attendanceCoveredIneps.add(normalized.schoolInep);
+        }
+      } catch (cause) {
+        failures.push({ kind: 'ATTENDANCE', schoolInep: school.inep, error: errorText(cause) });
+      }
     }
 
     try {
