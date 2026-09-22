@@ -31,21 +31,19 @@ jobs:
           echo
           grep -o '"ID":"02"[^}]*' .tmp/sigef-bulk-probe/index.json | head -n 1 || true
 
-          echo "== HEAD consolidado =="
-          curl -sS -L --max-time 60 -I "$URL" | tee .tmp/sigef-bulk-probe/head.headers
-          echo "head_exit=\${PIPESTATUS[0]}"
-
-          echo "== GET consolidado (limite 50 MiB / 240 s) =="
-          curl -sS -L --max-time 240 --max-filesize 52428800 \
-            -D .tmp/sigef-bulk-probe/get.headers \
-            -o .tmp/sigef-bulk-probe/payload.bin "$URL"
-          GET_EXIT=$?
-          echo "get_exit=$GET_EXIT"
-          cat .tmp/sigef-bulk-probe/get.headers || true
-          ls -lh .tmp/sigef-bulk-probe/payload.bin 2>/dev/null || true
-          file .tmp/sigef-bulk-probe/payload.bin 2>/dev/null || true
-          sha256sum .tmp/sigef-bulk-probe/payload.bin 2>/dev/null || true
-          head -c 64 .tmp/sigef-bulk-probe/payload.bin 2>/dev/null | xxd || true
+          echo "== comparação mensal da mesma rota oficial =="
+          for M in 04 05 06 07 08 09; do
+            MONTH_URL="https://www.fnde.gov.br/sigefweb/index.php/extratos/gerar-extrato-bancario/ano/2026/programa/02/mes_ini/$M/mes_fim/$M"
+            echo "-- mês $M --"
+            curl -sS -L --max-time 45 --max-filesize 10485760 \
+              -D ".tmp/sigef-bulk-probe/get-$M.headers" \
+              -o ".tmp/sigef-bulk-probe/payload-$M.bin" "$MONTH_URL"
+            CODE=$?
+            SIZE=$(wc -c < ".tmp/sigef-bulk-probe/payload-$M.bin" 2>/dev/null || echo 0)
+            echo "month=$M exit=$CODE size=$SIZE"
+            grep -iE '^(HTTP/|Content-Type:|Content-Length:|Content-Disposition:)' ".tmp/sigef-bulk-probe/get-$M.headers" || true
+          done
+          cp .tmp/sigef-bulk-probe/payload-09.bin .tmp/sigef-bulk-probe/payload.bin 2>/dev/null || true
 
           python - <<'PY'
           from pathlib import Path
