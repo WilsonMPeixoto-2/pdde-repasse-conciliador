@@ -22,6 +22,7 @@ type FilterMode =
   | 'first_pending'
   | 'second_paid'
   | 'sigef_evidence'
+  | 'second_sigef_evidence'
   | 'stale_extract'
   | 'current_location_unknown'
   | 'comparable_checking'
@@ -71,11 +72,13 @@ function matchesFilter(
   row: PddeBasicSchoolReading,
   filter: FilterMode,
   hasSigefEvidence: boolean,
+  hasSecondSigefEvidence: boolean,
   staleExtract: boolean,
 ): boolean {
   if (filter === 'first_pending') return row.first.state !== 'PAID_INFORMED';
   if (filter === 'second_paid') return row.second.state === 'PAID_INFORMED';
   if (filter === 'sigef_evidence') return hasSigefEvidence;
+  if (filter === 'second_sigef_evidence') return hasSecondSigefEvidence;
   if (filter === 'stale_extract') return staleExtract;
   if (filter === 'current_location_unknown') return row.first.state === 'PAID_INFORMED' && !balanceIsComparable(row);
   if (filter === 'comparable_checking') return balanceIsComparable(row) && (row.balance.checkingCents ?? 0) > 0;
@@ -132,6 +135,7 @@ export function PddeBasicOverviewPage() {
         row,
         filter,
         firstRelease?.hasIndependentSigefEvidence === true,
+        secondRelease?.hasIndependentSigefEvidence === true,
         firstRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
           || secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE',
       );
@@ -145,6 +149,7 @@ export function PddeBasicOverviewPage() {
     { key: 'first_pending', label: '1º ciclo sem pagamento informado', count: monitoring.firstPendingCount },
     { key: 'second_paid', label: '2º ciclo com pagamento informado', count: monitoring.secondPaidCount },
     { key: 'sigef_evidence', label: 'Evidência SIGEF do 1º ciclo', count: sigefEvidenceCount },
+    { key: 'second_sigef_evidence', label: 'Liberação/OB do 2º ciclo', count: secondSigefEvidenceCount },
     { key: 'stale_extract', label: 'Extrato SIGEF defasado', count: staleExtractCount },
     { key: 'current_location_unknown', label: 'Localização atual não comprovada', count: currentLocationUnknownCount },
     { key: 'comparable_checking', label: 'Posição comparável com valor em conta', count: comparableCheckingCount },
@@ -167,7 +172,7 @@ export function PddeBasicOverviewPage() {
           <article data-tone={monitoring.firstPendingCount === 0 ? 'positive' : 'attention'}>
             <span>FNDE informa pagamento do 1º ciclo</span>
             <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{monitoring.firstRegularCount} PDDE Básico regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
+            <small>{formatMoney(monitoring.firstPaymentInformedCents)} · {monitoring.firstRegularCount} PDDE Básico regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
           </article>
           <article data-tone={sigefEvidenceGapCount === 0 ? 'positive' : 'attention'}>
             <span>1º ciclo com evidência independente no SIGEF</span>
@@ -189,10 +194,21 @@ export function PddeBasicOverviewPage() {
             <strong>{comparableCheckingCount} escolas</strong>
             <small>{comparableApplicationCount} têm valor aplicado; {comparableBothCount} aparecem simultaneamente em conta e aplicações.</small>
           </article>
-          <article data-tone={monitoring.secondPaidCount > 0 ? 'positive' : 'waiting'}>
+          <article data-tone={monitoring.secondPaidCount === monitoring.schoolCount ? 'positive' : 'waiting'}>
             <span>FNDE informa pagamento do 2º ciclo</span>
             <strong>{monitoring.secondPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{secondSigefEvidenceCount} têm evidência independente em Liberações/extrato; {secondStaleExtractCount} ainda dependem de cobertura bancária mais recente.</small>
+            <small>
+              {formatMoney(monitoring.secondPaymentInformedCents)} · {monitoring.secondRegularPaidCount} na 2ª parcela regular
+              {' · '}{monitoring.secondInfancyPaidCount} em Primeira Infância/P2.
+            </small>
+          </article>
+          <article data-tone={secondSigefEvidenceCount === monitoring.secondPaidCount ? 'positive' : 'attention'}>
+            <span>2º ciclo com liberação/OB localizada</span>
+            <strong>{secondSigefEvidenceCount} de {monitoring.secondPaidCount}</strong>
+            <small>
+              Evidência independente do SIGEF. A confirmação do crédito no extrato continua sendo uma etapa separada;
+              {secondStaleExtractCount} extratos ainda terminam antes da liberação.
+            </small>
           </article>
           <article data-tone={monitoring.trueInconsistencyCount > 0 ? 'attention' : 'positive'}>
             <span>Inconsistência temporalmente comparável</span>
