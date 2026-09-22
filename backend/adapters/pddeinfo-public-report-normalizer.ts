@@ -131,7 +131,7 @@ function required(row: Record<string, string>, key: string): string {
 }
 
 export function parseBrazilianMoneyCents(value: string): number {
-  const normalized = value.trim();
+  const normalized = value.replace(/R\$/gi, '').replace(/\u00a0/g, ' ').trim();
   if (!/^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(normalized)) {
     throw new Error(`Valor monetário brasileiro inválido: ${value}.`);
   }
@@ -167,7 +167,7 @@ export function normalizeAttendanceRow(row: Record<string, string>): PddeInfoAtt
     uexCnpj: cnpjSchema.parse(required(row, 'CNPJ Executora').replace(/\D/g, '')),
     schoolName: required(row, 'Nome Escola'),
     programName: required(row, 'Programa'),
-    destination: required(row, 'Destinação'),
+    destination: valueByHeader(row, ['Destinação']) ?? '',
     studentCount: (() => {
       const raw = valueByHeader(row, ['Quantidade Alunos']);
       if (!raw) return null;
