@@ -16,6 +16,31 @@ const attendanceHtml = `
 <tr><td>2026</td><td>0410001 EM EMA NEGRAO DE LIMA</td><td>33069247</td><td>04500463000173</td><td>PDDE</td><td>PDDE Básico - 1ª Parcela</td><td>4.185,00</td><td>04/08/2026</td></tr>
 </table></body></html>`;
 
+
+const currentAttendanceCardHtml = `
+<html><body>
+<div class="govbr-results-card-list">
+  <div class="govbr-report-card">
+    <div class="govbr-report-card-header">
+      <h2>0410001 EM EMA NEGRAO DE LIMA</h2>
+      <span class="year">2026</span>
+    </div>
+    <div class="govbr-card-subtitle">
+      <span><strong>Rede de Ensino:</strong> ADMINISTRAÇÃO PÚBLICA MUNICIPAL</span>
+    </div>
+    <div class="govbr-report-card-item"><span class="label">Cód. da Escola</span><span class="value">33069247</span></div>
+    <div class="govbr-report-card-item"><span class="label">CNPJ Executora</span><span class="value">04500463000173</span></div>
+    <div class="govbr-report-card-item"><span class="label">Programa</span><span class="value">PDDE</span></div>
+    <div class="govbr-report-card-item"><span class="label">Destinação</span><span class="value"></span></div>
+    <div class="govbr-report-card-item"><span class="label">Qtd. Alunos</span><span class="value">326</span></div>
+    <div class="govbr-report-card-item"><span class="label">Valor Custeio</span><span class="value">R$ 837,00</span></div>
+    <div class="govbr-report-card-item"><span class="label">Valor Capital</span><span class="value">R$ 3.348,00</span></div>
+    <div class="govbr-report-card-item"><span class="label">Valor Total</span><span class="value">R$ 4.185,00</span></div>
+    <div class="govbr-report-card-item"><span class="label">Data da Ord. Pagamento</span><span class="value">16/09/2026</span></div>
+  </div>
+</div>
+</body></html>`;
+
 describe('relatórios públicos PDDEInfo', () => {
   test('constrói consulta 2026 de atendimento por INEP sem navegador', async () => {
     const mod = await subject();
@@ -55,6 +80,27 @@ describe('relatórios públicos PDDEInfo', () => {
       'CNPJ Executora': '04500463000173',
       'Valor Total': '4.185,00',
       'Data da Ord. de Pagamento': '04/08/2026',
+    });
+  });
+
+  test('extrai o markup atual em cartões e preserva aliases do contrato interno', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    const parsed = mod.parsePddeInfoPublicReport(currentAttendanceCardHtml, 'ATTENDANCE');
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0]).toMatchObject({
+      Ano: '2026',
+      'Nome Escola': '0410001 EM EMA NEGRAO DE LIMA',
+      'Código Escola': '33069247',
+      'Código da Escola': '33069247',
+      'CNPJ Executora': '04500463000173',
+      'CNPJ da Executora': '04500463000173',
+      'Quantidade Alunos': '326',
+      'Valor Total': 'R$ 4.185,00',
+      'Data da Ord. de Pagamento': '16/09/2026',
+      'Rede de Atendimento': 'ADMINISTRAÇÃO PÚBLICA MUNICIPAL',
     });
   });
 
