@@ -266,7 +266,7 @@ export function normalizeRegistrationRow(row: Record<string, string>): PddeInfoR
 
 export function normalizeAccountOpeningRow(row: Record<string, string>): PddeInfoAccountOpeningObservation {
   rowFiscalYear(row);
-  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP', 'Código']), 8);
   if (!schoolInep) throw new Error('Relatório de abertura de conta sem Código Escola válido.');
   const status = valueByHeader(row, ['Situação']);
   if (!status) throw new Error('Relatório de abertura de conta sem coluna Situação.');
@@ -284,7 +284,7 @@ export function normalizeAccountOpeningRow(row: Record<string, string>): PddeInf
 
 export function normalizeSuspensionRow(row: Record<string, string>): PddeInfoSuspensionObservation {
   rowFiscalYear(row);
-  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP', 'Código']), 8);
   if (!schoolInep) throw new Error('Relatório de suspensão sem Código Escola válido.');
   const suspensionType = valueByHeader(row, ['Tipo de Suspensão', 'Suspensão', 'Motivo Suspensão', 'Motivo']);
   if (!suspensionType) throw new Error('Relatório de suspensão sem motivo/tipo identificável.');
