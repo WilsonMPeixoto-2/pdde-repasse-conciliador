@@ -12,7 +12,7 @@ afterAll(() => server.close());
 it('MSW intercepta a consulta HTTP real sem injeção de fetch', async () => {
   server.use(
     http.get(
-      'https://www.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
+      'https://webservice.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
       () => HttpResponse.text(
         '<table><tr><th>Conta</th><th>Saldo</th></tr><tr><td>12345</td><td>10,00</td></tr></table>',
         { headers: { 'content-type': 'text/html; charset=utf-8' } },
