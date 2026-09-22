@@ -56,7 +56,7 @@ describe('cliente HTTP do PDDEInfo', () => {
       html: '<html>ok</html>',
       attempts: 3,
       queriedAt: '2026-08-12T22:50:00-03:00',
-      sourceUrl: expect.stringContaining('/ano/2026/co_escola/33069247/'),
+      sourceUrl: expect.stringContaining('ano=2026&co_escola=33069247'),
     });
     expect(result.rawBytes).toEqual(Buffer.from('<html>ok</html>', 'utf8'));
     expect(fetchImpl).toHaveBeenCalledTimes(3);
