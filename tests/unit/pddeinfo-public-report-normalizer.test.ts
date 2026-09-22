@@ -88,6 +88,44 @@ describe('normalização dos relatórios públicos PDDEInfo', () => {
     });
   });
 
+  test('aceita os rótulos e valores dos cards GOV.BR publicados em 18/09', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    expect(mod.normalizeAccountingRow({
+      Ano: '2026',
+      Código: '33136947',
+      Programa: 'PDDE',
+      'CNPJ Executora UEx': '12558497000147',
+      'Situação PC UEx': 'Adimplente',
+      'Suspensão UEx': 'NAO',
+      'Valor Total Previsto': 'R$ 5.550,00',
+    })).toMatchObject({
+      schoolInep: '33136947',
+      uexCnpj: '12558497000147',
+      accountingStatus: 'Adimplente',
+      paymentSuspended: false,
+      expectedTotalCents: 555_000,
+    });
+
+    expect(mod.normalizeBalanceRow({
+      CNPJ: '12558497000147',
+      Banco: '001',
+      Agência: '0249',
+      Conta: '0000563498',
+      Programa: 'PDDE',
+      'Saldo Conta': 'R$ 2.775,00',
+      'Saldo Fundos': 'R$ 0,00',
+      'Saldo Poupança': 'R$ 0,00',
+      'Saldo RDB/CDB': 'R$ 0,00',
+    }, '2026-08-31')).toMatchObject({
+      programName: 'PDDE',
+      checkingBalanceCents: 277_500,
+      totalReportedBalanceCents: 277_500,
+    });
+  });
+
   test('normaliza cadastro, abertura de conta e motivo de suspensão sem misturar fontes', async () => {
     const mod = await subject();
     expect(mod).not.toBeNull();
