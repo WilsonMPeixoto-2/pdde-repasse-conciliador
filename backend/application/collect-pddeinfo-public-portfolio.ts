@@ -58,6 +58,9 @@ export interface PublicPortfolioArtifact {
   sourceUrl: string;
   coverageThrough: string | null;
   rawBytes: Buffer;
+  artifactKind?: 'RAW_HTML' | 'RAW_FILE';
+  mediaType?: string;
+  fileExtension?: 'html' | 'xlsx';
 }
 
 export interface PortfolioBalanceObservation extends PddeInfoBalanceObservation {
@@ -115,6 +118,9 @@ function artifact(
     sourceUrl: report.sourceUrl,
     coverageThrough: report.coverageThrough,
     rawBytes: report.rawBytes,
+    artifactKind: report.artifactKind ?? 'RAW_HTML',
+    mediaType: report.mediaType ?? 'text/html',
+    fileExtension: report.fileExtension ?? 'html',
   };
 }
 
