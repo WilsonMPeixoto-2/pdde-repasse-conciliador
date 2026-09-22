@@ -23,6 +23,31 @@ export interface LiveFinancialConsistencyReport {
   errors: string[];
 }
 
+function recoveryReferenceDate(
+  raw: RawFinancialMonitoring,
+  repasse: {
+    schoolInep: string;
+    programCode: string;
+    action: string;
+    installment: string | null;
+    amountCents: number;
+  },
+): string | null {
+  const dates = [...new Set((raw.accountRecoveries ?? [])
+    .filter((recovery) => (
+      recovery.schoolInep === repasse.schoolInep
+      && recovery.programCode === repasse.programCode
+      && canonicalText(recovery.action) === canonicalText(repasse.action)
+      && canonicalText(recovery.installment ?? '') === canonicalText(repasse.installment ?? '')
+      && recovery.amountCents === repasse.amountCents
+      && (recovery.status === 'RECOVERED' || recovery.status === 'CONFIRMED')
+      && recovery.paymentDate !== null
+    ))
+    .map((recovery) => recovery.paymentDate)
+    .filter((date): date is string => date !== null))];
+  return dates.length === 1 ? dates[0] : null;
+}
+
 function recomputeTemporal(raw: RawFinancialMonitoring) {
   return assessPaymentTemporalCoverage({
     payments: raw.schools.flatMap((school) => (
@@ -31,7 +56,13 @@ function recomputeTemporal(raw: RawFinancialMonitoring) {
         programCode: repasse.programCode,
         account: repasse.account,
         amountPaidCents: repasse.pagoInformadoCents,
-        paymentDate: repasse.dataOrdem,
+        paymentDate: repasse.dataOrdem ?? recoveryReferenceDate(raw, {
+          schoolInep: school.inep,
+          programCode: repasse.programCode,
+          action: repasse.action,
+          installment: repasse.installment,
+          amountCents: repasse.pagoInformadoCents,
+        }),
       }))
     )),
     accounts: raw.schools.flatMap((school) => (
@@ -119,16 +150,25 @@ export function analyzeLiveFinancialConsistency(raw: RawFinancialMonitoring): Li
   for (const repasse of operational.repasses) {
     operationalCreditStatusCounts[repasse.bankCreditStatus] = (operationalCreditStatusCounts[repasse.bankCreditStatus] ?? 0) + 1;
 
-    if (repasse.bankCreditStatus === 'PAGO_CREDITO_NAO_LOCALIZADO' && repasse.orderDate && repasse.account) {
+    if (repasse.bankCreditStatus === 'PAGO_CREDITO_NAO_LOCALIZADO' && repasse.account) {
       const repasseAccount = repasse.account;
       const school = raw.schools.find((candidate) => candidate.inep === repasse.school.inep);
       const account = school?.accounts.find((candidate) => (
         candidate.programCode === repasse.programCode
         && canonicalAccount(candidate.account) === canonicalAccount(repasseAccount)
       ));
-      const requiredThrough = addDays(repasse.orderDate, 30);
-      if (!account?.coverageThrough || account.coverageThrough < requiredThrough) {
-        errors.push(`NEGATIVE_CREDIT_WITHOUT_FULL_WINDOW:${repasse.school.inep}:${repasse.programCode}:${repasse.orderDate}:${account?.coverageThrough ?? 'NONE'}`);
+      const referenceDate = repasse.orderDate ?? recoveryReferenceDate(raw, {
+        schoolInep: repasse.school.inep,
+        programCode: repasse.programCode,
+        action: repasse.action,
+        installment: repasse.installment,
+        amountCents: repasse.amountPaidInformedCents,
+      });
+      if (referenceDate) {
+        const requiredThrough = addDays(referenceDate, 30);
+        if (!account?.coverageThrough || account.coverageThrough < requiredThrough) {
+          errors.push(`NEGATIVE_CREDIT_WITHOUT_FULL_WINDOW:${repasse.school.inep}:${repasse.programCode}:${referenceDate}:${account?.coverageThrough ?? 'NONE'}`);
+        }
       }
     }
 
