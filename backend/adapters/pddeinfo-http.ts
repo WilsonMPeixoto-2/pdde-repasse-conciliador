@@ -53,7 +53,16 @@ export function buildPddeInfoSchoolUrl(options: BuildPddeInfoSchoolUrlOptions): 
   if (!/^\d{6}$/.test(municipality)) {
     throw new Error(`Código FNDE do município inválido: ${municipality}.`);
   }
-  return `${PDDEINFO_BASE_URL}/ano/${options.fiscalYear}/co_escola/${options.inep}/cnpj//co_esfera_adm/${sphere}/sg_uf/${uf}/co_municipio_fnde/${municipality}/consultar/Consultar/page/1`;
+
+  // O layout GOV.BR publicado em 18/09/2026 passou a gerar as consultas
+  // individuais por query string. O roteamento legado por segmentos continua
+  // aceito pelo servidor, mas não é mais a forma canônica exposta pela UI.
+  const url = new URL(PDDEINFO_BASE_URL);
+  url.searchParams.set('ano', String(options.fiscalYear));
+  url.searchParams.set('co_escola', options.inep);
+  url.searchParams.set('cnpj', '');
+  url.searchParams.set('consultar', 'Consultar');
+  return url.toString();
 }
 
 function isTransientStatus(status: number): boolean {
@@ -172,7 +181,7 @@ export async function fetchPddeInfoSchoolHtml(
       const response = await fetchImpl(sourceUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Collector/0.5)',
+          'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Collector/0.6)',
           Accept: 'text/html,application/xhtml+xml',
           'Accept-Language': 'pt-BR,pt;q=0.9',
           'Cache-Control': 'no-cache, no-store, max-age=0',
