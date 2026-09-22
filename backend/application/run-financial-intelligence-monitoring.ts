@@ -66,7 +66,9 @@ async function appendEvidence(
 }
 
 function artifactRelativePath(artifact: PublicPortfolioArtifact, index: number): string {
-  const identity = artifact.schoolInep ?? artifact.cnpj ?? String(index + 1).padStart(4, '0');
+  const identity = artifact.scope === 'PORTFOLIO'
+    ? 'portfolio'
+    : artifact.schoolInep ?? artifact.cnpj ?? String(index + 1).padStart(4, '0');
   const reference = artifact.coverageThrough ?? artifact.queriedAt.slice(0, 10);
   const extension = artifact.extension ?? 'html';
   return `public-reports/${artifact.kind.toLowerCase()}/${safeSegment(identity)}-${safeSegment(reference)}.${extension}`;
@@ -106,6 +108,7 @@ async function preservePublicArtifact(input: {
       queriedAt: input.artifact.queriedAt,
       sourceUrl: input.artifact.sourceUrl,
       coverageThrough: input.artifact.coverageThrough,
+      scope: input.artifact.scope ?? null,
       localPath,
     },
   });
