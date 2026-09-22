@@ -149,6 +149,40 @@ describe('collectPddeInfoPublicPortfolio', () => {
     ]);
   });
 
+  it('prefere o lote municipal e evita consulta individual de atendimento quando a carteira está coberta', async () => {
+    const attendanceCalls: string[] = [];
+    const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
+      if (filter.kind === 'ATTENDANCE') {
+        attendanceCalls.push(filter.inep);
+        throw new Error('não deveria consultar atendimento individual');
+      }
+      if (filter.kind === 'ACCOUNTING') return report('ACCOUNTING', []);
+      if (filter.kind === 'REGISTRATION') return report('REGISTRATION', []);
+      if (filter.kind === 'ACCOUNT_OPENING') return report('ACCOUNT_OPENING', []);
+      if (filter.kind === 'SUSPENSION') return report('SUSPENSION', []);
+      throw new Error('saldo não deveria ser consultado');
+    };
+
+    const result = await collectPddeInfoPublicPortfolio({
+      schools,
+      fiscalYear: 2026,
+      fetchReport,
+      fetchBulkAttendance: async () => report('ATTENDANCE', [
+        attendanceRow('33069247'),
+        attendanceRow('33069433'),
+        attendanceRow('33111111'),
+      ]),
+      discoverBalanceMonths: async () => [],
+    });
+
+    expect(attendanceCalls).toEqual([]);
+    expect(result.attendance.map((item) => item.schoolInep).sort()).toEqual(['33069247', '33069433']);
+    expect(result.artifacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'ATTENDANCE' }),
+    ]));
+    expect(result.failures.find((failure) => failure.kind === 'ATTENDANCE')).toBeUndefined();
+  });
+
   it('não inventa mês de saldo quando a fonte não anuncia cobertura de 2026', async () => {
     const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
       if (filter.kind === 'ATTENDANCE') return report('ATTENDANCE', [attendanceRow(filter.inep)]);
