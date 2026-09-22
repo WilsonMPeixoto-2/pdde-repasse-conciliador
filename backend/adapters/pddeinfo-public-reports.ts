@@ -188,6 +188,15 @@ function parseGovbrReportCards(
   return { kind, headers, rows };
 }
 
+function canonicalReportHeader(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+}
+
 function attendanceExcelUrl(filter: z.output<typeof attendanceFilterSchema>): string {
   const url = new URL(
     'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
@@ -226,7 +235,7 @@ export async function parsePddeInfoAttendanceWorkbook(
     const values = row.values instanceof Array
       ? row.values.slice(1).map((_value, index) => excelCellText(row.getCell(index + 1)))
       : [];
-    const normalized = values.map((value) => canonicalHeader(value));
+    const normalized = values.map((value) => canonicalReportHeader(value));
     if (
       normalized.includes('ANO')
       && normalized.includes('CODIGO ESCOLA')
