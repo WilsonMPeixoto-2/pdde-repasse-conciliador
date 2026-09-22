@@ -116,7 +116,8 @@ export async function parsePddeInfoAttendanceExcel(
   bytes: Buffer,
 ): Promise<PddeInfoAttendanceObservation[]> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(bytes);
+  const arrayBuffer = Uint8Array.from(bytes).buffer;
+  await workbook.xlsx.load(arrayBuffer);
   const worksheet = workbook.worksheets[0];
   if (!worksheet) throw new Error('XLSX do PDDEInfo sem planilha.');
 
