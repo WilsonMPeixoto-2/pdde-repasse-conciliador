@@ -35,6 +35,36 @@ jobs:
       - run: npm ci
       - name: Instalar Chromium para o fallback Playwright
         run: npx playwright install --with-deps chromium
+      - name: Probe temporário do extrato consolidado PDDE setembro
+        continue-on-error: true
+        run: |
+          set +e
+          URL="https://www.fnde.gov.br/sigefweb/index.php/extratos/gerar-extrato-bancario/ano/2026/programa/02/mes_ini/09/mes_fim/09"
+          echo "== HEAD =="
+          curl -sS -L --max-time 45 -I "$URL"
+          echo "head_exit=$?"
+          echo "== GET parcial =="
+          curl -sS -L --max-time 120 --range 0-2097151 -D /tmp/bulk.headers -o /tmp/bulk.sample "$URL"
+          echo "get_exit=$?"
+          cat /tmp/bulk.headers 2>/dev/null || true
+          ls -lh /tmp/bulk.sample 2>/dev/null || true
+          file /tmp/bulk.sample 2>/dev/null || true
+          head -c 64 /tmp/bulk.sample 2>/dev/null | xxd || true
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          p=Path('/tmp/bulk.sample')
+          print('exists=',p.exists(),'size=',p.stat().st_size if p.exists() else 0)
+          if p.exists():
+              raw=p.read_bytes()
+              for needle in (
+                  b'17/09/2026', b'15/09/2026', b'2026-09-17', b'2026-09-15',
+                  b'05485540000126', b'01226403000116', b'01856391000103', b'12558497000147',
+                  b'024298', b'023987',
+              ):
+                  print(needle.decode(), needle in raw)
+              print('zip=',zipfile.is_zipfile(p))
+          PY
       - name: Teste live de 10 UEs reais da 4ª CRE
         run: npm run monitor:live -- --workspace .tmp/monitor-live --year 2026 --output artifacts/monitor-live-2026.json
       - name: Exigir consistência semântica do produto financeiro live
