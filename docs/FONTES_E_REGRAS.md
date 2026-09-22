@@ -1,6 +1,6 @@
 # Fontes e regras de evidência
 
-**Atualização material:** 08/09/2026  
+**Atualização material:** 22/09/2026  
 **Estado corrente:** [`ESTADO_ATUAL_2026-09-04.md`](ESTADO_ATUAL_2026-09-04.md)
 
 Este documento registra a maturidade das fontes, o que cada uma realmente prova, falhas conhecidas e regras que impedem conclusões financeiras falsas.
@@ -17,13 +17,41 @@ Nenhuma fonte deve “ganhar” apagando silenciosamente outra. O sistema preser
 
 **Ausência não é zero. Fonte indisponível não é ausência. Pagamento informado não é crédito bancário.**
 
-## 2. Estado das fontes em 08/09/2026
+## 2. Estado das fontes em 22/09/2026
+
+### Modernização oficial do PDDEInfo
+
+Em 22/09/2026 foi verificada diretamente a versão oficial **PDDE Info 18.09.2026#83f77b** no host `webservice.fnde.gov.br`.
+
+A interface oficial atual passou a ser tratada pelo projeto como uma fonte estruturada, não apenas como páginas para raspagem individual:
+
+- filtros por **UF e município** em lote;
+- filtro de **rede de ensino**;
+- filtro de **programa**;
+- no Atendimento, filtro explícito de **Pagos / Não Pagos**;
+- relatório detalhado por escola;
+- exportação oficial **XLSX**;
+- endpoint agregado do Atendimento capaz de retornar, em uma única descarga, os pagamentos do PDDE da rede municipal do Rio de Janeiro.
+
+Regra operacional nova:
+
+1. **bulk-first:** exportações/consultas agregadas oficiais são o caminho primário quando houver contrato reproduzível;
+2. **INEP fallback:** a consulta individual permanece como fallback e verificação nominal;
+3. **sentinela:** o Atendimento pago é verificado de hora em hora e comparado ao snapshot publicado;
+4. **delta dispara coleta integral:** novidade de valor/data/ordem aciona o Full 163;
+5. **artefato bruto preservado:** XLSX oficial é guardado junto à cadeia de evidência;
+6. **versão da plataforma é observada:** mudança de versão do PDDEInfo passa a ser registrada pelo sentinela;
+7. **mudança de layout não vira zero:** falha de contrato/coluna interrompe a coleta e exige correção.
+
+A consulta de saldo oficial, na mesma versão, expõe atualmente referência até **08-2026**; portanto setembro não deve ser inventado nem inferido como saldo mensal publicado.
+
+
 
 | Fonte | Finalidade | Estado | Observação atual |
 |---|---|---|---|
-| **PDDEInfo — consulta por escola/INEP** | programação, pagamento informado, custeio/capital, ajustes, UEx/CNPJ, contas/ocorrências | **INTEGRADO** | Fonte nuclear da carteira 163; consulta direta por INEP. |
+| **PDDEInfo — consulta por escola/INEP** | programação, pagamento informado, custeio/capital, ajustes, UEx/CNPJ, contas/ocorrências | **INTEGRADO / FALLBACK NOMINAL** | Continua autoritativa por escola, mas deixa de ser a única forma de detectar novidade quando existe exportação agregada oficial. |
 | **SIGEF — extrato público** | créditos, débitos, aplicações, resgates, documentos, histórico e contraparte | **INTEGRADO** | Fonte nuclear/complementar para movimentação e crédito compatível. |
-| **PDDEInfo/FNDE — atendimento/repasse** | atendimento, ordem, alunos e campos relacionados | **INTEGRADO** | Falha aqui pode ser bloqueante conforme contrato do monitoramento. |
+| **PDDEInfo/FNDE — atendimento/repasse** | atendimento, pagamento informado, ordem, alunos, custeio/capital | **INTEGRADO / BULK-FIRST** | XLSX municipal oficial é a rota primária de baixa latência; consulta individual por INEP é fallback. |
 | **PDDEInfo/FNDE — prestação/contabilidade** | situação e registros públicos de prestação | **INTEGRADO** | Tratado como evidência pública independente dentro do contrato atual. |
 | **PDDEInfo/FNDE — saldos/aplicações** | posição mensal datada de conta/aplicações | **INTEGRADO** | `BALANCE` e descoberta mensal são bloqueantes para completude. |
 | **PDDEInfo/FNDE — cadastro/mandato** | situação cadastral, mandato, atualização/contatos quando publicados | **COMPLEMENTAR INTEGRADO** | Ausência/falha não apaga fatos financeiros de fontes nucleares. |
