@@ -22,7 +22,7 @@ describe('cliente HTTP do PDDEInfo', () => {
       inep: '33069247',
     });
 
-    expect(url).toBe('https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar/ano/2026/co_escola/33069247/cnpj//co_esfera_adm/2/sg_uf/RJ/co_municipio_fnde/330455/consultar/Consultar/page/1');
+    expect(url).toBe('https://webservice.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar/ano/2026/co_escola/33069247/cnpj//co_esfera_adm/2/sg_uf/RJ/co_municipio_fnde/330455/consultar/Consultar/page/1');
   });
 
   test('repete falhas transitórias e preserva os bytes recebidos na resposta bem-sucedida', async () => {
