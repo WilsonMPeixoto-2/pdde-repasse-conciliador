@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   derivePddeBasicFirstCycleReleaseEvidence,
+  derivePddeBasicSecondCycleReleaseEvidence,
   pddeBasicReleaseEvidenceLabel,
 } from '../../shared/pdde-basic-release-evidence';
 
@@ -92,4 +93,52 @@ describe('evidência do 1º ciclo do PDDE Básico', () => {
     expect(reading.needsFreshExtract).toBe(false);
     expect(pddeBasicReleaseEvidenceLabel(reading)).not.toContain('defasado');
   });
+
+  test('separa a evidência do 2º ciclo e marca extrato anterior à liberação recente como defasado', () => {
+    const school = {
+      programs: [{
+        name: 'PDDE Básico',
+        installments: [
+          {
+            installment: '1ª Parcela',
+            paymentInformedCents: 418_500,
+            paymentInformedDate: '2026-04-30',
+            creditEvidence: { status: 'Crédito localizado', amountCents: 418_500, date: '2026-04-30' },
+            note: 'SIGEF Liberações localizou a liberação pela OB 008035 para a mesma conta informada; isso confirma a ordem/destino, mas não substitui a localização do crédito no extrato.',
+            account: { bank: '001', agency: '0249', number: '0000549789' },
+          },
+          {
+            installment: '2ª Parcela',
+            paymentInformedCents: 418_500,
+            paymentInformedDate: '2026-09-17',
+            creditEvidence: { status: 'Consulta inconclusiva', amountCents: null },
+            note: 'SIGEF Liberações localizou a liberação pela OB 024298 para a mesma conta informada; isso confirma a ordem/destino, mas não substitui a localização do crédito no extrato.',
+            account: { bank: '001', agency: '0249', number: '0000549789' },
+          },
+        ],
+      }],
+      accounts: [{
+        bank: '001',
+        agency: '0249',
+        account: '0000549789',
+        statementCoverageThrough: '2026-05-03',
+      }],
+    };
+
+    const first = derivePddeBasicFirstCycleReleaseEvidence(school);
+    const second = derivePddeBasicSecondCycleReleaseEvidence(school);
+
+    expect(first.state).toBe('CREDIT_LOCATED');
+    expect(first.releaseDate).toBe('2026-04-30');
+    expect(first.extractFreshness).toBe('CURRENT_THROUGH_RELEASE');
+
+    expect(second.state).toBe('RELEASE_CONFIRMED');
+    expect(second.releaseDate).toBe('2026-09-17');
+    expect(second.orderBank).toBe('024298');
+    expect(second.statementCoverageThrough).toBe('2026-05-03');
+    expect(second.extractFreshness).toBe('STALE_BEFORE_RELEASE');
+    expect(second.needsFreshExtract).toBe(true);
+    expect(pddeBasicReleaseEvidenceLabel(second)).toContain('extrato SIGEF defasado');
+  });
+
 });
