@@ -54,7 +54,7 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
     authority: 'FNDE',
     access: 'PUBLIC',
     integrationState: 'ACTIVE',
-    purpose: 'Programação e pagamento por custeio/capital, cadastro e mandato da UEx, contas e ocorrências, abertura de conta, suspensões, atendimento, prestação de contas e saldos publicados no PDDEInfo.',
+    purpose: 'Programação e pagamento por custeio/capital, cadastro e mandato da UEx, contas e ocorrências, abertura de conta, suspensões, atendimento, prestação de contas e saldos publicados no PDDEInfo. A versão oficial atual expõe filtros municipais em lote e exportação XLSX estruturada para o relatório de Atendimento.',
     capabilities: [
       'PROGRAMMED_TRANSFERS',
       'PROGRAMMED_COST_CAPITAL',
@@ -80,6 +80,10 @@ export const SOURCE_CATALOG: InstitutionalSourceCatalogItem[] = [
       'PUBLIC_SUSPENSION_REPORT',
       'PUBLIC_ACCOUNTING_REPORT',
       'PUBLIC_BALANCE_REPORT',
+      'MUNICIPAL_BULK_FILTER',
+      'PAID_STATUS_FILTER',
+      'XLSX_EXPORT',
+      'SOURCE_VERSION_DISCOVERY',
     ],
   },
   {
@@ -223,7 +227,7 @@ export const DATA_PRODUCT_CATALOG: InstitutionalDataProduct[] = [
     sourceId: 'PDDEINFO',
     fiscalYear: 2026,
     state: 'ACTIVE',
-    purpose: 'Atendimento, quantidade de alunos, cadastro/mandato, abertura de conta, suspensões e seus motivos, situação de prestação de contas e saldos bancários/aplicados com cobertura temporal explícita.',
+    purpose: 'Relatórios públicos atuais do PDDEInfo. Atendimento pago usa prioritariamente exportação XLSX municipal estruturada; consultas por INEP permanecem como fallback/validação. Demais relatórios preservam cobertura temporal e origem explícitas.',
   },
   {
     id: 'SIGEF_MOVIMENTACOES_2026',
