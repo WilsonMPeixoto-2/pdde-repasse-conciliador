@@ -100,9 +100,12 @@ jobs:
           --ineps "all"
           --workspace ".tmp/monitor-all-163"
           --output-dir "artifacts/full-163-session"
-      - name: Exigir cobertura completa da carteira real
+      - name: Exigir cobertura oficial completa da carteira real
         run: >-
-          node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); if(s.status!=='COMPLETE'||s.schoolCount!==163){console.error('Validação 163 incompleta',s);process.exit(2)} console.log(JSON.stringify({status:s.status,schoolCount:s.schoolCount,workbook:s.workbookFilename}))"
+          node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); const p=s.officialPaymentCoverage?.pddeBasic; if(s.schoolCount!==163||!p||p.secondPaidCount!==163||p.secondPendingCount!==0||p.completeSecondCycle!==true){console.error('Cobertura oficial do 2º ciclo incompleta',s);process.exit(2)} console.log(JSON.stringify({schoolCount:s.schoolCount,secondPaidCount:p.secondPaidCount,secondRegularPaidCount:p.secondRegularPaidCount,secondInfancyPaidCount:p.secondInfancyPaidCount,secondPaymentInformedCents:p.secondPaymentInformedCents,reconciliationStatus:s.reconciliationStatus}))"
+      - name: Registrar conciliação bancária como dimensão independente
+        run: >-
+          node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('artifacts/full-163-session/session.json','utf8')); console.log(JSON.stringify({reconciliationStatus:s.reconciliationStatus,meaning:s.reconciliationStatus==='COMPLETE'?'extratos conciliados nas janelas exigidas':'pagamento oficial validado; parte dos extratos públicos ainda não cobre a janela de conciliação'}))"
       - name: Materializar diagnóstico nominal das lacunas de pagamento
         run: >-
           node --import tsx scripts/analyze-payment-data-gaps.ts
