@@ -4,12 +4,8 @@ import { basename, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
-import { fetchPddeInfoPublicReport } from '../backend/adapters/pddeinfo-public-reports';
-import {
-  normalizeAttendanceRow,
-  type PddeInfoAttendanceObservation,
-} from '../backend/adapters/pddeinfo-public-report-normalizer';
-import { runRateLimited } from '../backend/runtime/rate-limited-queue';
+import { fetchPddeInfoPaidMunicipalAttendanceExcel } from '../backend/adapters/pddeinfo-attendance-excel';
+import type { PddeInfoAttendanceObservation } from '../backend/adapters/pddeinfo-public-report-normalizer';
 
 interface PortfolioSchool {
   inep: string;
@@ -73,6 +69,8 @@ export interface AttendanceSentinelResult {
   snapshotArtifactId: number;
   schoolsChecked: number;
   attendanceObservations: number;
+  sourceUrl: string;
+  responseBytes: number;
   deltaCount: number;
   deltas: AttendanceSentinelDelta[];
 }
@@ -181,56 +179,35 @@ async function loadPublishedSnapshot(): Promise<{
 
 async function collectAttendance(
   schools: readonly PortfolioSchool[],
-): Promise<PddeInfoAttendanceObservation[]> {
-  const observations: PddeInfoAttendanceObservation[] = [];
-  const failures: Array<{ inep: string; message: string }> = [];
+): Promise<{
+  observations: PddeInfoAttendanceObservation[];
+  sourceUrl: string;
+  responseBytes: number;
+}> {
+  const report = await fetchPddeInfoPaidMunicipalAttendanceExcel();
+  const schoolIneps = new Set(schools.map((school) => school.inep));
+  const observations = report.rows
+    .filter((row) => schoolIneps.has(row.schoolInep))
+    .sort((left, right) => (
+      left.schoolInep.localeCompare(right.schoolInep)
+      || left.paymentOrderDate.localeCompare(right.paymentOrderDate)
+      || normalized(left.destination).localeCompare(normalized(right.destination), 'pt-BR')
+    ));
 
-  await runRateLimited(
-    [...schools],
-    async (school) => {
-      try {
-        const report = await fetchPddeInfoPublicReport({
-          filter: {
-            kind: 'ATTENDANCE',
-            fiscalYear: 2026,
-            inep: school.inep,
-          },
-          browserFallback: false,
-          timeoutMs: 20_000,
-        });
-        for (const row of report.rows) {
-          observations.push(normalizeAttendanceRow(row));
-        }
-      } catch (cause) {
-        failures.push({
-          inep: school.inep,
-          message: cause instanceof Error ? cause.message : String(cause),
-        });
-      }
-    },
-    {
-      concurrency: 4,
-      intervalCap: 8,
-      intervalMs: 5_000,
-      timeoutMs: 25_000,
-      strict: true,
-    },
-  );
-
-  if (failures.length > 0) {
-    const sample = failures.slice(0, 10)
-      .map((failure) => `${failure.inep}: ${failure.message}`)
-      .join(' | ');
+  const coveredIneps = new Set(observations.map((row) => row.schoolInep));
+  const missing = schools.filter((school) => !coveredIneps.has(school.inep));
+  if (missing.length > 0) {
     throw new Error(
-      `Sentinela não aceita cobertura parcial: ${failures.length}/163 consultas falharam. ${sample}`,
+      `XLSX agregado do PDDEInfo não cobriu ${missing.length}/163 UEs da carteira: `
+      + missing.slice(0, 10).map((school) => school.inep).join(', '),
     );
   }
 
-  return observations.sort((left, right) => (
-    left.schoolInep.localeCompare(right.schoolInep)
-    || left.paymentOrderDate.localeCompare(right.paymentOrderDate)
-    || normalized(left.destination).localeCompare(normalized(right.destination), 'pt-BR')
-  ));
+  return {
+    observations,
+    sourceUrl: report.sourceUrl,
+    responseBytes: report.responseBytes,
+  };
 }
 
 export async function runAttendanceSentinel(): Promise<AttendanceSentinelResult> {
@@ -238,9 +215,9 @@ export async function runAttendanceSentinel(): Promise<AttendanceSentinelResult>
     loadSchools(),
     loadPublishedSnapshot(),
   ]);
-  const observations = await collectAttendance(schools);
+  const attendance = await collectAttendance(schools);
   const deltas = compareAttendanceWithSnapshot(
-    observations,
+    attendance.observations,
     schools,
     published.snapshot,
   );
@@ -251,7 +228,9 @@ export async function runAttendanceSentinel(): Promise<AttendanceSentinelResult>
     snapshotWorkflowRunId: published.manifest.source.workflowRunId,
     snapshotArtifactId: published.manifest.source.artifactId,
     schoolsChecked: schools.length,
-    attendanceObservations: observations.length,
+    attendanceObservations: attendance.observations.length,
+    sourceUrl: attendance.sourceUrl,
+    responseBytes: attendance.responseBytes,
     deltaCount: deltas.length,
     deltas,
   };
@@ -267,6 +246,7 @@ async function main(): Promise<void> {
     snapshotPublishedAt: result.snapshotPublishedAt,
     schoolsChecked: result.schoolsChecked,
     attendanceObservations: result.attendanceObservations,
+    responseBytes: result.responseBytes,
     deltaCount: result.deltaCount,
     outputPath,
   }));
