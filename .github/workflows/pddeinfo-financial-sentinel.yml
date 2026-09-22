@@ -39,7 +39,15 @@ jobs:
           set -euo pipefail
           node --import tsx scripts/watch-pddeinfo-attendance.ts artifacts/pddeinfo-attendance-sentinel.json
           delta_count="$(jq -r '.deltaCount' artifacts/pddeinfo-attendance-sentinel.json)"
+          observed_version="$(jq -r '.platformVersion // ""' artifacts/pddeinfo-attendance-sentinel.json)"
+          expected_version="$(jq -r '.observedVersion' backend/source-contracts/pddeinfo-current.json)"
+          source_changed=false
+          if [ -n "$observed_version" ] && [ "$observed_version" != "$expected_version" ]; then
+            source_changed=true
+            echo "::warning::Versão do PDDEInfo mudou: contrato=$expected_version fonte=$observed_version. Validação integral será disparada."
+          fi
           echo "delta_count=$delta_count" >> "$GITHUB_OUTPUT"
+          echo "source_changed=$source_changed" >> "$GITHUB_OUTPUT"
           if [ "$delta_count" -gt 0 ]; then
             echo "delta=true" >> "$GITHUB_OUTPUT"
             echo "::warning::O Atendimento FNDE contém $delta_count fato(s) financeiro(s) ainda ausente(s) do snapshot publicado."
@@ -56,8 +64,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Disparar coleta integral quando houver novidade
-        if: steps.sentinel.outputs.delta == 'true'
+      - name: Disparar coleta integral quando houver novidade ou mudança da fonte
+        if: steps.sentinel.outputs.delta == 'true' || steps.sentinel.outputs.source_changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
