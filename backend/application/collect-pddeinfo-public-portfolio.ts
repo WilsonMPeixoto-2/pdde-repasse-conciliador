@@ -59,6 +59,7 @@ export interface PublicPortfolioArtifact {
   sourceUrl: string;
   coverageThrough: string | null;
   rawBytes: Buffer;
+  scope?: 'SCHOOL' | 'ACCOUNT' | 'PORTFOLIO';
   format?: 'HTML' | 'XLSX';
   mediaType?: string;
   extension?: 'html' | 'xlsx';
@@ -170,6 +171,7 @@ export async function collectPddeInfoPublicPortfolio(
         sourceUrl: report.sourceUrl,
         coverageThrough: null,
         rawBytes: report.rawBytes,
+        scope: 'PORTFOLIO',
         format: 'XLSX',
         mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         extension: 'xlsx',
