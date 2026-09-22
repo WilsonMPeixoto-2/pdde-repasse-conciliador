@@ -17,6 +17,7 @@ export interface PddeInfoAttendanceExcelResult {
   queriedAt: string;
   httpStatus: number;
   responseBytes: number;
+  rawBytes: Buffer;
   rows: PddeInfoAttendanceObservation[];
 }
 
@@ -222,6 +223,7 @@ export async function fetchPddeInfoPaidMunicipalAttendanceExcel(
     queriedAt: (options.now ?? (() => new Date().toISOString()))(),
     httpStatus: response.status,
     responseBytes: bytes.byteLength,
+    rawBytes: bytes,
     rows: await parsePddeInfoAttendanceExcel(bytes),
   };
 }
