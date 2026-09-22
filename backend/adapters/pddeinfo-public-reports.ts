@@ -292,6 +292,40 @@ function excelCellText(cell: ExcelJS.Cell): string {
   return cleanText(cell.text ?? '');
 }
 
+export function parsePddeInfoAttendanceHtmlExport(
+  html: string,
+): ParsedPddeInfoPublicReport {
+  const error = sourceErrorMessage(html);
+  if (error) {
+    throw new PddeInfoPublicReportSourceError(`Exportação de atendimento PDDEInfo retornou erro da fonte: ${error}`);
+  }
+  const $ = load(html);
+  const rows = $('tr').toArray().map((row) => (
+    $(row).find('th,td').toArray().map((cell) => cleanText($(cell).text()))
+  ));
+  const headerIndex = rows.findIndex((values) => {
+    const normalized = values.map(canonicalReportHeader);
+    return normalized.includes('ANO')
+      && normalized.includes('CODIGO ESCOLA')
+      && normalized.includes('DESTINACAO')
+      && normalized.includes('DATA DA ORD DE PAGAMENTO');
+  });
+  if (headerIndex < 0) {
+    throw new Error('Exportação HTML de atendimento PDDEInfo sem cabeçalho reconhecível.');
+  }
+  const headers = rows[headerIndex];
+  const records: Array<Record<string, string>> = [];
+  for (const values of rows.slice(headerIndex + 1)) {
+    if (values.every((value) => value === '')) continue;
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      if (header) record[header] = values[index] ?? '';
+    });
+    if (record['Código Escola']) records.push(record);
+  }
+  return { kind: 'ATTENDANCE', headers, rows: records };
+}
+
 export async function parsePddeInfoAttendanceWorkbook(
   bytes: Uint8Array,
 ): Promise<ParsedPddeInfoPublicReport> {
@@ -336,6 +370,24 @@ export async function parsePddeInfoAttendanceWorkbook(
     rows.push(record);
   }
   return { kind: 'ATTENDANCE', headers, rows };
+}
+
+export async function parsePddeInfoAttendanceExport(
+  bytes: Uint8Array,
+  contentType?: string | null,
+): Promise<ParsedPddeInfoPublicReport> {
+  const raw = Buffer.from(bytes);
+  const isZipWorkbook = raw.length >= 4
+    && raw[0] === 0x50
+    && raw[1] === 0x4b
+    && (raw[2] === 0x03 || raw[2] === 0x05 || raw[2] === 0x07);
+  if (isZipWorkbook) return parsePddeInfoAttendanceWorkbook(raw);
+
+  const html = decodeHtml(raw, contentType ?? 'text/html; charset=ISO-8859-1');
+  if (/<(?:html|table|tr|td|th)\b/i.test(html)) {
+    return parsePddeInfoAttendanceHtmlExport(html);
+  }
+  throw new Error('Exportação de atendimento PDDEInfo não é XLSX nem HTML tabular reconhecível.');
 }
 
 export function parsePddeInfoPublicReport(
@@ -462,7 +514,8 @@ export async function fetchPddeInfoBulkAttendanceReport(
       `Excel público municipal de atendimento PDDEInfo retornou HTTP ${response.status}.`,
     );
   }
-  const parsed = await parsePddeInfoAttendanceWorkbook(rawBytes);
+  const contentType = response.headers.get('content-type');
+  const parsed = await parsePddeInfoAttendanceExport(rawBytes, contentType);
   return {
     ...parsed,
     via: 'HTTP',
@@ -474,9 +527,8 @@ export async function fetchPddeInfoBulkAttendanceReport(
     responseBytes: rawBytes.byteLength,
     coverageThrough: null,
     artifactKind: 'RAW_FILE',
-    mediaType: response.headers.get('content-type')
-      ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    fileExtension: 'xlsx',
+    mediaType: contentType ?? 'application/octet-stream',
+    fileExtension: rawBytes[0] === 0x50 && rawBytes[1] === 0x4b ? 'xlsx' : 'html',
   };
 }
 
@@ -510,7 +562,8 @@ export async function fetchPddeInfoPublicReport(
           `Excel público de atendimento PDDEInfo retornou HTTP ${response.status}.`,
         );
       }
-      const parsed = await parsePddeInfoAttendanceWorkbook(rawBytes);
+      const contentType = response.headers.get('content-type');
+  const parsed = await parsePddeInfoAttendanceExport(rawBytes, contentType);
       return {
         ...parsed,
         via: 'HTTP',
@@ -522,8 +575,8 @@ export async function fetchPddeInfoPublicReport(
         responseBytes: rawBytes.byteLength,
         coverageThrough: null,
         artifactKind: 'RAW_FILE',
-        mediaType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        fileExtension: 'xlsx',
+        mediaType: contentType ?? 'application/octet-stream',
+        fileExtension: rawBytes[0] === 0x50 && rawBytes[1] === 0x4b ? 'xlsx' : 'html',
       };
     } catch (cause) {
       options.signal?.throwIfAborted();
