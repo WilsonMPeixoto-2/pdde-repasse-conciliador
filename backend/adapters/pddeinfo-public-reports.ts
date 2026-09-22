@@ -170,6 +170,66 @@ export function parsePddeInfoPublicReport(
   const $ = load(html);
   let headers: string[] = [];
   const rows: Array<Record<string, string>> = [];
+
+  const aliasCardField = (record: Record<string, string>, label: string, value: string): void => {
+    const normalized = label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z0-9]+/gi, ' ')
+      .trim()
+      .toUpperCase();
+
+    record[label] = value;
+
+    if (normalized === 'COD DA ESCOLA' || normalized === 'CODIGO DA ESCOLA' || normalized === 'CODIGO ESCOLA') {
+      record['Código Escola'] = value;
+      record['Código da Escola'] = value;
+      record['Código INEP'] = value;
+    } else if (normalized === 'CNPJ EXECUTORA') {
+      record['CNPJ da Executora'] = value;
+      record['CNPJ UEX'] = value;
+    } else if (normalized === 'QTD ALUNOS' || normalized === 'QUANTIDADE ALUNOS') {
+      record['Quantidade Alunos'] = value;
+    } else if (normalized === 'DATA DA ORD PAGAMENTO' || normalized === 'DATA DA ORDEM DE PAGAMENTO') {
+      record['Data da Ord. de Pagamento'] = value;
+    } else if (normalized === 'REDE DE ENSINO') {
+      record['Rede de Atendimento'] = value;
+    }
+  };
+
+  $('.govbr-report-card').each((_cardIndex, card) => {
+    const record: Record<string, string> = {};
+    const schoolName = cleanText($(card).find('.govbr-report-card-header h2').first().text());
+    const year = cleanText($(card).find('.govbr-report-card-header .year').first().text());
+    if (schoolName) {
+      record['Nome Escola'] = schoolName;
+      record.Escola = schoolName;
+    }
+    if (year) record.Ano = year;
+
+    $(card).find('.govbr-card-subtitle span').each((_index, element) => {
+      const label = cleanText($(element).find('strong').first().text()).replace(/:\s*$/, '');
+      if (!label) return;
+      const clone = $(element).clone();
+      clone.find('strong').remove();
+      aliasCardField(record, label, cleanText(clone.text()));
+    });
+
+    $(card).find('.govbr-report-card-item').each((_index, item) => {
+      const label = cleanText($(item).find('.label').first().text());
+      if (!label) return;
+      const value = cleanText($(item).find('.value').first().text());
+      aliasCardField(record, label, value);
+    });
+
+    if (Object.keys(record).length > 0) rows.push(record);
+  });
+
+  if (rows.length > 0) {
+    headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+    return { kind, headers, rows };
+  }
+
   $('table').each((_tableIndex, table) => {
     if (headers.length > 0) return;
     const candidateHeaders = $(table).find('tr').first().find('th,td').map((_index, cell) => cleanText($(cell).text())).get();
