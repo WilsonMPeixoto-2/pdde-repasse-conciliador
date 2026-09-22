@@ -89,14 +89,25 @@ function sameAccount(
     && digits(left.number) === digits(right.account);
 }
 
-function isFirstCycle(programName: string, installment: string | null): boolean {
+function isCycle(
+  programName: string,
+  installment: string | null,
+  cycle: 'first' | 'second',
+): boolean {
   const program = normalize(programName);
   const parcel = normalize(installment);
   if (!program.includes('PDDE BASICO')) return false;
-  if (program.includes('PRIMEIRA INFANCIA')) return parcel === 'P1';
-  return parcel === '1A PARCELA'
-    || parcel === '1 PARCELA'
-    || parcel.includes('PRIMEIRA PARCELA');
+  if (program.includes('PRIMEIRA INFANCIA')) {
+    return cycle === 'first' ? parcel === 'P1' : parcel === 'P2';
+  }
+  if (cycle === 'first') {
+    return parcel === '1A PARCELA'
+      || parcel === '1 PARCELA'
+      || parcel.includes('PRIMEIRA PARCELA');
+  }
+  return parcel === '2A PARCELA'
+    || parcel === '2 PARCELA'
+    || parcel.includes('SEGUNDA PARCELA');
 }
 
 function creditLocated(installment: InstallmentLike): boolean {
@@ -179,11 +190,12 @@ function readingFor(
   };
 }
 
-export function derivePddeBasicFirstCycleReleaseEvidence(
+export function derivePddeBasicCycleReleaseEvidence(
   school: FirstCycleReleaseEvidenceSchoolLike,
+  cycle: 'first' | 'second',
 ): PddeBasicReleaseEvidenceReading {
   const installments = school.programs.flatMap((program) => program.installments
-    .filter((installment) => isFirstCycle(program.name, installment.installment)));
+    .filter((installment) => isCycle(program.name, installment.installment, cycle)));
 
   const credit = installments.find((installment) => installment.paymentInformedCents > 0 && creditLocated(installment));
   if (credit) return readingFor(school, credit, 'CREDIT_LOCATED', true);
@@ -215,6 +227,18 @@ export function derivePddeBasicFirstCycleReleaseEvidence(
     extractFreshness: 'UNKNOWN',
     needsFreshExtract: false,
   };
+}
+
+export function derivePddeBasicFirstCycleReleaseEvidence(
+  school: FirstCycleReleaseEvidenceSchoolLike,
+): PddeBasicReleaseEvidenceReading {
+  return derivePddeBasicCycleReleaseEvidence(school, 'first');
+}
+
+export function derivePddeBasicSecondCycleReleaseEvidence(
+  school: FirstCycleReleaseEvidenceSchoolLike,
+): PddeBasicReleaseEvidenceReading {
+  return derivePddeBasicCycleReleaseEvidence(school, 'second');
 }
 
 function brDate(value: string): string {
