@@ -68,7 +68,8 @@ async function appendEvidence(
 function artifactRelativePath(artifact: PublicPortfolioArtifact, index: number): string {
   const identity = artifact.schoolInep ?? artifact.cnpj ?? String(index + 1).padStart(4, '0');
   const reference = artifact.coverageThrough ?? artifact.queriedAt.slice(0, 10);
-  return `public-reports/${artifact.kind.toLowerCase()}/${safeSegment(identity)}-${safeSegment(reference)}.html`;
+  const extension = artifact.fileExtension ?? 'html';
+  return `public-reports/${artifact.kind.toLowerCase()}/${safeSegment(identity)}-${safeSegment(reference)}.${extension}`;
 }
 
 async function preservePublicArtifact(input: {
@@ -96,15 +97,16 @@ async function preservePublicArtifact(input: {
   const preserved = await input.artifactStore.preserve({
     runId: input.runId,
     relativePath: storePath,
-    kind: 'RAW_HTML',
+    kind: input.artifact.artifactKind ?? 'RAW_HTML',
     bytes: input.artifact.rawBytes,
-    mediaType: 'text/html',
+    mediaType: input.artifact.mediaType ?? 'text/html',
     ...(input.artifact.schoolInep ? { schoolInep: input.artifact.schoolInep } : {}),
     metadata: {
       reportKind: input.artifact.kind,
       queriedAt: input.artifact.queriedAt,
       sourceUrl: input.artifact.sourceUrl,
       coverageThrough: input.artifact.coverageThrough,
+      fileExtension: input.artifact.fileExtension ?? 'html',
       localPath,
     },
   });
