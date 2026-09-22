@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-const PDDEINFO_BASE_URL = 'https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar';
+const PDDEINFO_BASE_URL = 'https://webservice.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar';
 
 export interface BuildPddeInfoSchoolUrlOptions {
   fiscalYear: number;
