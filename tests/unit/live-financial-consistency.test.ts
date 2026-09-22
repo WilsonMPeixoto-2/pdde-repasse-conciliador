@@ -29,16 +29,26 @@ const missingDateTemporal = { status: 'UNKNOWN', evaluatedPaymentCount: 1, suffi
 describe('consistência do produto financeiro live', () => {
   test('reprova resumo temporal stale depois que a conta foi recuperada', () => { const report = analyzeLiveFinancialConsistency(rawFixture(staleTemporal)); expect(report.status).toBe('FAIL'); expect(report.errors).toContain('TEMPORAL_SUMMARY_STALE'); });
   test('aprova o mesmo caso quando cobertura temporal reflete a conta final recuperada', () => { const report = analyzeLiveFinancialConsistency(rawFixture(currentTemporal)); expect(report.status).toBe('PASS'); expect(report.errors).toEqual([]); expect(report.recoveredAccounts).toBe(1); expect(report.paymentsAfterBalanceReference).toBe(1); });
-  test('aceita conta recuperada sem promover a data da liberação para data do repasse', () => {
-    const raw = rawFixture(missingDateTemporal);
+  test('usa a data de Liberações na cobertura temporal sem promovê-la para data de ordem', () => {
+    const raw = rawFixture(currentTemporal);
     raw.schools[0].repasses[0].dataOrdem = null;
     const report = analyzeLiveFinancialConsistency(raw);
+    expect(raw.schools[0].repasses[0].dataOrdem).toBeNull();
     expect(report.status).toBe('PASS');
     expect(report.errors).toEqual([]);
     expect(report.recoveredAccounts).toBe(1);
-    expect(report.temporalStatus).toBe('UNKNOWN');
-    expect(report.unknownPayments).toBe(1);
+    expect(report.temporalStatus).toBe('SUFFICIENT');
+    expect(report.unknownPayments).toBe(0);
     expect(report.paymentsAfterBalanceReference).toBe(0);
+  });
+
+  test('reprova resumo temporal que ignora a data conhecida em Liberações', () => {
+    const raw = rawFixture(missingDateTemporal);
+    raw.schools[0].repasses[0].dataOrdem = null;
+    const report = analyzeLiveFinancialConsistency(raw);
+    expect(raw.schools[0].repasses[0].dataOrdem).toBeNull();
+    expect(report.status).toBe('FAIL');
+    expect(report.errors).toContain('TEMPORAL_SUMMARY_STALE');
   });
 
   test('reprova fonte usada sem observação estruturada', () => { const raw = rawFixture(currentTemporal); raw.sourceObservations = raw.sourceObservations.filter((item: any) => item.source !== 'SIGEF_LIBERACOES'); const report = analyzeLiveFinancialConsistency(raw); expect(report.status).toBe('FAIL'); expect(report.errors).toContain('SOURCE_OBSERVATION_MISSING:SIGEF_LIBERACOES'); });
