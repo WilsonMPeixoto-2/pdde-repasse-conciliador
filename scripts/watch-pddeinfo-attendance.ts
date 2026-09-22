@@ -71,6 +71,7 @@ export interface AttendanceSentinelResult {
   attendanceObservations: number;
   sourceUrl: string;
   responseBytes: number;
+  platformVersion: string | null;
   deltaCount: number;
   deltas: AttendanceSentinelDelta[];
 }
@@ -177,6 +178,24 @@ async function loadPublishedSnapshot(): Promise<{
   return { manifest, snapshot };
 }
 
+async function fetchPddeInfoPlatformVersion(): Promise<string | null> {
+  const response = await fetch('https://webservice.fnde.gov.br/pddeinfo/', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Version-Probe/0.5)',
+      Accept: 'text/html,application/xhtml+xml',
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
+    },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) return null;
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const html = new TextDecoder('windows-1252').decode(bytes);
+  const match = html.match(/PDDE\s*Info\s+(\d{2}\.\d{2}\.\d{4}#[0-9a-f]+)/i)
+    ?? html.match(/Vers(?:a|ã)o:\s*([^<\r\n]+)/i);
+  return match?.[1]?.trim() ?? null;
+}
+
 async function collectAttendance(
   schools: readonly PortfolioSchool[],
 ): Promise<{
@@ -211,9 +230,10 @@ async function collectAttendance(
 }
 
 export async function runAttendanceSentinel(): Promise<AttendanceSentinelResult> {
-  const [schools, published] = await Promise.all([
+  const [schools, published, platformVersion] = await Promise.all([
     loadSchools(),
     loadPublishedSnapshot(),
+    fetchPddeInfoPlatformVersion(),
   ]);
   const attendance = await collectAttendance(schools);
   const deltas = compareAttendanceWithSnapshot(
@@ -231,6 +251,7 @@ export async function runAttendanceSentinel(): Promise<AttendanceSentinelResult>
     attendanceObservations: attendance.observations.length,
     sourceUrl: attendance.sourceUrl,
     responseBytes: attendance.responseBytes,
+    platformVersion,
     deltaCount: deltas.length,
     deltas,
   };
@@ -247,6 +268,7 @@ async function main(): Promise<void> {
     schoolsChecked: result.schoolsChecked,
     attendanceObservations: result.attendanceObservations,
     responseBytes: result.responseBytes,
+    platformVersion: result.platformVersion,
     deltaCount: result.deltaCount,
     outputPath,
   }));
