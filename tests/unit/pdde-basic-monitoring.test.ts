@@ -56,10 +56,14 @@ describe('acompanhamento do PDDE Básico', () => {
     expect(monitoring.schoolCount).toBe(2);
     expect(monitoring.firstPaidCount).toBe(2);
     expect(monitoring.firstPendingCount).toBe(0);
+    expect(monitoring.firstPaymentInformedCents).toBe(300_000);
     expect(monitoring.firstRegularCount).toBe(1);
     expect(monitoring.firstInfancyCount).toBe(1);
     expect(monitoring.secondPaidCount).toBe(0);
     expect(monitoring.secondPendingCount).toBe(2);
+    expect(monitoring.secondPaymentInformedCents).toBe(0);
+    expect(monitoring.secondRegularPaidCount).toBe(0);
+    expect(monitoring.secondInfancyPaidCount).toBe(0);
   });
 
   test('separa dinheiro em conta corrente e aplicação sem interpretar zero em conta como ausência de recurso', () => {
