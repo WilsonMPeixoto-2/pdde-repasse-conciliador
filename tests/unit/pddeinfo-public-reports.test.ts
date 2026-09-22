@@ -32,6 +32,42 @@ describe('relatórios públicos PDDEInfo', () => {
     expect(url.searchParams.get('tpRelatorio')).toBe('1');
   });
 
+  test('mapeia a versão atual e as APIs auxiliares do layout GOV.BR', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    expect(mod.parsePddeInfoPlatformVersion('<title>FNDE: PDDE Info 18.09.2026#83f77b</title>')).toEqual({
+      version: '18.09.2026#83f77b',
+      releasedOn: '18.09.2026',
+      revision: '83f77b',
+    });
+    expect(mod.buildPddeInfoMunicipalitiesApiUrl('rj')).toContain('corp/get-municipio?sg_uf=RJ');
+    expect(mod.buildPddeInfoDestinationsApiUrl({ fiscalYear: 2026, programCode: '02' }))
+      .toContain('/sae/get-destinacao/ano/2026/programa/02');
+  });
+
+  test('constrói exportação municipal em lote com os filtros oficiais atuais', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const url = new URL(mod.buildPddeInfoBulkAttendanceExcelUrl({
+      fiscalYear: 2026,
+      uf: 'RJ',
+      administrationSphere: 2,
+      municipalityFndeCode: '330455',
+      programCode: '02',
+    }));
+    expect(url.pathname).toContain('/situacaoatendimentoentidade/situacaoatendimentoentidade/excel');
+    expect(url.searchParams.get('an_exercicio')).toBe('2026');
+    expect(url.searchParams.get('co_escola')).toBe('');
+    expect(url.searchParams.get('sg_uf')).toBe('RJ');
+    expect(url.searchParams.get('esferaAdm')).toBe('2');
+    expect(url.searchParams.get('co_municipio_fnde')).toBe('330455');
+    expect(url.searchParams.get('programas')).toBe('02');
+    expect(url.searchParams.get('stpg')).toBe("'1'");
+  });
+
   test('constrói consulta de saldo com mês de cobertura e CNPJ', async () => {
     const mod = await subject();
     expect(mod, 'adapter ainda não implementado').not.toBeNull();
