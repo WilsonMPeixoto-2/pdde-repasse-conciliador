@@ -122,6 +122,39 @@ describe('relatórios públicos PDDEInfo', () => {
     })]);
   });
 
+  test('aceita também o HTML tabular entregue pela rota de Excel do FNDE', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const html = `
+      <table><tbody>
+        <tr><td>Ministério da Educação - MEC</td></tr>
+        <tr>
+          <td>Ano</td><td>Região</td><td>UF</td><td>Município</td><td>Código Município IBGE</td>
+          <td>CNPJ Município/SEDUC</td><td>Nome Escola</td><td>Código Escola</td><td>Rede de Ensino</td>
+          <td>Quantidade Alunos</td><td>CNPJ Executora</td><td>Nome Executora</td><td>Programa</td>
+          <td>Destinação</td><td>Valor Custeio</td><td>Valor Capital</td><td>Valor Total</td>
+          <td>Data da Ord. de Pagamento</td>
+        </tr>
+        <tr>
+          <td>2026</td><td>SUDESTE</td><td>RJ</td><td>RIO DE JANEIRO</td><td>3304557</td>
+          <td>42498733000148</td><td>0410601 CM MANGUINHOS</td><td>33136947</td>
+          <td>ADMINISTRAÇÃO PÚBLICA MUNICIPAL</td><td>185</td><td>12558497000147</td>
+          <td>CEC MANGUINHOS</td><td>PDDE</td><td>PDDE Básico - Primeira Infância - P2</td>
+          <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td><td>14/09/2026</td>
+        </tr>
+      </tbody></table>`;
+    const parsed = await mod.parsePddeInfoAttendanceExport(
+      new TextEncoder().encode(html),
+      'text/html; charset=UTF-8',
+    );
+    expect(parsed.rows).toEqual([expect.objectContaining({
+      'Código Escola': '33136947',
+      Destinação: 'PDDE Básico - Primeira Infância - P2',
+      'Data da Ord. de Pagamento': '14/09/2026',
+    })]);
+  });
+
   test('lê o XLSX oficial de atendimento preservando destinação e data por parcela', async () => {
     const mod = await subject();
     expect(mod).not.toBeNull();
