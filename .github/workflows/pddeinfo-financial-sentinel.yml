@@ -1,0 +1,87 @@
+name: Sentinela financeiro PDDEInfo
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Consulta leve da fonte crítica a cada hora. Não executa SIGEF nem coleta pesada.
+    - cron: "17 * * * *"
+
+concurrency:
+  group: pddeinfo-financial-sentinel-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  attendance-sentinel:
+    if: github.event_name != 'schedule' || vars.PDDE_FINANCIAL_SENTINEL_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Consultar Atendimento FNDE nas 163 UEs
+        id: sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --import tsx scripts/watch-pddeinfo-attendance.ts artifacts/pddeinfo-attendance-sentinel.json
+          delta_count="$(jq -r '.deltaCount' artifacts/pddeinfo-attendance-sentinel.json)"
+          observed_version="$(jq -r '.platformVersion // ""' artifacts/pddeinfo-attendance-sentinel.json)"
+          expected_version="$(jq -r '.observedVersion' backend/source-contracts/pddeinfo-current.json)"
+          source_changed=false
+          if [ -n "$observed_version" ] && [ "$observed_version" != "$expected_version" ]; then
+            source_changed=true
+            echo "::warning::Versão do PDDEInfo mudou: contrato=$expected_version fonte=$observed_version. Validação integral será disparada."
+          fi
+          echo "delta_count=$delta_count" >> "$GITHUB_OUTPUT"
+          echo "source_changed=$source_changed" >> "$GITHUB_OUTPUT"
+          if [ "$delta_count" -gt 0 ]; then
+            echo "delta=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::O Atendimento FNDE contém $delta_count fato(s) financeiro(s) ainda ausente(s) do snapshot publicado."
+          else
+            echo "delta=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Preservar diagnóstico do sentinela
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pddeinfo-financial-sentinel-\${{ github.run_id }}
+          path: artifacts/pddeinfo-attendance-sentinel.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Disparar coleta integral quando houver novidade ou mudança da fonte
+        if: steps.sentinel.outputs.delta == 'true' || steps.sentinel.outputs.source_changed == 'true'
+        env:
+          GH_TOKEN: \${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          active="$(
+            gh run list \
+              --workflow "SIGEF Full 163 Validation" \
+              --branch main \
+              --limit 20 \
+              --json status \
+              --jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "requested" or .status == "waiting" or .status == "pending")] | length'
+          )"
+          if [ "$active" -gt 0 ]; then
+            echo "Já existe coleta integral ativa; o delta será absorvido por ela."
+            exit 0
+          fi
+          gh workflow run sigef-full-163-validation.yml --ref main
+          echo "Nova coleta integral disparada por mudança detectada no Atendimento FNDE."

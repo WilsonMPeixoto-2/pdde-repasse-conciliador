@@ -1,0 +1,16 @@
+{
+  "source": "PDDEINFO",
+  "officialHost": "webservice.fnde.gov.br",
+  "observedVersion": "18.09.2026#83f77b",
+  "verifiedAt": "2026-09-24",
+  "attendance": {
+    "bulkStrategy": "XLSX_OR_TABULAR_EXPORT",
+    "year": 2026,
+    "uf": "RJ",
+    "municipalityFndeCode": "330455",
+    "administrationSphere": 2,
+    "programCode": "02",
+    "paymentStatus": "PAID",
+    "reportType": "DETAIL_BY_SCHOOL"
+  }
+}
