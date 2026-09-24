@@ -182,21 +182,25 @@ async function loadPublishedSnapshot(): Promise<{
 }
 
 async function fetchPddeInfoPlatformVersion(): Promise<string | null> {
-  const response = await fetch('https://webservice.fnde.gov.br/pddeinfo/', {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Version-Probe/0.7)',
-      Accept: 'text/html,application/xhtml+xml',
-      'Cache-Control': 'no-cache, no-store, max-age=0',
-      Pragma: 'no-cache',
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!response.ok) return null;
-  const bytes = Buffer.from(await response.arrayBuffer());
-  const html = new TextDecoder('windows-1252').decode(bytes);
-  const match = html.match(/PDDE\s*Info\s+(\d{2}\.\d{2}\.\d{4}#[0-9a-f]+)/i)
-    ?? html.match(/Vers(?:a|ã)o:\s*([^<\r\n]+)/i);
-  return match?.[1]?.trim() ?? null;
+  try {
+    const response = await fetch('https://webservice.fnde.gov.br/pddeinfo/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Version-Probe/0.8)',
+        Accept: 'text/html,application/xhtml+xml',
+        'Cache-Control': 'no-cache, no-store, max-age=0',
+        Pragma: 'no-cache',
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) return null;
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const html = new TextDecoder('windows-1252').decode(bytes);
+    const match = html.match(/PDDE\s*Info\s+(\d{2}\.\d{2}\.\d{4}#[0-9a-f]+)/i)
+      ?? html.match(/Vers(?:a|ã)o:\s*([^<\r\n]+)/i);
+    return match?.[1]?.trim() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function collectAttendance(
@@ -206,13 +210,20 @@ async function collectAttendance(
   sourceUrl: string;
   responseBytes: number;
 }> {
-  const report = await fetchPddeInfoBulkAttendanceReport({
-    fiscalYear: 2026,
-    uf: 'RJ',
-    municipalityFndeCode: '330455',
-    administrationSphere: 2,
-    programCode: '02',
-  });
+  let report;
+  try {
+    report = await fetchPddeInfoBulkAttendanceReport({
+      fiscalYear: 2026,
+      uf: 'RJ',
+      municipalityFndeCode: '330455',
+      administrationSphere: 2,
+      programCode: '02',
+      timeoutMs: 45_000,
+    });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`Falha ao adquirir exportação agregada do Atendimento PDDEInfo: ${detail}`, { cause });
+  }
   const schoolIneps = new Set(schools.map((school) => school.inep));
   const observations = report.rows
     .map((row) => normalizeAttendanceRow(row))
