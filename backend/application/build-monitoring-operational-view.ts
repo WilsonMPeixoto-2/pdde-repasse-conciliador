@@ -74,6 +74,18 @@ const repasseSchema = z.object({
   account: accountSchema.nullable().optional(),
 }).strict();
 
+const accountRecoverySchema = z.object({
+  schoolInep: z.string().regex(/^\d{8}$/),
+  programCode: z.string(),
+  action: z.string(),
+  installment: z.string().nullable(),
+  amountCents: z.number().int().nonnegative(),
+  status: z.enum(['RECOVERED', 'CONFIRMED', 'ACCOUNT_MISMATCH', 'NOT_FOUND', 'AMBIGUOUS', 'ERROR']),
+  account: accountSchema.nullable(),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  orderBank: z.string().nullable(),
+}).passthrough();
+
 const schoolSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
   sme: z.string().regex(/^\d{7}$/),
@@ -95,6 +107,7 @@ const rawMonitorSchema = z.object({
   sourceObservations: z.array(sourceObservationSchema).default([]),
   coverage: z.record(z.string(), z.unknown()),
   summary: z.record(z.string(), z.unknown()),
+  accountRecoveries: z.array(accountRecoverySchema).default([]),
   schools: z.array(schoolSchema),
 }).passthrough();
 
@@ -185,6 +198,26 @@ export function refineOperationalMovementClass(rawClassification: string, operat
 }
 
 function accountKey(account: BankAccount | null | undefined): string | null { return account ? canonicalAccount(account) : null; }
+function releaseReferenceDate(
+  input: z.infer<typeof rawMonitorSchema>,
+  school: z.infer<typeof schoolSchema>,
+  repasse: z.infer<typeof repasseSchema>,
+): string | null {
+  const account = repasse.account ?? null;
+  const matches = input.accountRecoveries.filter((recovery) => (
+    recovery.schoolInep === school.inep
+    && recovery.programCode === repasse.programCode
+    && canonicalText(recovery.action) === canonicalText(repasse.action)
+    && canonicalText(recovery.installment ?? '') === canonicalText(repasse.installment ?? '')
+    && recovery.amountCents === repasse.pagoInformadoCents
+    && (recovery.status === 'RECOVERED' || recovery.status === 'CONFIRMED')
+    && recovery.paymentDate !== null
+    && (!account || !recovery.account || accountKey(recovery.account) === accountKey(account))
+  ));
+  const dates = [...new Set(matches.map((recovery) => recovery.paymentDate).filter((date): date is string => date !== null))];
+  return dates.length === 1 ? dates[0] : null;
+}
+
 function makeCreditIndex(movements: OperationalMovement[]): Map<string, OperationalMovement[]> {
   const result = new Map<string, OperationalMovement[]>();
   for (const movement of movements) {
@@ -220,27 +253,28 @@ function baseRepasse(school: z.infer<typeof schoolSchema>, repasse: z.infer<type
   };
 }
 
-function reconcileRepasse(school: z.infer<typeof schoolSchema>, repasse: z.infer<typeof repasseSchema>, accountResults: z.infer<typeof accountResultSchema>[], creditIndex: Map<string, OperationalMovement[]>): OperationalRepasse {
+function reconcileRepasse(input: z.infer<typeof rawMonitorSchema>, school: z.infer<typeof schoolSchema>, repasse: z.infer<typeof repasseSchema>, accountResults: z.infer<typeof accountResultSchema>[], creditIndex: Map<string, OperationalMovement[]>): OperationalRepasse {
   const account = repasse.account ?? null;
   const base = baseRepasse(school, repasse, account);
   if (repasse.pagoInformadoCents === 0) return { ...base, bankCreditStatus: 'PROGRAMADO_NAO_PAGO', bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null };
   if (!account) return { ...base, account: null, bankCreditStatus: 'PAGO_SEM_CONTA_ATUAL', bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null };
   const correspondingAccount = accountResults.find((candidate) => candidate.programCode === repasse.programCode && accountKey(candidate.account) === accountKey(account));
-  if (!correspondingAccount || correspondingAccount.status !== 'COMPLETE' || !repasse.dataOrdem || !correspondingAccount.coverageThrough) {
+  const referenceDate = repasse.dataOrdem ?? releaseReferenceDate(input, school, repasse);
+  if (!correspondingAccount || correspondingAccount.status !== 'COMPLETE' || !referenceDate || !correspondingAccount.coverageThrough) {
     return { ...base, bankCreditStatus: 'CONSULTA_INCONCLUSIVA', bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null };
   }
   const key = `${school.inep}|${repasse.programCode}|${canonicalAccount(account)}`;
   const candidates = (creditIndex.get(key) ?? []).filter((movement) => {
     if (movement.amountCents !== repasse.pagoInformadoCents) return false;
-    const delay = daysBetween(repasse.dataOrdem as string, movement.movementDate);
+    const delay = daysBetween(referenceDate, movement.movementDate);
     return delay >= 0 && delay <= CREDIT_MATCH_MAX_DELAY_DAYS;
   });
   const bankCreditCandidates = candidates.map((movement) => ({ id: movement.id, date: movement.movementDate, amountCents: movement.amountCents, document: movement.document || null }));
   if (candidates.length === 1) {
     const credit = candidates[0];
-    return { ...base, bankCreditStatus: 'CREDITO_CONFIRMADO', bankCreditDate: credit.movementDate, bankCreditAmountCents: credit.amountCents, bankDocument: credit.document || null, daysAfterOrder: daysBetween(repasse.dataOrdem, credit.movementDate), bankCreditCandidates };
+    return { ...base, bankCreditStatus: 'CREDITO_CONFIRMADO', bankCreditDate: credit.movementDate, bankCreditAmountCents: credit.amountCents, bankDocument: credit.document || null, daysAfterOrder: repasse.dataOrdem ? daysBetween(repasse.dataOrdem, credit.movementDate) : null, bankCreditCandidates };
   }
-  if (candidates.length === 0 && correspondingAccount.coverageThrough < addDays(repasse.dataOrdem, CREDIT_MATCH_MAX_DELAY_DAYS)) {
+  if (candidates.length === 0 && correspondingAccount.coverageThrough < addDays(referenceDate, CREDIT_MATCH_MAX_DELAY_DAYS)) {
     return { ...base, bankCreditStatus: 'CONSULTA_INCONCLUSIVA', bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null, bankCreditCandidates };
   }
   return { ...base, bankCreditStatus: candidates.length > 1 ? 'CREDITO_AMBIGUO' : 'PAGO_CREDITO_NAO_LOCALIZADO', bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null, bankCreditCandidates };
@@ -264,7 +298,7 @@ export function buildMonitoringOperationalView(rawInput: unknown) {
     movements.push({ id: movement.id, school: { inep: school.inep, sme: school.sme, name: school.name, cnpj: school.cnpj }, programCode: accountResult.programCode, programLabel: accountResult.programLabel, account: movement.account, movementDate: movement.movementDate, operation: movement.operation, amountCents: movement.amountCents, classification: refineOperationalMovementClass(movement.classification, movement.operation, movement.history), history: movement.history, document: movement.document, counterparty: movement.counterparty, sourceUrl: movement.sourceUrl });
   }
   const creditIndex = makeCreditIndex(movements);
-  const repasses: OperationalRepasse[] = input.schools.flatMap((school) => school.repasses.map((repasse) => reconcileRepasse(school, repasse, school.accounts, creditIndex)));
+  const repasses: OperationalRepasse[] = input.schools.flatMap((school) => school.repasses.map((repasse) => reconcileRepasse(input, school, repasse, school.accounts, creditIndex)));
   markSharedCreditCandidates(repasses);
   const classificationCounts = Object.fromEntries(CLASSIFICATIONS.map((classification) => [classification, 0])) as Record<SigefMovementClass, number>;
   const classificationAmountsCents = Object.fromEntries(CLASSIFICATIONS.map((classification) => [classification, 0])) as Record<SigefMovementClass, number>;

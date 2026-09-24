@@ -195,12 +195,13 @@ function findStatement(raw: PaymentGapRaw, repasse: OperationalRepasse): RawAcco
 function findTemporalCoverage(
   raw: PaymentGapRaw,
   repasse: OperationalRepasse,
+  referenceDate: string | null,
 ): RawTemporalCoverageRow | null {
-  if (!repasse.orderDate) return null;
+  if (!referenceDate) return null;
   return (raw.quality?.paymentTemporalCoverage?.rows ?? []).find((row) => (
     row.schoolInep === repasse.school.inep
     && row.programCode === repasse.programCode
-    && row.paymentDate === repasse.orderDate
+    && row.paymentDate === referenceDate
   )) ?? null;
 }
 
@@ -220,12 +221,13 @@ export function analyzePaymentDataGaps(
 
   const rows = unresolved.map((repasse): PaymentDataGapRow => {
     increment(countsByBankCreditStatus, repasse.bankCreditStatus);
-    increment(countsByPaymentDate, repasse.orderDate);
     const statement = findStatement(raw, repasse);
     const recovery = findRecovery(raw, repasse);
-    const temporal = findTemporalCoverage(raw, repasse);
+    const referenceDate = repasse.orderDate ?? recovery?.paymentDate ?? null;
+    increment(countsByPaymentDate, referenceDate);
+    const temporal = findTemporalCoverage(raw, repasse, referenceDate);
     const gapReason = classifyPaymentDataGap({
-      repasse,
+      repasse: { ...repasse, orderDate: referenceDate },
       statementStatus: statement?.status ?? null,
       statementCoverageThrough: statement?.coverageThrough ?? null,
     });
@@ -241,13 +243,13 @@ export function analyzePaymentDataGaps(
       action: repasse.action,
       installment: repasse.installment,
       amountCents: repasse.amountPaidInformedCents,
-      paymentDate: repasse.orderDate,
+      paymentDate: referenceDate,
       account: repasse.account ? { ...repasse.account } : null,
       bankCreditStatus: repasse.bankCreditStatus,
       gapReason,
       statementStatus: statement?.status ?? null,
       statementCoverageThrough: statement?.coverageThrough ?? null,
-      requiredEvidenceThrough: requiredBankCreditEvidenceThrough(repasse.orderDate),
+      requiredEvidenceThrough: requiredBankCreditEvidenceThrough(referenceDate),
       temporalCoverageStatus: temporal?.status ?? null,
       temporalCoverageReason: temporal?.reason ?? null,
       recoveryStatus: recovery?.status ?? null,

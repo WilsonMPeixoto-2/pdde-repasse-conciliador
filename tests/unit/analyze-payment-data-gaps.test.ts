@@ -55,4 +55,41 @@ describe('diagnóstico nominal de lacunas de pagamento', () => {
       recoveryStatus: 'RECOVERED', recoveryOrderBank: '019072', gapReason: 'STATEMENT_OUT_OF_COVERAGE',
     });
   });
+  test('usa a data recuperada em Liberações quando a parcela não traz data própria', () => {
+    const operational = {
+      fiscalYear: 2026,
+      repasses: [{
+        school: { inep: '33069247', sme: '0410001', name: 'ESCOLA A', cnpj: '04.500.463/0001-73' },
+        programCode: '02', action: 'PDDE Básico', installment: '2ª Parcela',
+        amountProgrammedCents: 418_500, amountPaidInformedCents: 418_500,
+        orderDate: null, account, bankCreditStatus: 'CONSULTA_INCONCLUSIVA',
+        bankCreditDate: null, bankCreditAmountCents: null, bankDocument: null, daysAfterOrder: null,
+      }],
+    } as never;
+    const raw = {
+      fiscalYear: 2026,
+      accountRecoveries: [{
+        schoolInep: '33069247', programCode: '02', action: 'PDDE Básico', installment: '2ª Parcela',
+        amountCents: 418_500, status: 'CONFIRMED', paymentDate: '2026-09-17', orderBank: '024298',
+        sourceUrl: 'https://www.fnde.gov.br/sigefweb/liberacoes', candidates: [],
+      }],
+      quality: { paymentTemporalCoverage: { rows: [{
+        schoolInep: '33069247', programCode: '02', paymentDate: '2026-09-17',
+        status: 'OUT_OF_COVERAGE', reason: 'COVERAGE_BEFORE_PAYMENT',
+      }] } },
+      schools: [{
+        inep: '33069247',
+        accounts: [{ programCode: '02', account, status: 'COMPLETE', coverageThrough: '2026-05-03' }],
+      }],
+    };
+
+    const report = analyzePaymentDataGaps(raw, operational);
+    expect(report.countsByPaymentDate).toEqual({ '2026-09-17': 1 });
+    expect(report.rows[0]).toMatchObject({
+      paymentDate: '2026-09-17',
+      requiredEvidenceThrough: '2026-10-17',
+      recoveryPaymentDate: '2026-09-17',
+      gapReason: 'STATEMENT_OUT_OF_COVERAGE',
+    });
+  });
 });

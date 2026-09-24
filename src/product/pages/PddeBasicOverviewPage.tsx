@@ -9,6 +9,7 @@ import {
 } from '../../../shared/pdde-basic-monitoring';
 import {
   derivePddeBasicFirstCycleReleaseEvidence,
+  derivePddeBasicSecondCycleReleaseEvidence,
   pddeBasicReleaseEvidenceLabel,
 } from '../../../shared/pdde-basic-release-evidence';
 import { SchoolSearch } from '../components/SchoolSearch';
@@ -21,6 +22,7 @@ type FilterMode =
   | 'first_pending'
   | 'second_paid'
   | 'sigef_evidence'
+  | 'second_sigef_evidence'
   | 'stale_extract'
   | 'current_location_unknown'
   | 'comparable_checking'
@@ -70,11 +72,13 @@ function matchesFilter(
   row: PddeBasicSchoolReading,
   filter: FilterMode,
   hasSigefEvidence: boolean,
+  hasSecondSigefEvidence: boolean,
   staleExtract: boolean,
 ): boolean {
   if (filter === 'first_pending') return row.first.state !== 'PAID_INFORMED';
   if (filter === 'second_paid') return row.second.state === 'PAID_INFORMED';
   if (filter === 'sigef_evidence') return hasSigefEvidence;
+  if (filter === 'second_sigef_evidence') return hasSecondSigefEvidence;
   if (filter === 'stale_extract') return staleExtract;
   if (filter === 'current_location_unknown') return row.first.state === 'PAID_INFORMED' && !balanceIsComparable(row);
   if (filter === 'comparable_checking') return balanceIsComparable(row) && (row.balance.checkingCents ?? 0) > 0;
@@ -89,9 +93,13 @@ export function PddeBasicOverviewPage() {
   const [filter, setFilter] = useState<FilterMode>('all');
   const schools = details.status === 'ready' ? details.schools : [];
   const monitoring = useMemo(() => derivePddeBasicPortfolio(schools), [schools]);
-  const releaseEvidenceByInep = useMemo(() => new Map(schools.map((school) => [
+  const firstReleaseEvidenceByInep = useMemo(() => new Map(schools.map((school) => [
     school.school.inep,
     derivePddeBasicFirstCycleReleaseEvidence(school),
+  ])), [schools]);
+  const secondReleaseEvidenceByInep = useMemo(() => new Map(schools.map((school) => [
+    school.school.inep,
+    derivePddeBasicSecondCycleReleaseEvidence(school),
   ])), [schools]);
 
   const comparableRows = useMemo(() => monitoring.rows.filter(balanceIsComparable), [monitoring.rows]);
@@ -104,24 +112,34 @@ export function PddeBasicOverviewPage() {
     (row.balance.checkingCents ?? 0) > 0 && (row.balance.applicationsCents ?? 0) > 0
   )).length;
   const sigefEvidenceCount = monitoring.rows.filter((row) => (
-    releaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
+    firstReleaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
+  )).length;
+  const secondSigefEvidenceCount = monitoring.rows.filter((row) => (
+    secondReleaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
+  )).length;
+  const secondStaleExtractCount = monitoring.rows.filter((row) => (
+    secondReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
   )).length;
   const staleExtractCount = monitoring.rows.filter((row) => (
-    releaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
+    firstReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
+    || secondReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
   )).length;
   const sigefEvidenceGapCount = monitoring.firstPaidCount - sigefEvidenceCount;
 
   const visibleRows = useMemo(() => monitoring.rows
     .filter((row) => schoolMatchesSearch(row, query))
     .filter((row) => {
-      const release = releaseEvidenceByInep.get(row.inep);
+      const firstRelease = firstReleaseEvidenceByInep.get(row.inep);
+      const secondRelease = secondReleaseEvidenceByInep.get(row.inep);
       return matchesFilter(
         row,
         filter,
-        release?.hasIndependentSigefEvidence === true,
-        release?.extractFreshness === 'STALE_BEFORE_RELEASE',
+        firstRelease?.hasIndependentSigefEvidence === true,
+        secondRelease?.hasIndependentSigefEvidence === true,
+        firstRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
+          || secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE',
       );
-    }), [filter, monitoring.rows, query, releaseEvidenceByInep]);
+    }), [filter, monitoring.rows, query, firstReleaseEvidenceByInep, secondReleaseEvidenceByInep]);
 
   if (details.status === 'loading') return <main className="page loading"><p>Carregando acompanhamento do PDDE Básico…</p></main>;
   if (details.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir o acompanhamento do PDDE Básico.</strong><span>{details.error}</span></div></main>;
@@ -131,6 +149,7 @@ export function PddeBasicOverviewPage() {
     { key: 'first_pending', label: '1º ciclo sem pagamento informado', count: monitoring.firstPendingCount },
     { key: 'second_paid', label: '2º ciclo com pagamento informado', count: monitoring.secondPaidCount },
     { key: 'sigef_evidence', label: 'Evidência SIGEF do 1º ciclo', count: sigefEvidenceCount },
+    { key: 'second_sigef_evidence', label: 'Liberação/OB do 2º ciclo', count: secondSigefEvidenceCount },
     { key: 'stale_extract', label: 'Extrato SIGEF defasado', count: staleExtractCount },
     { key: 'current_location_unknown', label: 'Localização atual não comprovada', count: currentLocationUnknownCount },
     { key: 'comparable_checking', label: 'Posição comparável com valor em conta', count: comparableCheckingCount },
@@ -153,7 +172,7 @@ export function PddeBasicOverviewPage() {
           <article data-tone={monitoring.firstPendingCount === 0 ? 'positive' : 'attention'}>
             <span>FNDE informa pagamento do 1º ciclo</span>
             <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{monitoring.firstRegularCount} PDDE Básico regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
+            <small>{formatMoney(monitoring.firstPaymentInformedCents)} · {monitoring.firstRegularCount} PDDE Básico regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
           </article>
           <article data-tone={sigefEvidenceGapCount === 0 ? 'positive' : 'attention'}>
             <span>1º ciclo com evidência independente no SIGEF</span>
@@ -163,7 +182,7 @@ export function PddeBasicOverviewPage() {
           <article data-tone={staleExtractCount === 0 ? 'positive' : 'attention'}>
             <span>Extrato SIGEF defasado em relação à liberação</span>
             <strong>{staleExtractCount}</strong>
-            <small>Quando a cobertura do extrato termina antes da liberação, ausência de crédito não é tratada como ausência de repasse.</small>
+            <small>Conta escolas com defasagem em qualquer ciclo; {secondStaleExtractCount} estão defasadas especificamente no 2º ciclo. Ausência de crédito fora da cobertura não é ausência de repasse.</small>
           </article>
           <article data-tone={currentLocationUnknownCount === 0 ? 'positive' : 'attention'}>
             <span>Posição de saldo temporalmente comparável ao 1º ciclo</span>
@@ -175,10 +194,21 @@ export function PddeBasicOverviewPage() {
             <strong>{comparableCheckingCount} escolas</strong>
             <small>{comparableApplicationCount} têm valor aplicado; {comparableBothCount} aparecem simultaneamente em conta e aplicações.</small>
           </article>
-          <article data-tone={monitoring.secondPaidCount > 0 ? 'positive' : 'waiting'}>
+          <article data-tone={monitoring.secondPaidCount === monitoring.schoolCount ? 'positive' : 'waiting'}>
             <span>FNDE informa pagamento do 2º ciclo</span>
             <strong>{monitoring.secondPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{monitoring.secondPendingCount} ainda sem pagamento informado da 2ª parcela/P2.</small>
+            <small>
+              {formatMoney(monitoring.secondPaymentInformedCents)} · {monitoring.secondRegularPaidCount} na 2ª parcela regular
+              {' · '}{monitoring.secondInfancyPaidCount} em Primeira Infância/P2.
+            </small>
+          </article>
+          <article data-tone={secondSigefEvidenceCount === monitoring.secondPaidCount ? 'positive' : 'attention'}>
+            <span>2º ciclo com liberação/OB localizada</span>
+            <strong>{secondSigefEvidenceCount} de {monitoring.secondPaidCount}</strong>
+            <small>
+              Evidência independente do SIGEF. A confirmação do crédito no extrato continua sendo uma etapa separada;
+              {secondStaleExtractCount} extratos ainda terminam antes da liberação.
+            </small>
           </article>
           <article data-tone={monitoring.trueInconsistencyCount > 0 ? 'attention' : 'positive'}>
             <span>Inconsistência temporalmente comparável</span>
@@ -241,7 +271,8 @@ export function PddeBasicOverviewPage() {
             </thead>
             <tbody>
               {visibleRows.map((row) => {
-                const release = releaseEvidenceByInep.get(row.inep);
+                const release = firstReleaseEvidenceByInep.get(row.inep);
+                const secondRelease = secondReleaseEvidenceByInep.get(row.inep);
                 const comparable = balanceIsComparable(row);
                 const account = release?.destinationAccount;
                 return (
@@ -249,7 +280,11 @@ export function PddeBasicOverviewPage() {
                     key={row.inep}
                     data-first-pending={row.first.state !== 'PAID_INFORMED' || undefined}
                     data-coherence-alert={row.firstEvidence.isContradiction || undefined}
-                    data-stale-extract={release?.extractFreshness === 'STALE_BEFORE_RELEASE' || undefined}
+                    data-stale-extract={
+                      release?.extractFreshness === 'STALE_BEFORE_RELEASE'
+                      || secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
+                      || undefined
+                    }
                   >
                     <td>
                       <Link to={`/unidades/${row.inep}#contas-saldos`}><strong>{row.name}</strong></Link>
@@ -289,17 +324,29 @@ export function PddeBasicOverviewPage() {
                         {pddeBasicInstallmentStateLabel(row.second.state)}
                       </span>
                       <strong>{formatMoney(row.second.paymentInformedCents)}</strong>
-                      <small>Programado {formatMoney(row.second.programmedCents)}</small>
+                      <small>
+                        {row.second.track} · {row.second.paymentInformedDate
+                          ? formatDate(row.second.paymentInformedDate)
+                          : 'sem data válida'} · programado {formatMoney(row.second.programmedCents)}
+                      </small>
+                      {row.second.state === 'PAID_INFORMED' ? (
+                        <small>
+                          {pddeBasicReleaseEvidenceLabel(secondRelease ?? 'NO_RELEASE_EVIDENCE')}
+                          {secondRelease?.orderBank ? ' · OB ' + secondRelease.orderBank : ''}
+                        </small>
+                      ) : null}
                     </td>
                     <td>
                       <span className="pdde-basic-evidence" data-state={row.firstEvidence.state.toLowerCase()}>
                         {pddeBasicEvidenceStateLabel(row.firstEvidence.state)}
                       </span>
-                      {release?.extractFreshness === 'STALE_BEFORE_RELEASE'
-                        ? <small>Extrato individual defasado; procurar extrato público mais novo ou posição de saldo posterior.</small>
-                        : !release?.hasIndependentSigefEvidence && row.first.state === 'PAID_INFORMED'
-                          ? <small>Continuar escalonamento para fonte complementar permitida.</small>
-                          : null}
+                      {secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
+                        ? <small>2º ciclo: liberação localizada, mas o extrato público ainda não alcança essa data.</small>
+                        : release?.extractFreshness === 'STALE_BEFORE_RELEASE'
+                          ? <small>1º ciclo: extrato individual defasado; procurar extrato público mais novo ou posição de saldo posterior.</small>
+                          : !release?.hasIndependentSigefEvidence && row.first.state === 'PAID_INFORMED'
+                            ? <small>Continuar escalonamento para fonte complementar permitida.</small>
+                            : null}
                     </td>
                   </tr>
                 );

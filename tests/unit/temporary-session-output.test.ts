@@ -31,7 +31,12 @@ describe('pacote web do Modo Sessão', () => {
       portfolio: { fiscalYear: 2026, schoolCount: 1 },
       schools: [{
         school: { inep: '33069247' },
-        snapshot: { fiscalYear: 2026, school: { inep: '33069247' } },
+        snapshot: {
+          fiscalYear: 2026,
+          school: { inep: '33069247', sme: '0410001', name: 'EM TESTE' },
+          programs: [],
+          accounts: [],
+        },
       }],
       workbookBytes: Uint8Array.from([0x50, 0x4b, 0x03, 0x04]),
       workbookFilename: 'inteligencia-financeira-pdde-4cre-2026.xlsx',
@@ -51,6 +56,15 @@ describe('pacote web do Modo Sessão', () => {
       status: 'COMPLETE',
       temporary: true,
       schoolCount: 1,
+      reconciliationStatus: 'COMPLETE',
+      officialPaymentCoverage: {
+        pddeBasic: {
+          firstPaidCount: 0,
+          secondPaidCount: 0,
+          secondPendingCount: 1,
+          completeSecondCycle: false,
+        },
+      },
     });
   });
 });

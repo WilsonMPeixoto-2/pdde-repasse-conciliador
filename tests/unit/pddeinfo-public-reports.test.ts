@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import { describe, expect, test } from 'vitest';
 
 const subjectUrl = new URL('../../backend/adapters/pddeinfo-public-reports.ts', import.meta.url).href;
@@ -31,6 +32,42 @@ describe('relatórios públicos PDDEInfo', () => {
     expect(url.searchParams.get('tpRelatorio')).toBe('1');
   });
 
+  test('mapeia a versão atual e as APIs auxiliares do layout GOV.BR', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+
+    expect(mod.parsePddeInfoPlatformVersion('<title>FNDE: PDDE Info 18.09.2026#83f77b</title>')).toEqual({
+      version: '18.09.2026#83f77b',
+      releasedOn: '18.09.2026',
+      revision: '83f77b',
+    });
+    expect(mod.buildPddeInfoMunicipalitiesApiUrl('rj')).toContain('corp/get-municipio?sg_uf=RJ');
+    expect(mod.buildPddeInfoDestinationsApiUrl({ fiscalYear: 2026, programCode: '02' }))
+      .toContain('/sae/get-destinacao/ano/2026/programa/02');
+  });
+
+  test('constrói exportação municipal em lote com os filtros oficiais atuais', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const url = new URL(mod.buildPddeInfoBulkAttendanceExcelUrl({
+      fiscalYear: 2026,
+      uf: 'RJ',
+      administrationSphere: 2,
+      municipalityFndeCode: '330455',
+      programCode: '02',
+    }));
+    expect(url.pathname).toContain('/situacaoatendimentoentidade/situacaoatendimentoentidade/excel');
+    expect(url.searchParams.get('an_exercicio')).toBe('2026');
+    expect(url.searchParams.get('co_escola')).toBe('');
+    expect(url.searchParams.get('sg_uf')).toBe('RJ');
+    expect(url.searchParams.get('esferaAdm')).toBe('2');
+    expect(url.searchParams.get('co_municipio_fnde')).toBe('330455');
+    expect(url.searchParams.get('programas')).toBe('02');
+    expect(url.searchParams.get('stpg')).toBe("'1'");
+  });
+
   test('constrói consulta de saldo com mês de cobertura e CNPJ', async () => {
     const mod = await subject();
     expect(mod, 'adapter ainda não implementado').not.toBeNull();
@@ -56,6 +93,95 @@ describe('relatórios públicos PDDEInfo', () => {
       'Valor Total': '4.185,00',
       'Data da Ord. de Pagamento': '04/08/2026',
     });
+  });
+
+  test('extrai cards GOV.BR do layout PDDEInfo 18/09 sem fingir tabela vazia', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const html = `
+      <div class="govbr-results-card-list">
+        <div class="govbr-report-card">
+          <div class="govbr-report-card-header"><h2>0410601 CM MANGUINHOS</h2><span class="year">2026</span></div>
+          <div class="govbr-report-card-item"><span class="label">Código</span><span class="value">33136947</span></div>
+          <div class="govbr-report-card-item"><span class="label">Programa</span><span class="value">PDDE</span></div>
+          <div class="govbr-report-card-item"><span class="label">CNPJ Executora UEx</span><span class="value">12558497000147</span></div>
+          <div class="govbr-report-card-item"><span class="label">Situação PC UEx</span><span class="value">Adimplente</span></div>
+          <div class="govbr-report-card-item"><span class="label">Suspensão UEx</span><span class="value">NAO</span></div>
+          <div class="govbr-report-card-item"><span class="label">Valor Total Previsto</span><span class="value">R$ 5.550,00</span></div>
+        </div>
+      </div>`;
+    const parsed = mod.parsePddeInfoPublicReport(html, 'ACCOUNTING');
+    expect(parsed.rows).toEqual([expect.objectContaining({
+      Ano: '2026',
+      Código: '33136947',
+      Programa: 'PDDE',
+      'CNPJ Executora UEx': '12558497000147',
+      'Situação PC UEx': 'Adimplente',
+      'Valor Total Previsto': 'R$ 5.550,00',
+    })]);
+  });
+
+  test('aceita também o HTML tabular entregue pela rota de Excel do FNDE', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const html = `
+      <table><tbody>
+        <tr><td>Ministério da Educação - MEC</td></tr>
+        <tr>
+          <td>Ano</td><td>Região</td><td>UF</td><td>Município</td><td>Código Município IBGE</td>
+          <td>CNPJ Município/SEDUC</td><td>Nome Escola</td><td>Código Escola</td><td>Rede de Ensino</td>
+          <td>Quantidade Alunos</td><td>CNPJ Executora</td><td>Nome Executora</td><td>Programa</td>
+          <td>Destinação</td><td>Valor Custeio</td><td>Valor Capital</td><td>Valor Total</td>
+          <td>Data da Ord. de Pagamento</td>
+        </tr>
+        <tr>
+          <td>2026</td><td>SUDESTE</td><td>RJ</td><td>RIO DE JANEIRO</td><td>3304557</td>
+          <td>42498733000148</td><td>0410601 CM MANGUINHOS</td><td>33136947</td>
+          <td>ADMINISTRAÇÃO PÚBLICA MUNICIPAL</td><td>185</td><td>12558497000147</td>
+          <td>CEC MANGUINHOS</td><td>PDDE</td><td>PDDE Básico - Primeira Infância - P2</td>
+          <td>1.110,00</td><td>1.665,00</td><td>2.775,00</td><td>14/09/2026</td>
+        </tr>
+      </tbody></table>`;
+    const parsed = await mod.parsePddeInfoAttendanceExport(
+      new TextEncoder().encode(html),
+      'text/html; charset=UTF-8',
+    );
+    expect(parsed.rows).toEqual([expect.objectContaining({
+      'Código Escola': '33136947',
+      Destinação: 'PDDE Básico - Primeira Infância - P2',
+      'Data da Ord. de Pagamento': '14/09/2026',
+    })]);
+  });
+
+  test('lê o XLSX oficial de atendimento preservando destinação e data por parcela', async () => {
+    const mod = await subject();
+    expect(mod).not.toBeNull();
+    if (!mod) return;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Atendimento');
+    sheet.addRow(['Ministério da Educação']);
+    sheet.addRow([]);
+    sheet.addRow([
+      'Ano', 'Região', 'UF', 'Município', 'Código Município IBGE', 'CNPJ Município/SEDUC',
+      'Nome Escola', 'Código Escola', 'Rede de Ensino', 'Quantidade Alunos', 'CNPJ Executora',
+      'Nome Executora', 'Programa', 'Destinação', 'Valor Custeio', 'Valor Capital', 'Valor Total',
+      'Data da Ord. de Pagamento',
+    ]);
+    sheet.addRow([
+      2026, 'SUDESTE', 'RJ', 'RIO DE JANEIRO', '3304557', '42498733000148',
+      '0410601 CM MANGUINHOS', '33136947', 'ADMINISTRAÇÃO PÚBLICA MUNICIPAL', 185,
+      '12558497000147', 'CEC MANGUINHOS', 'PDDE', 'PDDE Básico - Primeira Infância - P2',
+      '1.110,00', '1.665,00', '2.775,00', '14/09/2026',
+    ]);
+    const bytes = await workbook.xlsx.writeBuffer();
+    const parsed = await mod.parsePddeInfoAttendanceWorkbook(new Uint8Array(bytes));
+    expect(parsed.rows).toEqual([expect.objectContaining({
+      'Código Escola': '33136947',
+      'Destinação': 'PDDE Básico - Primeira Infância - P2',
+      'Data da Ord. de Pagamento': '14/09/2026',
+    })]);
   });
 
   test('erro SQL/Oracle do próprio FNDE vira falha explícita da fonte', async () => {

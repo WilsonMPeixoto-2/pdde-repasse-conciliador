@@ -130,8 +130,16 @@ function required(row: Record<string, string>, key: string): string {
   return value;
 }
 
+function requiredByHeader(row: Record<string, string>, candidates: readonly string[]): string {
+  const value = valueByHeader(row, candidates);
+  if (!value) {
+    throw new Error(`Relatório público PDDEInfo sem campo obrigatório: ${candidates.join(' / ')}.`);
+  }
+  return value;
+}
+
 export function parseBrazilianMoneyCents(value: string): number {
-  const normalized = value.trim();
+  const normalized = value.trim().replace(/^R\$\s*/i, '');
   if (!/^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(normalized)) {
     throw new Error(`Valor monetário brasileiro inválido: ${value}.`);
   }
@@ -153,23 +161,23 @@ function brazilianDateToIso(value: string): string {
 }
 
 export function normalizeAttendanceRow(row: Record<string, string>): PddeInfoAttendanceObservation {
-  const fiscalYear = Number(required(row, 'Ano'));
+  const fiscalYear = Number(requiredByHeader(row, ['Ano']));
   if (fiscalYear !== 2026) throw new Error(`Atendimento fora do exercício 2026: ${fiscalYear}.`);
-  const costCents = parseBrazilianMoneyCents(required(row, 'Valor Custeio'));
-  const capitalCents = parseBrazilianMoneyCents(required(row, 'Valor Capital'));
-  const totalCents = parseBrazilianMoneyCents(required(row, 'Valor Total'));
+  const costCents = parseBrazilianMoneyCents(requiredByHeader(row, ['Valor Custeio']));
+  const capitalCents = parseBrazilianMoneyCents(requiredByHeader(row, ['Valor Capital']));
+  const totalCents = parseBrazilianMoneyCents(requiredByHeader(row, ['Valor Total']));
   if (sumMoneyCents([costCents, capitalCents], 'total do atendimento') !== totalCents) {
     throw new Error('Relatório de atendimento contém total diferente de custeio + capital.');
   }
   return {
     fiscalYear: 2026,
-    schoolInep: inepSchema.parse(required(row, 'Código Escola').replace(/\D/g, '')),
-    uexCnpj: cnpjSchema.parse(required(row, 'CNPJ Executora').replace(/\D/g, '')),
-    schoolName: required(row, 'Nome Escola'),
-    programName: required(row, 'Programa'),
-    destination: required(row, 'Destinação'),
+    schoolInep: inepSchema.parse(requiredByHeader(row, ['Código Escola', 'Cód. da Escola', 'Código']).replace(/\D/g, '')),
+    uexCnpj: cnpjSchema.parse(requiredByHeader(row, ['CNPJ Executora']).replace(/\D/g, '')),
+    schoolName: requiredByHeader(row, ['Nome Escola', 'Escola']),
+    programName: requiredByHeader(row, ['Programa']),
+    destination: requiredByHeader(row, ['Destinação']),
     studentCount: (() => {
-      const raw = valueByHeader(row, ['Quantidade Alunos']);
+      const raw = valueByHeader(row, ['Quantidade Alunos', 'Qtd. Alunos']);
       if (!raw) return null;
       const value = Number(raw.replace(/\D/g, ''));
       return Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -177,7 +185,7 @@ export function normalizeAttendanceRow(row: Record<string, string>): PddeInfoAtt
     costCents,
     capitalCents,
     totalCents,
-    paymentOrderDate: brazilianDateToIso(required(row, 'Data da Ord. de Pagamento')),
+    paymentOrderDate: brazilianDateToIso(requiredByHeader(row, ['Data da Ord. de Pagamento', 'Data da Ord. Pagamento'])),
   };
 }
 
@@ -201,7 +209,7 @@ export function normalizeBalanceRow(
     bank: required(row, 'Banco'),
     agency: required(row, 'Agência'),
     account: required(row, 'Conta'),
-    programName: required(row, 'Descrição Programa FNDE'),
+    programName: requiredByHeader(row, ['Descrição Programa FNDE', 'Programa']),
     checkingBalanceCents,
     fundBalanceCents,
     savingsBalanceCents,
@@ -215,25 +223,26 @@ export function normalizeBalanceRow(
 }
 
 export function normalizeAccountingRow(row: Record<string, string>): PddeInfoAccountingObservation {
-  const fiscalYear = Number(required(row, 'Ano'));
+  const fiscalYear = Number(requiredByHeader(row, ['Ano']));
   if (fiscalYear !== 2026) throw new Error(`Prestação de contas fora do exercício 2026: ${fiscalYear}.`);
-  const suspension = required(row, 'Suspensão de Pagamento UEx').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const suspension = requiredByHeader(row, ['Suspensão de Pagamento UEx', 'Suspensão UEx'])
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
   if (!['SIM', 'NAO'].includes(suspension)) throw new Error(`Situação de suspensão desconhecida: ${suspension}.`);
   return {
     fiscalYear: 2026,
-    programName: required(row, 'Programa'),
-    schoolInep: inepSchema.parse(required(row, 'Código da Escola').replace(/\D/g, '')),
-    uexCnpj: cnpjSchema.parse(required(row, 'CNPJ da Executora').replace(/\D/g, '')),
-    accountingStatus: required(row, 'Situação Prestação de Contas UEx'),
+    programName: requiredByHeader(row, ['Programa']),
+    schoolInep: inepSchema.parse(requiredByHeader(row, ['Código da Escola', 'Código Escola', 'Código']).replace(/\D/g, '')),
+    uexCnpj: cnpjSchema.parse(requiredByHeader(row, ['CNPJ da Executora', 'CNPJ Executora UEx']).replace(/\D/g, '')),
+    accountingStatus: requiredByHeader(row, ['Situação Prestação de Contas UEx', 'Situação PC UEx']),
     paymentSuspended: suspension === 'SIM',
-    expectedTotalCents: parseBrazilianMoneyCents(required(row, 'Valor Total Previsto')),
+    expectedTotalCents: parseBrazilianMoneyCents(requiredByHeader(row, ['Valor Total Previsto'])),
   };
 }
 
 
 export function normalizeRegistrationRow(row: Record<string, string>): PddeInfoRegistrationObservation {
   rowFiscalYear(row);
-  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP', 'Código']), 8);
   if (!schoolInep) throw new Error('Relatório cadastral sem Código Escola válido.');
   return {
     fiscalYear: 2026,
@@ -242,7 +251,7 @@ export function normalizeRegistrationRow(row: Record<string, string>): PddeInfoR
     location: valueByHeader(row, ['Localização']),
     uexCnpj: digitsOrNull(valueByHeader(row, ['CNPJ UEX', 'CNPJ Executora']), 14),
     uexName: valueByHeader(row, ['Razão Social', 'Nome Executora']),
-    network: valueByHeader(row, ['Rede de Atendimento']),
+    network: valueByHeader(row, ['Rede de Atendimento', 'Rede de Ensino']),
     mandateStatus: valueByHeader(row, ['Mandato Dirigente']),
     mandateEndDate: optionalBrazilianDate(valueByHeader(row, ['Data Fim do Mandato'])),
     updatedDate: optionalBrazilianDate(valueByHeader(row, ['Data Atualização'])),
@@ -257,7 +266,7 @@ export function normalizeRegistrationRow(row: Record<string, string>): PddeInfoR
 
 export function normalizeAccountOpeningRow(row: Record<string, string>): PddeInfoAccountOpeningObservation {
   rowFiscalYear(row);
-  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP', 'Código']), 8);
   if (!schoolInep) throw new Error('Relatório de abertura de conta sem Código Escola válido.');
   const status = valueByHeader(row, ['Situação']);
   if (!status) throw new Error('Relatório de abertura de conta sem coluna Situação.');
@@ -275,7 +284,7 @@ export function normalizeAccountOpeningRow(row: Record<string, string>): PddeInf
 
 export function normalizeSuspensionRow(row: Record<string, string>): PddeInfoSuspensionObservation {
   rowFiscalYear(row);
-  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP']), 8);
+  const schoolInep = digitsOrNull(valueByHeader(row, ['Código Escola', 'Código INEP', 'Código']), 8);
   if (!schoolInep) throw new Error('Relatório de suspensão sem Código Escola válido.');
   const suspensionType = valueByHeader(row, ['Tipo de Suspensão', 'Suspensão', 'Motivo Suspensão', 'Motivo']);
   if (!suspensionType) throw new Error('Relatório de suspensão sem motivo/tipo identificável.');

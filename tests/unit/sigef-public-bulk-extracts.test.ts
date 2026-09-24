@@ -13,12 +13,22 @@ describe('SIGEF Extratos > Consultas Gerais', () => {
     );
   });
 
-  test('reconhece o PDDE código 02 na resposta pública por exercício', () => {
+  test('reconhece o contrato real ID/NOME do índice público e ignora a opção sentinela', () => {
     const programs = parseSigefProgramsForYearJson(JSON.stringify([
-      { value: 'AN', label: 'BRASIL CARINHOSO' },
-      { value: '02', label: 'PROGRAMA DINHEIRO DIRETO NA ESCOLA' },
+      { ID: 'todos', NOME: 'Selecione um programa' },
+      { ID: '0A', NOME: 'PDDE EQUIDADE', DS_PROGRAMA_FNDE: 'PDDE EQUIDADE' },
+      { ID: '02', NOME: 'PDDE (PROGRAMA DINHEIRO DIRETO NA ESCOLA )', DS_PROGRAMA_FNDE: 'PDDE' },
     ]));
-    expect(programs).toContainEqual({
+    expect(programs).toEqual([
+      { value: '0A', label: 'PDDE EQUIDADE' },
+      { value: '02', label: 'PDDE (PROGRAMA DINHEIRO DIRETO NA ESCOLA )' },
+    ]);
+  });
+
+  test('mantém compatibilidade com o formato value/label já normalizado', () => {
+    expect(parseSigefProgramsForYearJson(JSON.stringify([
+      { value: '02', label: 'PROGRAMA DINHEIRO DIRETO NA ESCOLA' },
+    ]))).toContainEqual({
       value: '02',
       label: 'PROGRAMA DINHEIRO DIRETO NA ESCOLA',
     });
@@ -37,7 +47,8 @@ describe('SIGEF Extratos > Consultas Gerais', () => {
 
   test('probe confirma disponibilidade do índice público sem contornar CAPTCHA do gerador', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify([
-      { value: '02', label: 'PROGRAMA DINHEIRO DIRETO NA ESCOLA' },
+      { ID: 'todos', NOME: 'Selecione um programa' },
+      { ID: '02', NOME: 'PDDE (PROGRAMA DINHEIRO DIRETO NA ESCOLA )', DS_PROGRAMA_FNDE: 'PDDE' },
     ]), {
       status: 200,
       headers: { 'content-type': 'application/json' },

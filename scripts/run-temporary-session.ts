@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadMasterSchools } from '../backend/application/school-catalog';
+import { derivePddeBasicPortfolio } from '../shared/pdde-basic-monitoring';
 import {
   runTemporaryFinancialSession,
   type TemporaryFinancialSessionResult,
@@ -63,6 +64,7 @@ export function temporarySessionOutputEntries(
     'runId' | 'status' | 'portfolio' | 'schools' | 'workbookBytes' | 'workbookFilename'
   >,
 ): TemporarySessionOutputEntry[] {
+  const pddeBasic = derivePddeBasicPortfolio(result.schools.map((item) => item.snapshot));
   const entries: TemporarySessionOutputEntry[] = [
     {
       path: 'portfolio.json',
@@ -80,6 +82,21 @@ export function temporarySessionOutputEntries(
         fiscalYear: 2026,
         schoolCount: result.portfolio.schoolCount,
         workbookFilename: result.workbookFilename,
+        officialPaymentCoverage: {
+          pddeBasic: {
+            firstPaidCount: pddeBasic.firstPaidCount,
+            firstPendingCount: pddeBasic.firstPendingCount,
+            firstPaymentInformedCents: pddeBasic.firstPaymentInformedCents,
+            secondPaidCount: pddeBasic.secondPaidCount,
+            secondPendingCount: pddeBasic.secondPendingCount,
+            secondPaymentInformedCents: pddeBasic.secondPaymentInformedCents,
+            secondRegularPaidCount: pddeBasic.secondRegularPaidCount,
+            secondInfancyPaidCount: pddeBasic.secondInfancyPaidCount,
+            completeSecondCycle: pddeBasic.schoolCount > 0
+              && pddeBasic.secondPaidCount === pddeBasic.schoolCount,
+          },
+        },
+        reconciliationStatus: result.status,
         temporary: true,
         generatedAt: new Date().toISOString(),
       }),

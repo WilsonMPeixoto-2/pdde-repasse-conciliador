@@ -39,4 +39,88 @@ describe('escalonamento para SIGEF Liberações com conta já conhecida', () => 
     expect(result.human.schools[0].programs[0].installments[0].note).toMatch(/Liberações.*OB 900001/i);
     expect(result.raw.sources).toContain('SIGEF_LIBERACOES');
   });
+  test('reconsulta extrato até a data da Liberações quando a parcela não traz data própria no PDDEInfo', async () => {
+    const rawSchoolWithoutPaymentDate = {
+      ...rawSchoolWithAccount,
+      finance: [{
+        ...rawSchoolWithAccount.finance[0],
+        destinacao: 'PDDE / PDDE BÁSICO - 2ª PARCELA',
+        data: '',
+      }],
+    };
+    const releaseSecond = {
+      ...release,
+      id: 'SIGEF_LIBERACOES:01872287000102:2026:PDDE_BASICO:2:024298:506500',
+      installmentCode: '2',
+      paymentDate: '2026-09-17',
+      orderBank: '024298',
+      sourceReference: {
+        ...release.sourceReference,
+        rawProgram: 'PDDE - Básico - 2ª parcela',
+      },
+    };
+    const credit = {
+      id: 'credito-segunda-parcela',
+      schoolCnpj: cnpj,
+      programCode: '02',
+      operation: 'credit' as const,
+      amountCents: 506_500,
+      movementDate: '2026-09-18',
+      account: knownAccount,
+      document: '024298',
+      history: 'ORDEM BANCARIA',
+      classification: 'REPASSE_FNDE' as const,
+      counterparty: {
+        document: '00378257000181',
+        name: 'FUNDO NACIONAL DE DESENVOLVIMENTO DA EDUCACAO',
+        bank: '001',
+        agency: '1607',
+        account: '0997380845',
+      },
+      sourceUrl: 'https://www.fnde.gov.br/sigefweb/extrato',
+    };
+    const collectSigefAccount = vi.fn(async (input: { requiredThrough?: string }) => (
+      input.requiredThrough
+        ? { status: 'COMPLETE' as const, pagesFetched: 1, declaredTotal: 1, movements: [credit], coverageThrough: '2026-09-18' }
+        : { status: 'COMPLETE' as const, pagesFetched: 1, declaredTotal: 0, movements: [], coverageThrough: '2026-05-03' }
+    ));
+    const collectSigefReleases = vi.fn(async () => ({
+      query: { fiscalYear: 2026, programCode: '02' },
+      entity: { cnpj, name: 'CEC ESCOLA A', state: 'RJ', city: 'RIO DE JANEIRO' },
+      releases: [releaseSecond],
+      source: { source: 'SIGEF_LIBERACOES', status: 'available', queriedAt: '2026-09-21T07:30:00-03:00', coverageThrough: '2026-09-17' },
+      statistics: { releaseRows: 1, tables: 1 },
+      rawBytes: Buffer.from('<html>liberação</html>'),
+      sourceUrl: releaseSecond.sourceReference.url,
+      route: 'modern' as const,
+    }));
+
+    const result = await runFinancialIntelligenceMonitoring({
+      schools: [school], workspacePath: await workspace(), fiscalYear: 2026, runId: 'release-existing-account-second-installment-2026',
+      collectPddeInfoSchool: vi.fn(async () => ({ school: rawSchoolWithoutPaymentDate, queriedAt: '2026-09-21T07:30:00-03:00', rawBytes: Buffer.from('<html>pddeinfo</html>') })),
+      collectSigefAccount, collectSigefReleases,
+      collectPddeInfoPublicPortfolio: vi.fn(async () => ({ attendance: [], accounting: [], balances: [], artifacts: [], failures: [], balanceReferenceMonth: null, coverageThrough: null })),
+      now: () => '2026-09-21T07:31:00-03:00',
+    } as never) as any;
+
+    expect(collectSigefAccount).toHaveBeenCalledTimes(2);
+    expect(collectSigefAccount).toHaveBeenLastCalledWith(expect.objectContaining({ requiredThrough: '2026-09-17' }));
+    expect(result.raw.schools[0].repasses[0].dataOrdem).toBeNull();
+    expect(result.raw.accountRecoveries[0]).toMatchObject({
+      status: 'CONFIRMED',
+      paymentDate: '2026-09-17',
+      orderBank: '024298',
+    });
+    expect(result.operational.repasses[0]).toMatchObject({
+      orderDate: null,
+      bankCreditStatus: 'CREDITO_CONFIRMADO',
+      bankCreditDate: '2026-09-18',
+      bankCreditAmountCents: 506_500,
+    });
+    expect(result.raw.quality.paymentTemporalCoverage).toMatchObject({
+      status: 'SUFFICIENT',
+      sufficientCount: 1,
+      unknownCount: 0,
+    });
+  });
 });

@@ -69,6 +69,25 @@ function uniqueRelease(repasse: RawRepasse, releases: readonly SigefRelease[]): 
 function accountKey(programCode: string, account: BankAccount): string { return `${programCode}|${canonicalAccount(account)}`; }
 function repasseKey(input: { schoolInep:string; programCode:string; action:string; installment:string|null; amountCents:number; orderDate:string|null }): string { return [input.schoolInep,input.programCode,canonicalText(input.action),canonicalText(input.installment ?? ''),String(input.amountCents),input.orderDate ?? ''].join('|'); }
 function needsReleaseEscalation(options: RecoverSigefReleaseAccountsOptions): Set<string> { return new Set(options.base.operational.repasses.filter((repasse) => repasse.amountPaidInformedCents > 0 && repasse.bankCreditStatus !== 'CREDITO_CONFIRMADO').map((repasse) => repasseKey({ schoolInep:repasse.school.inep, programCode:repasse.programCode, action:repasse.action, installment:repasse.installment, amountCents:repasse.amountPaidInformedCents, orderDate:repasse.orderDate }))); }
+function recoveryPaymentDate(
+  raw: RawMonitoring & { accountRecoveries: SigefReleaseAccountRecovery[] },
+  schoolInep: string,
+  repasse: RawRepasse,
+): string | null {
+  const matches = raw.accountRecoveries.filter((recovery) => (
+    recovery.schoolInep === schoolInep
+    && recovery.programCode === repasse.programCode
+    && canonicalText(recovery.action) === canonicalText(repasse.action)
+    && canonicalText(recovery.installment ?? '') === canonicalText(repasse.installment ?? '')
+    && recovery.amountCents === repasse.pagoInformadoCents
+    && (recovery.status === 'RECOVERED' || recovery.status === 'CONFIRMED')
+    && recovery.paymentDate !== null
+    && (!repasse.account || !recovery.account || canonicalAccount(recovery.account) === canonicalAccount(repasse.account))
+  ));
+  const dates = [...new Set(matches.map((recovery) => recovery.paymentDate).filter((date): date is string => date !== null))];
+  return dates.length === 1 ? dates[0] : null;
+}
+
 function accountResult(input: { schoolInep:string; programCode:string; programLabel:string; account:BankAccount; statement:SigefAccountResult; fiscalYear:2026 }): RawAccount {
   const inYear = input.statement.movements.filter((movement) => movement.movementDate.startsWith(`${input.fiscalYear}-`)); const totals = emptyTotals(); for (const movement of inYear) totals[movement.classification] += movement.amountCents;
   return { inep:input.schoolInep, programCode:input.programCode, programLabel:input.programLabel, account:input.account, saldoPddeInfoCents:null, occurrence:null, status:input.statement.status, error:null, pagesFetched:input.statement.pagesFetched, declaredTotal:input.statement.declaredTotal, uniqueMovements:input.statement.movements.length, movementsInYear:inYear.length, coverageThrough:input.statement.coverageThrough, totals, movements:inYear } as RawAccount;
@@ -79,7 +98,7 @@ function recomputeRaw(raw: RawMonitoring & { accountRecoveries: SigefReleaseAcco
   for(const account of accounts){ for(const classification of CLASSIFICATIONS) totals[classification]+=account.totals[classification]??0; historical+=account.uniqueMovements; movementsInYear+=account.movementsInYear; balances+=account.saldoPddeInfoCents??0; if(account.status==='COMPLETE') complete+=1; else if(account.status==='PARTIAL') partial+=1; else failed+=1; }
   const paid=repasses.filter((repasse)=>repasse.pagoInformadoCents>0);
   raw.summary={...raw.summary,accounts:accounts.length,repassesProgramadosCents:repasses.reduce((sum,r)=>sum+r.programadoCents,0),repassesProgramadosNosItensPagosCents:paid.reduce((sum,r)=>sum+r.programadoCents,0),repassesPagosInformadosCents:repasses.reduce((sum,r)=>sum+r.pagoInformadoCents,0),creditosFndeLocalizadosCents:totals.REPASSE_FNDE,aplicacoesFinanceirasCents:totals.APLICACAO_FINANCEIRA,resgatesCents:totals.RESGATE_APLICACAO,pagamentosTransferenciasCents:totals.PAGAMENTO_TRANSFERENCIA+totals.PAGAMENTO_CARTAO,rendimentosCents:totals.RENDIMENTO_FINANCEIRO,entradasTerceirosCents:totals.ENTRADA_TERCEIRO,tarifasCents:totals.TARIFA_BANCARIA,estornosCents:totals.ESTORNO_REVERSAO,naoClassificadosCents:totals.MOVIMENTO_NAO_CLASSIFICADO,saldosPddeInfoCents:balances,movimentosHistoricosExtraidos:historical,movimentosDoExercicio:movementsInYear};
-  const temporal=assessPaymentTemporalCoverage({payments:raw.schools.flatMap((school)=>school.repasses.map((repasse)=>({schoolInep:school.inep,programCode:repasse.programCode,account:repasse.account,amountPaidCents:repasse.pagoInformadoCents,paymentDate:repasse.dataOrdem}))),accounts:raw.schools.flatMap((school)=>school.accounts.map((account)=>({schoolInep:school.inep,programCode:account.programCode,account:account.account,coverageThrough:account.coverageThrough})))});
+  const temporal=assessPaymentTemporalCoverage({payments:raw.schools.flatMap((school)=>school.repasses.map((repasse)=>({schoolInep:school.inep,programCode:repasse.programCode,account:repasse.account,amountPaidCents:repasse.pagoInformadoCents,paymentDate:repasse.dataOrdem??recoveryPaymentDate(raw,school.inep,repasse)}))),accounts:raw.schools.flatMap((school)=>school.accounts.map((account)=>({schoolInep:school.inep,programCode:account.programCode,account:account.account,coverageThrough:account.coverageThrough})))});
   raw.quality.paymentTemporalCoverage=temporal; raw.coverage={...raw.coverage,mappedAccountsAttempted:accounts.length,mappedAccountsComplete:complete,mappedAccountsPartial:partial,mappedAccountsFailed:failed,paymentTemporalCoverage:temporal}; raw.status=raw.status==='COMPLETE'&&releaseFailures===0&&partial===0&&failed===0?'COMPLETE':'PARTIAL'; if(raw.accountRecoveries.length>0&&!raw.sources.includes('SIGEF_LIBERACOES')) raw.sources.push('SIGEF_LIBERACOES');
 }
 
@@ -91,9 +110,41 @@ export async function recoverSigefReleaseAccounts(options: RecoverSigefReleaseAc
   await mapConcurrent(groups,2,async(group)=>{options.signal?.throwIfAborted();let collection:SigefPublicReleaseCollection;try{collection=await releaseCollector({cnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,fiscalYear:options.fiscalYear,targetCnpjs:[canonicalCnpj(group.school.cnpj)],...(options.signal?{signal:options.signal}:{})});const releasePath=join(workspacePath,'sigef',group.school.inep,group.programCode,'liberacoes.html');await mkdir(dirname(releasePath),{recursive:true});await writeFile(releasePath,collection.rawBytes);raw.releaseQueries.push({schoolInep:group.school.inep,schoolCnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,status:'COMPLETE',queriedAt:collection.source.queriedAt,sourceUrl:collection.sourceUrl,route:collection.route??null,rawSha256:createHash('sha256').update(collection.rawBytes).digest('hex'),releases:collection.releases,error:null});}catch(cause){options.signal?.throwIfAborted();releaseFailures+=1;const error=cause instanceof Error?cause.message:String(cause);raw.releaseQueries.push({schoolInep:group.school.inep,schoolCnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,status:'ERROR',queriedAt:now(),sourceUrl:null,route:null,rawSha256:null,releases:[],error});for(const repasse of group.repasses)raw.accountRecoveries.push({schoolInep:group.school.inep,schoolCnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,action:repasse.action,installment:repasse.installment,amountCents:repasse.pagoInformadoCents,status:'ERROR',account:repasse.account?{...repasse.account}:null,paymentDate:null,orderBank:null,sourceUrl:null,error});return;}
     for(const repasse of group.repasses){const scopedReleases=collection.releases.filter((release)=>canonicalCnpj(release.schoolCnpj)===canonicalCnpj(group.school.cnpj)&&release.fiscalYear===options.fiscalYear);const match=uniqueRelease(repasse,scopedReleases);if(!match.release){raw.accountRecoveries.push({schoolInep:group.school.inep,schoolCnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,action:repasse.action,installment:repasse.installment,amountCents:repasse.pagoInformadoCents,status:match.status,account:repasse.account?{...repasse.account}:null,paymentDate:null,orderBank:null,sourceUrl:collection.sourceUrl,error:null,candidates:releaseCandidates(repasse,scopedReleases)});continue;}const releasedAccount={...match.release.destinationAccount};let status:SigefReleaseAccountRecovery['status'];if(!repasse.account){repasse.account=releasedAccount;status='RECOVERED';}else if(canonicalAccount(repasse.account)===canonicalAccount(releasedAccount))status='CONFIRMED';else status='ACCOUNT_MISMATCH';raw.accountRecoveries.push({schoolInep:group.school.inep,schoolCnpj:canonicalCnpj(group.school.cnpj),programCode:group.programCode,action:repasse.action,installment:repasse.installment,amountCents:repasse.pagoInformadoCents,status,account:releasedAccount,paymentDate:match.release.paymentDate,orderBank:match.release.orderBank,sourceUrl:collection.sourceUrl,error:null});}
   });
-  const accountTasks:Array<{school:RawSchool;programCode:string;programLabel:string;account:BankAccount}>=[];
-  for(const school of raw.schools){const existing=new Set(school.accounts.map((account)=>accountKey(account.programCode,account.account)));const recovered=raw.accountRecoveries.filter((item)=>item.schoolInep===school.inep&&item.status==='RECOVERED'&&item.account);for(const item of recovered){if(!item.account)continue;const key=accountKey(item.programCode,item.account);if(existing.has(key))continue;existing.add(key);accountTasks.push({school,programCode:item.programCode,programLabel:item.programCode==='02'?'PDDE':item.action,account:item.account});}}
-  await mapConcurrent(accountTasks,2,async(task)=>{options.signal?.throwIfAborted();const rawDir=join(workspacePath,'sigef',task.school.inep,task.programCode,safeSegment(task.account.number));let result:RawAccount;try{const requiredThrough=task.school.repasses.filter((item)=>item.pagoInformadoCents>0&&item.programCode===task.programCode&&item.account&&canonicalAccount(item.account)===canonicalAccount(task.account)).map((item)=>item.dataOrdem).filter((date):date is string=>date!==null).sort().at(-1);const statement=await statementCollector({cnpj:canonicalCnpj(task.school.cnpj),programCode:task.programCode,account:task.account,startYear:options.fiscalYear,startMonth:1,maxPages:500,...(requiredThrough?{requiredThrough}:{}),...(options.signal?{signal:options.signal}:{}),onPage:async(page)=>{await mkdir(rawDir,{recursive:true});await writeFile(join(rawDir,`page-${String(page.index).padStart(3,'0')}.html`),page.rawBytes);}});result=accountResult({schoolInep:task.school.inep,programCode:task.programCode,programLabel:task.programLabel,account:task.account,statement,fiscalYear:options.fiscalYear});}catch(cause){options.signal?.throwIfAborted();result=failedAccountResult({schoolInep:task.school.inep,programCode:task.programCode,programLabel:task.programLabel,account:task.account,error:cause instanceof Error?cause.message:String(cause)});}task.school.accounts.push(result);});
+  const accountTasks:Array<{school:RawSchool;programCode:string;programLabel:string;account:BankAccount;requiredThrough:string|null;replaceIndex:number}>=[];
+  for(const school of raw.schools){
+    const grouped=new Map<string,{programCode:string;programLabel:string;account:BankAccount;requiredThrough:string|null}>();
+    const recoveries=raw.accountRecoveries.filter((item)=>item.schoolInep===school.inep&&(item.status==='RECOVERED'||item.status==='CONFIRMED')&&item.account);
+    for(const item of recoveries){
+      if(!item.account)continue;
+      const key=accountKey(item.programCode,item.account);
+      const current=grouped.get(key);
+      const requiredThrough=[current?.requiredThrough??null,item.paymentDate].filter((date):date is string=>date!==null).sort().at(-1)??null;
+      grouped.set(key,{programCode:item.programCode,programLabel:item.programCode==='02'?'PDDE':item.action,account:item.account,requiredThrough});
+    }
+    for(const item of grouped.values()){
+      const replaceIndex=school.accounts.findIndex((account)=>accountKey(account.programCode,account.account)===accountKey(item.programCode,item.account));
+      const existing=replaceIndex>=0?school.accounts[replaceIndex]:null;
+      const needsNew=replaceIndex<0;
+      const needsRefresh=Boolean(item.requiredThrough&&(!existing?.coverageThrough||existing.coverageThrough<item.requiredThrough));
+      if(!needsNew&&!needsRefresh)continue;
+      accountTasks.push({school,...item,replaceIndex});
+    }
+  }
+  await mapConcurrent(accountTasks,2,async(task)=>{
+    options.signal?.throwIfAborted();
+    const rawDir=join(workspacePath,'sigef',task.school.inep,task.programCode,safeSegment(task.account.number));
+    let result:RawAccount;
+    try{
+      const statement=await statementCollector({cnpj:canonicalCnpj(task.school.cnpj),programCode:task.programCode,account:task.account,startYear:options.fiscalYear,startMonth:1,maxPages:500,...(task.requiredThrough?{requiredThrough:task.requiredThrough}:{}),...(options.signal?{signal:options.signal}:{}),onPage:async(page)=>{await mkdir(rawDir,{recursive:true});await writeFile(join(rawDir,`page-${String(page.index).padStart(3,'0')}.html`),page.rawBytes);}});
+      result=accountResult({schoolInep:task.school.inep,programCode:task.programCode,programLabel:task.programLabel,account:task.account,statement,fiscalYear:options.fiscalYear});
+    }catch(cause){
+      options.signal?.throwIfAborted();
+      if(task.replaceIndex>=0)return;
+      result=failedAccountResult({schoolInep:task.school.inep,programCode:task.programCode,programLabel:task.programLabel,account:task.account,error:cause instanceof Error?cause.message:String(cause)});
+    }
+    if(task.replaceIndex>=0)task.school.accounts[task.replaceIndex]=result;
+    else task.school.accounts.push(result);
+  });
   recomputeRaw(raw,releaseFailures);const collectedAt=now();raw.sourceObservations=buildMonitoringSourceObservations({generatedAt:collectedAt,pddeInfo:{collected:raw.schools.length,failures:raw.coverage.pddeInfoFailures.length,queriedAt:raw.schools.map((school)=>school.pddeInfo?.queriedAt).filter((date):date is string=>!!date)},sigef:raw.schools.flatMap((school)=>school.accounts)});
   if(raw.releaseQueries.length>0){const count=(status:SigefReleaseAccountRecovery['status'])=>raw.accountRecoveries.filter((item)=>item.status===status).length;raw.sourceObservations.push(buildReleaseSourceObservation({collectedAt:raw.releaseQueries.map((query)=>query.queriedAt).sort().at(-1)??collectedAt,paymentDates:raw.releaseQueries.flatMap((query)=>query.releases.map((release)=>release.paymentDate)),metrics:{queriesAttempted:raw.releaseQueries.length,queriesSucceeded:raw.releaseQueries.length-releaseFailures,queriesFailed:releaseFailures,releaseRows:raw.releaseQueries.reduce((sum,query)=>sum+query.releases.length,0),releaseMatches:count('RECOVERED')+count('CONFIRMED')+count('ACCOUNT_MISMATCH'),recoveredAccounts:count('RECOVERED'),confirmedAccounts:count('CONFIRMED'),accountMismatches:count('ACCOUNT_MISMATCH'),ambiguousMatches:count('AMBIGUOUS'),notFound:count('NOT_FOUND'),errors:count('ERROR')}}));}
   const operational=buildMonitoringOperationalView(raw);const fiscal=buildFiscalHumanView(raw);return {status:raw.status,raw,operational,fiscal,paths:options.base.paths};

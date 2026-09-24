@@ -22,7 +22,12 @@ describe('cliente HTTP do PDDEInfo', () => {
       inep: '33069247',
     });
 
-    expect(url).toBe('https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar/ano/2026/co_escola/33069247/cnpj//co_esfera_adm/2/sg_uf/RJ/co_municipio_fnde/330455/consultar/Consultar/page/1');
+    const parsed = new URL(url);
+    expect(parsed.origin + parsed.pathname).toBe('https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar');
+    expect(parsed.searchParams.get('ano')).toBe('2026');
+    expect(parsed.searchParams.get('co_escola')).toBe('33069247');
+    expect(parsed.searchParams.get('cnpj')).toBe('');
+    expect(parsed.searchParams.get('consultar')).toBe('Consultar');
   });
 
   test('repete falhas transitórias e preserva os bytes recebidos na resposta bem-sucedida', async () => {
@@ -56,7 +61,7 @@ describe('cliente HTTP do PDDEInfo', () => {
       html: '<html>ok</html>',
       attempts: 3,
       queriedAt: '2026-08-12T22:50:00-03:00',
-      sourceUrl: expect.stringContaining('/ano/2026/co_escola/33069247/'),
+      sourceUrl: expect.stringContaining('co_escola=33069247'),
     });
     expect(result.rawBytes).toEqual(Buffer.from('<html>ok</html>', 'utf8'));
     expect(fetchImpl).toHaveBeenCalledTimes(3);

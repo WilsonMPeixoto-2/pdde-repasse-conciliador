@@ -62,11 +62,26 @@ export function parseSigefProgramsForYearJson(raw: string): SigefPublicProgramOp
   for (const item of parsed) {
     if (!item || typeof item !== 'object') throw new Error('SIGEF Extratos: item de programa inválido.');
     const candidate = item as Record<string, unknown>;
-    if (typeof candidate.value !== 'string' || typeof candidate.label !== 'string') {
+    const rawValue = typeof candidate.ID === 'string'
+      ? candidate.ID
+      : typeof candidate.value === 'string'
+        ? candidate.value
+        : null;
+    const rawLabel = typeof candidate.NOME === 'string'
+      ? candidate.NOME
+      : typeof candidate.label === 'string'
+        ? candidate.label
+        : null;
+    if (rawValue === null || rawLabel === null) {
       throw new Error('SIGEF Extratos: programa sem código/rótulo válido.');
     }
-    const value = program(candidate.value);
-    const label = candidate.label.trim();
+
+    // A resposta pública atual abre com a opção de UI { ID: 'todos',
+    // NOME: 'Selecione um programa' }. Ela não representa um programa FNDE.
+    if (rawValue.trim().toLowerCase() === 'todos') continue;
+
+    const value = program(rawValue);
+    const label = rawLabel.trim();
     if (!label) throw new Error('SIGEF Extratos: rótulo de programa vazio.');
     programs.push({ value, label });
   }

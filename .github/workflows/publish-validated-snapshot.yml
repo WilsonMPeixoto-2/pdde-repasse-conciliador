@@ -92,8 +92,20 @@ jobs:
                   raise SystemExit(f'INEP duplicado no artefato: {inep}')
               schools[inep] = school
 
-          if session.get('status') != 'COMPLETE' or session.get('schoolCount') != 163:
-              raise SystemExit(f'Sessão não está COMPLETE 163/163: {session}')
+          payment_coverage = (
+              session.get('officialPaymentCoverage', {})
+              .get('pddeBasic', {})
+          )
+          if (
+              session.get('schoolCount') != 163
+              or payment_coverage.get('secondPaidCount') != 163
+              or payment_coverage.get('secondPendingCount') != 0
+              or payment_coverage.get('completeSecondCycle') is not True
+          ):
+              raise SystemExit(
+                  'Cobertura oficial do 2º ciclo não está completa 163/163: '
+                  f'{payment_coverage}'
+              )
           if portfolio.get('schoolCount') != 163 or len(schools) != 163:
               raise SystemExit(
                   f'Cobertura inválida: portfolio={portfolio.get("schoolCount")} prontuarios={len(schools)}'

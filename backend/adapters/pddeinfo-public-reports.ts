@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { load } from 'cheerio';
+import ExcelJS from 'exceljs';
 import { z } from 'zod';
 import {
   AcquisitionUnavailableError,
@@ -91,12 +92,57 @@ export interface PddeInfoPublicReportResult extends ParsedPddeInfoPublicReport {
   httpStatus: number | null;
   responseBytes: number;
   coverageThrough: string | null;
+  artifactKind?: 'RAW_HTML' | 'RAW_FILE';
+  mediaType?: string;
+  fileExtension?: 'html' | 'xlsx';
 }
 
 export interface DiscoverPddeInfoBalanceMonthsOptions {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   signal?: AbortSignal;
+}
+
+export interface FetchPddeInfoBulkAttendanceOptions {
+  fiscalYear: 2026;
+  uf?: string;
+  administrationSphere?: number;
+  municipalityFndeCode?: string;
+  programCode?: string;
+  fetchImpl?: typeof fetch;
+  now?: () => string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export interface PddeInfoPlatformVersion {
+  version: string;
+  releasedOn: string;
+  revision: string;
+}
+
+export function parsePddeInfoPlatformVersion(html: string): PddeInfoPlatformVersion | null {
+  const match = html.match(/PDDE\s*Info\s+(\d{2}\.\d{2}\.\d{4})#([0-9a-f]+)/i);
+  if (!match) return null;
+  return {
+    version: `${match[1]}#${match[2]}`,
+    releasedOn: match[1],
+    revision: match[2],
+  };
+}
+
+export function buildPddeInfoMunicipalitiesApiUrl(uf: string): string {
+  const normalized = uf.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) throw new Error(`UF inválida para API de municípios PDDEInfo: ${uf}.`);
+  const url = new URL('https://www.fnde.gov.br/pddeinfo/pddeinfo/corp/get-municipio');
+  url.searchParams.set('sg_uf', normalized);
+  return url.toString();
+}
+
+export function buildPddeInfoDestinationsApiUrl(input: { fiscalYear: 2026; programCode: string }): string {
+  const programCode = input.programCode.trim();
+  if (!programCode) throw new Error('Código de programa vazio para API de destinações PDDEInfo.');
+  return `https://www.fnde.gov.br/pddeinfo/pddeinfo/sae/get-destinacao/ano/${input.fiscalYear}/programa/${encodeURIComponent(programCode)}`;
 }
 
 function appendCommonSchoolParams(url: URL, filter: z.output<typeof yearSchoolFilterSchema>): void {
@@ -158,6 +204,192 @@ function sourceErrorMessage(html: string): string | null {
   return cleanText(match?.[0] ?? text.slice(0, 500));
 }
 
+function parseGovbrReportCards(
+  html: string,
+  kind: PddeInfoPublicReportKind,
+): ParsedPddeInfoPublicReport {
+  const $ = load(html);
+  const rows: Array<Record<string, string>> = [];
+  $('.govbr-report-card').each((_index, card) => {
+    const record: Record<string, string> = {};
+    const title = cleanText($(card).find('.govbr-report-card-header h2').first().text());
+    const year = cleanText($(card).find('.govbr-report-card-header .year').first().text());
+    if (year && /^\d{4}$/.test(year)) record.Ano = year;
+    if (title) {
+      if (kind === 'ATTENDANCE') record['Nome Escola'] = title;
+      if (kind === 'REGISTRATION') record.Escola = title;
+    }
+    $(card).find('.govbr-report-card-item').each((_itemIndex, item) => {
+      const label = cleanText($(item).find('.label').first().text());
+      const value = cleanText($(item).find('.value').first().text());
+      if (label) record[label] = value;
+    });
+    if (Object.keys(record).length > 0) rows.push(record);
+  });
+  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+  return { kind, headers, rows };
+}
+
+function canonicalReportHeader(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+}
+
+function attendanceExcelUrl(filter: z.output<typeof attendanceFilterSchema>): string {
+  const url = new URL(
+    'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
+  );
+  url.searchParams.set('an_exercicio', String(filter.fiscalYear));
+  url.searchParams.set('cnpj', '');
+  url.searchParams.set('co_escola', filter.inep);
+  url.searchParams.set('destinacao', '');
+  url.searchParams.set('tpRelatorio', '1');
+  url.searchParams.set('stpg', "'1'");
+  url.searchParams.set('programas', filter.programCode ?? '');
+  url.searchParams.set('sg_uf', '');
+  url.searchParams.set('esferaAdm', '');
+  url.searchParams.set('co_municipio_fnde', '');
+  return url.toString();
+}
+
+export function buildPddeInfoBulkAttendanceExcelUrl(
+  options: Pick<
+    FetchPddeInfoBulkAttendanceOptions,
+    'fiscalYear' | 'uf' | 'administrationSphere' | 'municipalityFndeCode' | 'programCode'
+  >,
+): string {
+  const uf = (options.uf ?? 'RJ').trim().toUpperCase();
+  const administrationSphere = options.administrationSphere ?? 2;
+  const municipalityFndeCode = options.municipalityFndeCode ?? '330455';
+  if (!/^[A-Z]{2}$/.test(uf)) throw new Error(`UF inválida para exportação PDDEInfo: ${uf}.`);
+  if (!Number.isInteger(administrationSphere) || administrationSphere < 1 || administrationSphere > 3) {
+    throw new Error('Esfera administrativa inválida para exportação PDDEInfo.');
+  }
+  if (!/^\d{6}$/.test(municipalityFndeCode)) {
+    throw new Error(`Código FNDE do município inválido: ${municipalityFndeCode}.`);
+  }
+  const url = new URL(
+    'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
+  );
+  url.searchParams.set('an_exercicio', String(options.fiscalYear));
+  url.searchParams.set('cnpj', '');
+  url.searchParams.set('co_escola', '');
+  url.searchParams.set('destinacao', '');
+  url.searchParams.set('tpRelatorio', '1');
+  url.searchParams.set('stpg', "'1'");
+  url.searchParams.set('programas', options.programCode ?? '');
+  url.searchParams.set('sg_uf', uf);
+  url.searchParams.set('esferaAdm', String(administrationSphere));
+  url.searchParams.set('co_municipio_fnde', municipalityFndeCode);
+  return url.toString();
+}
+
+function excelCellText(cell: ExcelJS.Cell): string {
+  return cleanText(cell.text ?? '');
+}
+
+export function parsePddeInfoAttendanceHtmlExport(
+  html: string,
+): ParsedPddeInfoPublicReport {
+  const error = sourceErrorMessage(html);
+  if (error) {
+    throw new PddeInfoPublicReportSourceError(`Exportação de atendimento PDDEInfo retornou erro da fonte: ${error}`);
+  }
+  const $ = load(html);
+  const rows = $('tr').toArray().map((row) => (
+    $(row).find('th,td').toArray().map((cell) => cleanText($(cell).text()))
+  ));
+  const headerIndex = rows.findIndex((values) => {
+    const normalized = values.map(canonicalReportHeader);
+    return normalized.includes('ANO')
+      && normalized.includes('CODIGO ESCOLA')
+      && normalized.includes('DESTINACAO')
+      && normalized.includes('DATA DA ORD DE PAGAMENTO');
+  });
+  if (headerIndex < 0) {
+    throw new Error('Exportação HTML de atendimento PDDEInfo sem cabeçalho reconhecível.');
+  }
+  const headers = rows[headerIndex];
+  const records: Array<Record<string, string>> = [];
+  for (const values of rows.slice(headerIndex + 1)) {
+    if (values.every((value) => value === '')) continue;
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      if (header) record[header] = values[index] ?? '';
+    });
+    if (record['Código Escola']) records.push(record);
+  }
+  return { kind: 'ATTENDANCE', headers, rows: records };
+}
+
+export async function parsePddeInfoAttendanceWorkbook(
+  bytes: Uint8Array,
+): Promise<ParsedPddeInfoPublicReport> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(
+    Buffer.from(bytes) as unknown as Parameters<typeof workbook.xlsx.load>[0],
+  );
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) throw new Error('Excel de atendimento PDDEInfo sem planilha.');
+
+  let headerRow = 0;
+  let headers: string[] = [];
+  worksheet.eachRow((row, rowNumber) => {
+    if (headerRow > 0) return;
+    const values = row.values instanceof Array
+      ? row.values.slice(1).map((_value, index) => excelCellText(row.getCell(index + 1)))
+      : [];
+    const normalized = values.map((value) => canonicalReportHeader(value));
+    if (
+      normalized.includes('ANO')
+      && normalized.includes('CODIGO ESCOLA')
+      && normalized.includes('DESTINACAO')
+      && normalized.includes('DATA DA ORD DE PAGAMENTO')
+    ) {
+      headerRow = rowNumber;
+      headers = values;
+    }
+  });
+  if (headerRow === 0) {
+    throw new Error('Excel de atendimento PDDEInfo sem cabeçalho tabular reconhecível.');
+  }
+
+  const rows: Array<Record<string, string>> = [];
+  for (let rowNumber = headerRow + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    const values = headers.map((_header, index) => excelCellText(row.getCell(index + 1)));
+    if (values.every((value) => value === '')) continue;
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      if (header) record[header] = values[index] ?? '';
+    });
+    rows.push(record);
+  }
+  return { kind: 'ATTENDANCE', headers, rows };
+}
+
+export async function parsePddeInfoAttendanceExport(
+  bytes: Uint8Array,
+  contentType?: string | null,
+): Promise<ParsedPddeInfoPublicReport> {
+  const raw = Buffer.from(bytes);
+  const isZipWorkbook = raw.length >= 4
+    && raw[0] === 0x50
+    && raw[1] === 0x4b
+    && (raw[2] === 0x03 || raw[2] === 0x05 || raw[2] === 0x07);
+  if (isZipWorkbook) return parsePddeInfoAttendanceWorkbook(raw);
+
+  const html = decodeHtml(raw, contentType ?? 'text/html; charset=ISO-8859-1');
+  if (/<(?:html|table|tr|td|th)\b/i.test(html)) {
+    return parsePddeInfoAttendanceHtmlExport(html);
+  }
+  throw new Error('Exportação de atendimento PDDEInfo não é XLSX nem HTML tabular reconhecível.');
+}
+
 export function parsePddeInfoPublicReport(
   html: string,
   kind: PddeInfoPublicReportKind,
@@ -188,6 +420,15 @@ export function parsePddeInfoPublicReport(
       rows.push(record);
     });
   });
+  if (rows.length === 0) {
+    const cards = parseGovbrReportCards(html, kind);
+    if (cards.rows.length > 0) return cards;
+    if (load(html)('.govbr-report-card').length > 0) {
+      throw new PddeInfoPublicReportSourceError(
+        'Relatório público do FNDE contém cards, mas o layout não pôde ser interpretado.',
+      );
+    }
+  }
   return { kind, headers, rows };
 }
 
@@ -248,14 +489,103 @@ export async function discoverPddeInfoBalanceMonths(
   return [...months].sort((left, right) => monthRank(right) - monthRank(left));
 }
 
+export async function fetchPddeInfoBulkAttendanceReport(
+  options: FetchPddeInfoBulkAttendanceOptions,
+): Promise<PddeInfoPublicReportResult> {
+  const sourceUrl = buildPddeInfoBulkAttendanceExcelUrl(options);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const now = options.now ?? (() => new Date().toISOString());
+  options.signal?.throwIfAborted();
+  const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 60_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+  const response = await fetchImpl(sourceUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Public-Reports/0.7)',
+      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+      'Cache-Control': 'no-cache, no-store, max-age=0',
+      Pragma: 'no-cache',
+    },
+    signal,
+  });
+  const rawBytes = Buffer.from(await response.arrayBuffer());
+  if (!response.ok) {
+    throw new AcquisitionUnavailableError(
+      `Excel público municipal de atendimento PDDEInfo retornou HTTP ${response.status}.`,
+    );
+  }
+  const contentType = response.headers.get('content-type');
+  const parsed = await parsePddeInfoAttendanceExport(rawBytes, contentType);
+  return {
+    ...parsed,
+    via: 'HTTP',
+    sourceUrl: response.url || sourceUrl,
+    queriedAt: now(),
+    html: '',
+    rawBytes,
+    httpStatus: response.status,
+    responseBytes: rawBytes.byteLength,
+    coverageThrough: null,
+    artifactKind: 'RAW_FILE',
+    mediaType: contentType ?? 'application/octet-stream',
+    fileExtension: rawBytes[0] === 0x50 && rawBytes[1] === 0x4b ? 'xlsx' : 'html',
+  };
+}
+
 export async function fetchPddeInfoPublicReport(
   options: FetchPddeInfoPublicReportOptions,
 ): Promise<PddeInfoPublicReportResult> {
   const filter = reportFilterSchema.parse(options.filter);
-  const sourceUrl = buildPddeInfoPublicReportUrl(filter);
   const now = options.now ?? (() => new Date().toISOString());
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 25_000;
+
+  if (filter.kind === 'ATTENDANCE') {
+    const sourceUrl = attendanceExcelUrl(filter);
+    try {
+      options.signal?.throwIfAborted();
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
+      const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+      const response = await fetchImpl(sourceUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Public-Reports/0.6)',
+          Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9',
+          'Cache-Control': 'no-cache, no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+        signal,
+      });
+      const rawBytes = Buffer.from(await response.arrayBuffer());
+      if (!response.ok) {
+        throw new AcquisitionUnavailableError(
+          `Excel público de atendimento PDDEInfo retornou HTTP ${response.status}.`,
+        );
+      }
+      const contentType = response.headers.get('content-type');
+  const parsed = await parsePddeInfoAttendanceExport(rawBytes, contentType);
+      return {
+        ...parsed,
+        via: 'HTTP',
+        sourceUrl: response.url || sourceUrl,
+        queriedAt: now(),
+        html: '',
+        rawBytes,
+        httpStatus: response.status,
+        responseBytes: rawBytes.byteLength,
+        coverageThrough: null,
+        artifactKind: 'RAW_FILE',
+        mediaType: contentType ?? 'application/octet-stream',
+        fileExtension: rawBytes[0] === 0x50 && rawBytes[1] === 0x4b ? 'xlsx' : 'html',
+      };
+    } catch (cause) {
+      options.signal?.throwIfAborted();
+      if (!options.browserFallback) throw cause;
+      // O HTML em cards permanece como fallback quando o export oficial fica indisponível.
+    }
+  }
+
+  const sourceUrl = buildPddeInfoPublicReportUrl(filter);
   const strategies: Array<AcquisitionStrategy<{
     html: string;
     rawBytes: Buffer;
@@ -337,5 +667,8 @@ export async function fetchPddeInfoPublicReport(
     httpStatus: acquired.value.httpStatus,
     responseBytes: acquired.value.rawBytes.byteLength,
     coverageThrough: coverageThrough(filter),
+    artifactKind: 'RAW_HTML',
+    mediaType: 'text/html',
+    fileExtension: 'html',
   };
 }
