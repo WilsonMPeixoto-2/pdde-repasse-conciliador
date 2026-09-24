@@ -2,6 +2,15 @@ name: Sentinela financeiro PDDEInfo
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/watch-pddeinfo-attendance.ts'
+      - 'backend/source-contracts/pddeinfo-current.json'
+      - 'backend/adapters/pddeinfo-public-reports.ts'
+      - 'backend/adapters/pddeinfo-public-report-normalizer.ts'
+      - '.github/workflows/pddeinfo-financial-sentinel.yml'
   schedule:
     # Consulta leve da fonte crítica a cada hora. Não executa SIGEF nem coleta pesada.
     - cron: "17 * * * *"
