@@ -51,12 +51,12 @@ const reportFilterSchema = z.discriminatedUnion('kind', [
 export type PddeInfoPublicReportFilter = z.input<typeof reportFilterSchema>;
 
 const BASE_URLS: Record<PddeInfoPublicReportKind, string> = {
-  ATTENDANCE: 'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/situacaoatendimentoentidade',
-  ACCOUNTING: 'https://www.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta',
-  BALANCE: 'https://www.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
-  ACCOUNT_OPENING: 'https://www.fnde.gov.br/pddeinfo/staberturacontaentidade/staberturacontaentidade/staberturacontaentidade',
-  REGISTRATION: 'https://www.fnde.gov.br/pddeinfo/situacaocadastroentidade/situacaocadastroentidade/situacaocadastroentidade',
-  SUSPENSION: 'https://www.fnde.gov.br/pddeinfo/relatoriosuspensao/relatoriosuspensao/relatoriosuspensao',
+  ATTENDANCE: 'https://webservice.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/situacaoatendimentoentidade',
+  ACCOUNTING: 'https://webservice.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta',
+  BALANCE: 'https://webservice.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade',
+  ACCOUNT_OPENING: 'https://webservice.fnde.gov.br/pddeinfo/staberturacontaentidade/staberturacontaentidade/staberturacontaentidade',
+  REGISTRATION: 'https://webservice.fnde.gov.br/pddeinfo/situacaocadastroentidade/situacaocadastroentidade/situacaocadastroentidade',
+  SUSPENSION: 'https://webservice.fnde.gov.br/pddeinfo/relatoriosuspensao/relatoriosuspensao/relatoriosuspensao',
 };
 
 export class PddeInfoPublicReportSourceError extends Error {
@@ -134,7 +134,7 @@ export function parsePddeInfoPlatformVersion(html: string): PddeInfoPlatformVers
 export function buildPddeInfoMunicipalitiesApiUrl(uf: string): string {
   const normalized = uf.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) throw new Error(`UF inválida para API de municípios PDDEInfo: ${uf}.`);
-  const url = new URL('https://www.fnde.gov.br/pddeinfo/pddeinfo/corp/get-municipio');
+  const url = new URL('https://webservice.fnde.gov.br/pddeinfo/pddeinfo/corp/get-municipio');
   url.searchParams.set('sg_uf', normalized);
   return url.toString();
 }
@@ -142,7 +142,7 @@ export function buildPddeInfoMunicipalitiesApiUrl(uf: string): string {
 export function buildPddeInfoDestinationsApiUrl(input: { fiscalYear: 2026; programCode: string }): string {
   const programCode = input.programCode.trim();
   if (!programCode) throw new Error('Código de programa vazio para API de destinações PDDEInfo.');
-  return `https://www.fnde.gov.br/pddeinfo/pddeinfo/sae/get-destinacao/ano/${input.fiscalYear}/programa/${encodeURIComponent(programCode)}`;
+  return `https://webservice.fnde.gov.br/pddeinfo/pddeinfo/sae/get-destinacao/ano/${input.fiscalYear}/programa/${encodeURIComponent(programCode)}`;
 }
 
 function appendCommonSchoolParams(url: URL, filter: z.output<typeof yearSchoolFilterSchema>): void {
@@ -241,7 +241,7 @@ function canonicalReportHeader(value: string): string {
 
 function attendanceExcelUrl(filter: z.output<typeof attendanceFilterSchema>): string {
   const url = new URL(
-    'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
+    'https://webservice.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
   );
   url.searchParams.set('an_exercicio', String(filter.fiscalYear));
   url.searchParams.set('cnpj', '');
@@ -273,7 +273,7 @@ export function buildPddeInfoBulkAttendanceExcelUrl(
     throw new Error(`Código FNDE do município inválido: ${municipalityFndeCode}.`);
   }
   const url = new URL(
-    'https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
+    'https://webservice.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/excel',
   );
   url.searchParams.set('an_exercicio', String(options.fiscalYear));
   url.searchParams.set('cnpj', '');
@@ -283,7 +283,7 @@ export function buildPddeInfoBulkAttendanceExcelUrl(
   url.searchParams.set('stpg', "'1'");
   url.searchParams.set('programas', options.programCode ?? '');
   url.searchParams.set('sg_uf', uf);
-  url.searchParams.set('esferaAdm', String(administrationSphere));
+  url.searchParams.set('esferaAdm', `'${administrationSphere}'`);
   url.searchParams.set('co_municipio_fnde', municipalityFndeCode);
   return url.toString();
 }

@@ -58,11 +58,12 @@ describe('relatórios públicos PDDEInfo', () => {
       municipalityFndeCode: '330455',
       programCode: '02',
     }));
+    expect(url.hostname).toBe('webservice.fnde.gov.br');
     expect(url.pathname).toContain('/situacaoatendimentoentidade/situacaoatendimentoentidade/excel');
     expect(url.searchParams.get('an_exercicio')).toBe('2026');
     expect(url.searchParams.get('co_escola')).toBe('');
     expect(url.searchParams.get('sg_uf')).toBe('RJ');
-    expect(url.searchParams.get('esferaAdm')).toBe('2');
+    expect(url.searchParams.get('esferaAdm')).toBe("'2'");
     expect(url.searchParams.get('co_municipio_fnde')).toBe('330455');
     expect(url.searchParams.get('programas')).toBe('02');
     expect(url.searchParams.get('stpg')).toBe("'1'");
