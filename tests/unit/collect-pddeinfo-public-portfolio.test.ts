@@ -149,6 +149,69 @@ describe('collectPddeInfoPublicPortfolio', () => {
     ]);
   });
 
+  it('consulta saldo pelo CNPJ mestre mesmo quando Atendimento falha', async () => {
+    const balanceCalls: Array<{ cnpj: string; month: string }> = [];
+    const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
+      if (filter.kind === 'ATTENDANCE') throw new Error('parser de atendimento indisponível');
+      if (filter.kind === 'ACCOUNTING') return report('ACCOUNTING', []);
+      if (filter.kind === 'REGISTRATION') return report('REGISTRATION', []);
+      if (filter.kind === 'ACCOUNT_OPENING') return report('ACCOUNT_OPENING', []);
+      if (filter.kind === 'SUSPENSION') return report('SUSPENSION', []);
+      if (filter.kind === 'BALANCE') {
+        balanceCalls.push({ cnpj: filter.cnpj, month: filter.month });
+        return report('BALANCE', [balanceRow], '2026-08-31');
+      }
+      throw new Error('relatório não esperado');
+    };
+
+    const result = await collectPddeInfoPublicPortfolio({
+      schools: [
+        { ...schools[0], cnpj: '04.500.463/0001-73' },
+        { ...schools[1], cnpj: '04.500.463/0001-73' },
+      ],
+      fiscalYear: 2026,
+      fetchReport,
+      discoverBalanceMonths: async () => ['08-2026'],
+    });
+
+    expect(balanceCalls).toEqual([{ cnpj: '04500463000173', month: '08-2026' }]);
+    expect(result.balanceReferenceMonth).toBe('08-2026');
+    expect(result.coverageThrough).toBe('2026-08-31');
+    expect(result.balances).toEqual([
+      expect.objectContaining({
+        uexCnpj: '04500463000173',
+        schoolIneps: ['33069247', '33069433'],
+        fundBalanceCents: 318699,
+      }),
+    ]);
+    expect(result.failures.filter((failure) => failure.kind === 'ATTENDANCE')).toHaveLength(2);
+    expect(result.failures.find((failure) => failure.kind === 'BALANCE')).toBeUndefined();
+  });
+
+  it('não silencia ausência de identidade quando a fonte anuncia saldo', async () => {
+    const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
+      if (filter.kind === 'ATTENDANCE') throw new Error('atendimento indisponível');
+      if (filter.kind === 'ACCOUNTING') return report('ACCOUNTING', []);
+      if (filter.kind === 'REGISTRATION') return report('REGISTRATION', []);
+      if (filter.kind === 'ACCOUNT_OPENING') return report('ACCOUNT_OPENING', []);
+      if (filter.kind === 'SUSPENSION') return report('SUSPENSION', []);
+      throw new Error('saldo não deve ser chamado sem identidade');
+    };
+
+    const result = await collectPddeInfoPublicPortfolio({
+      schools: [schools[0]],
+      fiscalYear: 2026,
+      fetchReport,
+      discoverBalanceMonths: async () => ['08-2026'],
+    });
+
+    expect(result.balanceReferenceMonth).toBe('08-2026');
+    expect(result.balances).toEqual([]);
+    expect(result.failures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'BALANCE_IDENTITY', month: '08-2026' }),
+    ]));
+  });
+
   it('prefere o lote municipal e evita consulta individual de atendimento quando a carteira está coberta', async () => {
     const attendanceCalls: string[] = [];
     const fetchReport: PublicPortfolioFetchReport = async ({ filter }) => {
