@@ -472,6 +472,9 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8rem;
 }
+.pdde-basic-summary__grid--compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
 .pdde-basic-summary__grid article {
   min-height: 122px;
   padding: 1rem 1.1rem;
@@ -524,6 +527,19 @@
 }
 .data-table--pdde-basic {
   min-width: 1460px;
+}
+.data-table--pdde-basic-clean {
+  min-width: 1080px;
+}
+.data-table--pdde-basic-clean td:nth-child(4) strong {
+  color: var(--ink-950);
+  font-size: 0.92rem;
+}
+.pdde-basic-total {
+  font-variant-numeric: tabular-nums;
+}
+.data-table--pdde-basic-clean .pdde-basic-evidence {
+  white-space: nowrap;
 }
 .data-table td[data-money-state='positive'] {
   color: var(--confirmed-800);
@@ -594,6 +610,11 @@
   background: var(--credit-100);
   font-size: 0.8rem;
   font-weight: 720;
+}
+@media (max-width: 1100px) {
+  .pdde-basic-summary__grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 900px) {
   .pdde-basic-summary__grid {
