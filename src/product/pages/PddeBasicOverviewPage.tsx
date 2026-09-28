@@ -7,7 +7,6 @@ import {
 import {
   derivePddeBasicFirstCycleReleaseEvidence,
   derivePddeBasicSecondCycleReleaseEvidence,
-  pddeBasicReleaseEvidenceLabel,
 } from '../../../shared/pdde-basic-release-evidence';
 import { SchoolSearch } from '../components/SchoolSearch';
 import { schoolMatchesSearch } from '../derive';
