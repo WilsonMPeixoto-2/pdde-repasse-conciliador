@@ -295,8 +295,16 @@ export async function runFinancialIntelligenceMonitoring(
       ...(collectSigefReleases ? { collectSigefReleases } : {}),
       ...(options.collectSigefAccount ? { collectSigefAccount: options.collectSigefAccount } : {}),
     });
+    const schoolCnpjByInep = new Map(
+      base.raw.schools.map((school) => [school.inep, school.cnpj] as const),
+    );
     const reports = await publicCollector({
-      schools: options.schools,
+      schools: options.schools.map((school) => ({
+        ...school,
+        ...(schoolCnpjByInep.get(school.inep)
+          ? { cnpj: schoolCnpjByInep.get(school.inep) }
+          : {}),
+      })),
       fiscalYear: 2026,
       balanceMode: 'ALL_AVAILABLE_2026',
       ...(options.signal ? { signal: options.signal } : {}),
@@ -336,6 +344,7 @@ export async function runFinancialIntelligenceMonitoring(
       || failure.kind === 'ACCOUNTING'
       || failure.kind === 'BALANCE'
       || failure.kind === 'BALANCE_MONTH_DISCOVERY'
+      || failure.kind === 'BALANCE_IDENTITY'
     ));
     const status: 'COMPLETE' | 'PARTIAL' = base.status === 'COMPLETE' && blockingReportFailures.length === 0
       ? 'COMPLETE'
