@@ -166,16 +166,21 @@ describe('navegação financeira direta', () => {
     expect(html).toContain('EM Escola Teste');
   });
 
-  test('PDDE Básico mostra pagamento, evidência independente e leitura temporal do saldo', () => {
+  test('PDDE Básico prioriza repasses confirmados e retira ausências bancárias da visão principal', () => {
     const html = renderWithRouter(createElement(PddeBasicOverviewPage));
-    expect(html).toContain('Quem recebeu, qual é a evidência e onde o dinheiro pode ser localizado');
-    expect(html).toContain('FNDE informa pagamento do 1º ciclo');
-    expect(html).toContain('FNDE informa pagamento do 2º ciclo');
-    expect(html).toContain('1º ciclo com evidência independente no SIGEF');
-    expect(html).toContain('Extrato SIGEF defasado em relação à liberação');
-    expect(html).toContain('Localização atual não comprovada');
-    expect(html).toContain('Última posição oficial');
-    expect(html).toContain('Inconsistência temporalmente comparável');
+    expect(html).toContain('Repasses do PDDE Básico por unidade escolar');
+    expect(html).toContain('Total de repasses em 2026');
+    expect(html).toContain('1º ciclo de repasses');
+    expect(html).toContain('2º ciclo de repasses');
+    expect(html).toContain('Total 2026');
+    expect(html).toContain('Conta destinatária');
+    expect(html).toContain('Evidência SIGEF');
+    expect(html).toContain('Contas e saldos');
+    expect(html).toContain('Cobertura das fontes');
+    expect(html).not.toContain('Localização atual não comprovada');
+    expect(html).not.toContain('Última posição oficial');
+    expect(html).not.toContain('Confiança / próxima leitura');
+    expect(html).not.toContain('Extrato SIGEF defasado em relação à liberação');
   });
 
   test('contas e saldos mostra identidade bancária, abertura, ocorrência e aplicações', () => {

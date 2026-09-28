@@ -2,6 +2,16 @@
 
 Este arquivo registra decisões caras de rediscutir ou reconstruir. **Não é changelog nem estado operacional.** O estado corrente está em [`ESTADO_ATUAL_2026-09-11.md`](ESTADO_ATUAL_2026-09-11.md).
 
+## 2026-09-28 — Ausência de cobertura complementar não ocupa a hierarquia principal do produto
+
+**Decisão:** a interface gerencial deve priorizar fatos positivos e operacionalmente úteis já comprovados. Ausência de saldo recente, extrato defasado, fonte complementar indisponível ou localização corrente não demonstrável permanecem registradas no domínio/auditoria, mas **não devem dominar cards, filtros ou colunas da visão principal**.
+
+**Aplicação imediata:** a página `/pdde-basico` apresenta total anual, 1º ciclo de repasses, 2º ciclo de repasses, conta destinatária e evidência positiva do SIGEF. Informações de saldo, cobertura temporal e limitações das fontes ficam nas páginas próprias de `/saldos` e `/cobertura`.
+
+**Regra:** ausência de evidência complementar só recebe destaque visual quando muda a interpretação do fato principal ou configura divergência real com cobertura temporal suficiente. “Não disponível” e “não comprovado” não são KPIs.
+
+**Motivo:** expor sistematicamente lacunas de fontes auxiliares como conteúdo principal faz um conjunto de dados válido parecer incompleto ou defeituoso e aumenta o esforço cognitivo sem melhorar a decisão gerencial.
+
 ## 2026-09-11 — Motor produz evidência; PDDE Online decide publicação operacional
 
 **Decisão:** a fronteira entre os projetos permanece explícita. O `pdde-repasse-conciliador` coleta, cruza, valida e publica o snapshot; o PDDE Online confronta proveniência, avalia maturidade e publica no próprio Supabase.

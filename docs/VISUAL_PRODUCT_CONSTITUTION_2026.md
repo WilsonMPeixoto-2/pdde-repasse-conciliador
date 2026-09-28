@@ -408,6 +408,20 @@ Estados de acompanhamento devem usar linguagem neutra:
 
 Evitar sugerir irregularidade sem evidência suficiente.
 
+### 8.2 Ausência não é protagonista
+
+A interface não deve transformar limitações de cobertura em uma parede de avisos.
+
+Quando um fato principal está comprovado e uma fonte complementar ainda não cobre o mesmo período:
+
+- manter o fato comprovado como conteúdo principal;
+- deslocar a limitação para contexto secundário, página de cobertura ou detalhe sob demanda;
+- não repetir `não disponível`, `não confirmado` ou equivalentes em todas as linhas;
+- não criar KPI negativo para uma ausência que decorre apenas de defasagem da fonte;
+- só promover a ausência a alerta quando ela altera a conclusão operacional ou quando existe divergência real temporalmente comparável.
+
+> **Uma fonte auxiliar incompleta não deve fazer um dado oficial válido parecer defeituoso.**
+
 ---
 
 ## 9. Transparência da fonte sem transparência da implementação
