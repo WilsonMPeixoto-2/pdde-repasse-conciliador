@@ -2,9 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   derivePddeBasicPortfolio,
-  pddeBasicBalanceLocationLabel,
-  pddeBasicEvidenceStateLabel,
-  pddeBasicInstallmentStateLabel,
   type PddeBasicSchoolReading,
 } from '../../../shared/pdde-basic-monitoring';
 import {
@@ -17,73 +14,25 @@ import { schoolMatchesSearch } from '../derive';
 import { formatDate, formatMoney } from '../format';
 import { usePortfolioSchoolDetails } from '../usePortfolioSchoolDetails';
 
-type FilterMode =
-  | 'all'
-  | 'first_pending'
-  | 'second_paid'
-  | 'sigef_evidence'
-  | 'second_sigef_evidence'
-  | 'stale_extract'
-  | 'current_location_unknown'
-  | 'comparable_checking'
-  | 'comparable_application'
-  | 'coherence_alert';
+type FilterMode = 'all' | 'regular' | 'infancy' | 'credit_located';
 
-function installmentTone(row: PddeBasicSchoolReading['first']): 'paid' | 'waiting' | 'missing' {
-  if (row.state === 'PAID_INFORMED') return 'paid';
-  if (row.state === 'PROGRAMMED') return 'waiting';
-  return 'missing';
+function rowAnnualTotal(row: PddeBasicSchoolReading): number {
+  return (row.first.paymentInformedCents ?? 0) + (row.second.paymentInformedCents ?? 0);
 }
 
-function balanceIsComparable(row: PddeBasicSchoolReading): boolean {
-  return row.first.state === 'PAID_INFORMED'
-    && Boolean(row.first.paymentInformedDate)
-    && Boolean(row.balance.referenceDate)
-    && row.balance.totalCents !== null
-    && (row.balance.referenceDate as string) >= (row.first.paymentInformedDate as string);
-}
-
-function comparableLocationLabel(row: PddeBasicSchoolReading): string {
-  if (!balanceIsComparable(row)) return 'Localização atual não comprovada';
-  return pddeBasicBalanceLocationLabel(row.balance.location);
-}
-
-function locationDetail(row: PddeBasicSchoolReading): string {
-  if (!balanceIsComparable(row)) {
-    if (row.firstEvidence.state === 'BALANCE_REFERENCE_BEFORE_PAYMENT') {
-      return 'A última posição oficial é anterior ao pagamento informado.';
-    }
-    if (row.firstEvidence.state === 'NO_BALANCE_POSITION') {
-      return 'Não existe posição de saldo publicada para comparação.';
-    }
-    if (row.firstEvidence.state === 'PAYMENT_DATE_UNAVAILABLE') {
-      return 'Falta data válida do pagamento para comparação temporal.';
-    }
-    return 'As fontes públicas ainda não permitem afirmar a localização corrente.';
-  }
-  const pieces: string[] = [];
-  if ((row.balance.checkingCents ?? 0) > 0) pieces.push(`conta ${formatMoney(row.balance.checkingCents)}`);
-  if ((row.balance.applicationsCents ?? 0) > 0) pieces.push(`aplicações ${formatMoney(row.balance.applicationsCents)}`);
-  if (pieces.length === 0) pieces.push(`saldo ${formatMoney(row.balance.totalCents)}`);
-  return `${pieces.join(' · ')} · posição ${formatDate(row.balance.referenceDate)}`;
+function isInfancy(row: PddeBasicSchoolReading): boolean {
+  return row.first.track.toLowerCase().includes('infância')
+    || row.second.track.toLowerCase().includes('infância');
 }
 
 function matchesFilter(
   row: PddeBasicSchoolReading,
   filter: FilterMode,
-  hasSigefEvidence: boolean,
-  hasSecondSigefEvidence: boolean,
-  staleExtract: boolean,
+  hasCreditLocated: boolean,
 ): boolean {
-  if (filter === 'first_pending') return row.first.state !== 'PAID_INFORMED';
-  if (filter === 'second_paid') return row.second.state === 'PAID_INFORMED';
-  if (filter === 'sigef_evidence') return hasSigefEvidence;
-  if (filter === 'second_sigef_evidence') return hasSecondSigefEvidence;
-  if (filter === 'stale_extract') return staleExtract;
-  if (filter === 'current_location_unknown') return row.first.state === 'PAID_INFORMED' && !balanceIsComparable(row);
-  if (filter === 'comparable_checking') return balanceIsComparable(row) && (row.balance.checkingCents ?? 0) > 0;
-  if (filter === 'comparable_application') return balanceIsComparable(row) && (row.balance.applicationsCents ?? 0) > 0;
-  if (filter === 'coherence_alert') return row.firstEvidence.isContradiction;
+  if (filter === 'regular') return !isInfancy(row);
+  if (filter === 'infancy') return isInfancy(row);
+  if (filter === 'credit_located') return hasCreditLocated;
   return true;
 }
 
@@ -91,8 +40,10 @@ export function PddeBasicOverviewPage() {
   const details = usePortfolioSchoolDetails();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
+
   const schools = details.status === 'ready' ? details.schools : [];
   const monitoring = useMemo(() => derivePddeBasicPortfolio(schools), [schools]);
+
   const firstReleaseEvidenceByInep = useMemo(() => new Map(schools.map((school) => [
     school.school.inep,
     derivePddeBasicFirstCycleReleaseEvidence(school),
@@ -102,118 +53,77 @@ export function PddeBasicOverviewPage() {
     derivePddeBasicSecondCycleReleaseEvidence(school),
   ])), [schools]);
 
-  const comparableRows = useMemo(() => monitoring.rows.filter(balanceIsComparable), [monitoring.rows]);
-  const currentLocationUnknownCount = monitoring.rows.filter((row) => (
-    row.first.state === 'PAID_INFORMED' && !balanceIsComparable(row)
+  const annualTotalCents = monitoring.firstPaymentInformedCents + monitoring.secondPaymentInformedCents;
+  const schoolsWithBothCycles = monitoring.rows.filter((row) => (
+    row.first.state === 'PAID_INFORMED' && row.second.state === 'PAID_INFORMED'
   )).length;
-  const comparableCheckingCount = comparableRows.filter((row) => (row.balance.checkingCents ?? 0) > 0).length;
-  const comparableApplicationCount = comparableRows.filter((row) => (row.balance.applicationsCents ?? 0) > 0).length;
-  const comparableBothCount = comparableRows.filter((row) => (
-    (row.balance.checkingCents ?? 0) > 0 && (row.balance.applicationsCents ?? 0) > 0
+  const regularCount = monitoring.rows.filter((row) => !isInfancy(row)).length;
+  const infancyCount = monitoring.rows.filter(isInfancy).length;
+  const creditLocatedCount = monitoring.rows.filter((row) => (
+    firstReleaseEvidenceByInep.get(row.inep)?.state === 'CREDIT_LOCATED'
   )).length;
-  const sigefEvidenceCount = monitoring.rows.filter((row) => (
-    firstReleaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
-  )).length;
-  const secondSigefEvidenceCount = monitoring.rows.filter((row) => (
-    secondReleaseEvidenceByInep.get(row.inep)?.hasIndependentSigefEvidence === true
-  )).length;
-  const secondStaleExtractCount = monitoring.rows.filter((row) => (
-    secondReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
-  )).length;
-  const staleExtractCount = monitoring.rows.filter((row) => (
-    firstReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
-    || secondReleaseEvidenceByInep.get(row.inep)?.extractFreshness === 'STALE_BEFORE_RELEASE'
-  )).length;
-  const sigefEvidenceGapCount = monitoring.firstPaidCount - sigefEvidenceCount;
 
   const visibleRows = useMemo(() => monitoring.rows
     .filter((row) => schoolMatchesSearch(row, query))
-    .filter((row) => {
-      const firstRelease = firstReleaseEvidenceByInep.get(row.inep);
-      const secondRelease = secondReleaseEvidenceByInep.get(row.inep);
-      return matchesFilter(
-        row,
-        filter,
-        firstRelease?.hasIndependentSigefEvidence === true,
-        secondRelease?.hasIndependentSigefEvidence === true,
-        firstRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
-          || secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE',
-      );
-    }), [filter, monitoring.rows, query, firstReleaseEvidenceByInep, secondReleaseEvidenceByInep]);
+    .filter((row) => matchesFilter(
+      row,
+      filter,
+      firstReleaseEvidenceByInep.get(row.inep)?.state === 'CREDIT_LOCATED',
+    )), [filter, monitoring.rows, query, firstReleaseEvidenceByInep]);
 
-  if (details.status === 'loading') return <main className="page loading"><p>Carregando acompanhamento do PDDE Básico…</p></main>;
-  if (details.status === 'error') return <main className="page error-state"><div><strong>Não foi possível abrir o acompanhamento do PDDE Básico.</strong><span>{details.error}</span></div></main>;
+  if (details.status === 'loading') {
+    return <main className="page loading"><p>Carregando acompanhamento do PDDE Básico…</p></main>;
+  }
+
+  if (details.status === 'error') {
+    return (
+      <main className="page error-state">
+        <div>
+          <strong>Não foi possível abrir o acompanhamento do PDDE Básico.</strong>
+          <span>{details.error}</span>
+        </div>
+      </main>
+    );
+  }
 
   const filters: Array<{ key: FilterMode; label: string; count: number }> = [
     { key: 'all', label: 'Todas', count: monitoring.schoolCount },
-    { key: 'first_pending', label: '1º ciclo sem pagamento informado', count: monitoring.firstPendingCount },
-    { key: 'second_paid', label: '2º ciclo com pagamento informado', count: monitoring.secondPaidCount },
-    { key: 'sigef_evidence', label: 'Evidência SIGEF do 1º ciclo', count: sigefEvidenceCount },
-    { key: 'second_sigef_evidence', label: 'Liberação/OB do 2º ciclo', count: secondSigefEvidenceCount },
-    { key: 'stale_extract', label: 'Extrato SIGEF defasado', count: staleExtractCount },
-    { key: 'current_location_unknown', label: 'Localização atual não comprovada', count: currentLocationUnknownCount },
-    { key: 'comparable_checking', label: 'Posição comparável com valor em conta', count: comparableCheckingCount },
-    { key: 'comparable_application', label: 'Posição comparável com valor aplicado', count: comparableApplicationCount },
-    { key: 'coherence_alert', label: 'Inconsistência temporal real', count: monitoring.trueInconsistencyCount },
+    { key: 'regular', label: 'PDDE Básico regular', count: regularCount },
+    { key: 'infancy', label: 'Primeira Infância', count: infancyCount },
+    { key: 'credit_located', label: 'Crédito localizado no 1º ciclo', count: creditLocatedCount },
   ];
 
   return (
     <main className="page data-overview-page pdde-basic-page">
-      <div className="eyebrow">PDDE Básico · 2026 · leitura para gestão</div>
-      <h1>Quem recebeu, qual é a evidência e onde o dinheiro pode ser localizado</h1>
+      <div className="eyebrow">PDDE Básico · 2026 · visão de repasses</div>
+      <h1>Repasses do PDDE Básico por unidade escolar</h1>
       <p className="lead">
-        A leitura não mistura mais datas incompatíveis. “Pagamento informado” pelo FNDE, liberação/OB,
-        crédito encontrado no extrato e posição de saldo são evidências diferentes. Se a posição de saldo
-        for anterior ao pagamento, ela fica identificada como histórica e não responde “onde está hoje?”.
+        A página prioriza os fatos já confirmados pelas fontes oficiais: pagamentos informados pelo FNDE,
+        conta destinatária e evidências positivas do SIGEF. Saldo bancário, cobertura de extratos e outras
+        verificações ficam nas áreas próprias e não são apresentados aqui como pendências.
       </p>
 
-      <section className="section pdde-basic-summary" aria-label="Perguntas gerenciais do PDDE Básico">
-        <div className="pdde-basic-summary__grid">
-          <article data-tone={monitoring.firstPendingCount === 0 ? 'positive' : 'attention'}>
-            <span>FNDE informa pagamento do 1º ciclo</span>
-            <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
-            <small>{formatMoney(monitoring.firstPaymentInformedCents)} · {monitoring.firstRegularCount} PDDE Básico regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
+      <section className="section pdde-basic-summary" aria-label="Resumo dos repasses do PDDE Básico">
+        <div className="pdde-basic-summary__grid pdde-basic-summary__grid--compact">
+          <article data-tone="positive">
+            <span>Total de repasses em 2026</span>
+            <strong>{formatMoney(annualTotalCents)}</strong>
+            <small>{schoolsWithBothCycles} de {monitoring.schoolCount} unidades com os dois ciclos de repasses informados.</small>
           </article>
-          <article data-tone={sigefEvidenceGapCount === 0 ? 'positive' : 'attention'}>
-            <span>1º ciclo com evidência independente no SIGEF</span>
-            <strong>{sigefEvidenceCount} de {monitoring.firstPaidCount}</strong>
-            <small>{monitoring.firstCreditLocatedCount} com crédito no extrato; os demais podem ter liberação/OB localizada. {sigefEvidenceGapCount} sem essa segunda evidência.</small>
+          <article data-tone="positive">
+            <span>1º ciclo de repasses</span>
+            <strong>{formatMoney(monitoring.firstPaymentInformedCents)}</strong>
+            <small>{monitoring.firstPaidCount} unidades · {monitoring.firstRegularCount} regular + {monitoring.firstInfancyCount} Primeira Infância/P1.</small>
           </article>
-          <article data-tone={staleExtractCount === 0 ? 'positive' : 'attention'}>
-            <span>Extrato SIGEF defasado em relação à liberação</span>
-            <strong>{staleExtractCount}</strong>
-            <small>Conta escolas com defasagem em qualquer ciclo; {secondStaleExtractCount} estão defasadas especificamente no 2º ciclo. Ausência de crédito fora da cobertura não é ausência de repasse.</small>
-          </article>
-          <article data-tone={currentLocationUnknownCount === 0 ? 'positive' : 'attention'}>
-            <span>Posição de saldo temporalmente comparável ao 1º ciclo</span>
-            <strong>{comparableRows.length} de {monitoring.firstPaidCount}</strong>
-            <small>{currentLocationUnknownCount} pagamentos ainda não têm uma posição pública de saldo posterior ou igual à data do pagamento.</small>
+          <article data-tone="positive">
+            <span>2º ciclo de repasses</span>
+            <strong>{formatMoney(monitoring.secondPaymentInformedCents)}</strong>
+            <small>{monitoring.secondPaidCount} unidades · {monitoring.secondRegularPaidCount} regular + {monitoring.secondInfancyPaidCount} Primeira Infância/P2.</small>
           </article>
           <article data-tone="checking">
-            <span>Nas posições comparáveis: valor em conta corrente</span>
-            <strong>{comparableCheckingCount} escolas</strong>
-            <small>{comparableApplicationCount} têm valor aplicado; {comparableBothCount} aparecem simultaneamente em conta e aplicações.</small>
-          </article>
-          <article data-tone={monitoring.secondPaidCount === monitoring.schoolCount ? 'positive' : 'waiting'}>
-            <span>FNDE informa pagamento do 2º ciclo</span>
-            <strong>{monitoring.secondPaidCount} de {monitoring.schoolCount}</strong>
-            <small>
-              {formatMoney(monitoring.secondPaymentInformedCents)} · {monitoring.secondRegularPaidCount} na 2ª parcela regular
-              {' · '}{monitoring.secondInfancyPaidCount} em Primeira Infância/P2.
-            </small>
-          </article>
-          <article data-tone={secondSigefEvidenceCount === monitoring.secondPaidCount ? 'positive' : 'attention'}>
-            <span>2º ciclo com liberação/OB localizada</span>
-            <strong>{secondSigefEvidenceCount} de {monitoring.secondPaidCount}</strong>
-            <small>
-              Evidência independente do SIGEF. A confirmação do crédito no extrato continua sendo uma etapa separada;
-              {secondStaleExtractCount} extratos ainda terminam antes da liberação.
-            </small>
-          </article>
-          <article data-tone={monitoring.trueInconsistencyCount > 0 ? 'attention' : 'positive'}>
-            <span>Inconsistência temporalmente comparável</span>
-            <strong>{monitoring.trueInconsistencyCount}</strong>
-            <small>Zero só é tratado como alerta quando a posição é posterior/igual ao pagamento e a cadeia de evidências continua incompleta.</small>
+            <span>Transferência com evidência SIGEF</span>
+            <strong>{monitoring.firstPaidCount} de {monitoring.schoolCount}</strong>
+            <small>{creditLocatedCount} créditos localizados no extrato do 1º ciclo; as demais unidades possuem liberação/OB localizada.</small>
           </article>
         </div>
       </section>
@@ -224,7 +134,7 @@ export function PddeBasicOverviewPage() {
           onChange={setQuery}
           visibleCount={visibleRows.length}
           totalCount={monitoring.schoolCount}
-          label="Buscar escola no acompanhamento do PDDE Básico"
+          label="Buscar escola no PDDE Básico"
         />
         <div className="pdde-basic-filter-bar" aria-label="Filtros do PDDE Básico">
           {filters.map((item) => (
@@ -246,107 +156,76 @@ export function PddeBasicOverviewPage() {
       <section className="section" aria-labelledby="pdde-basic-table-title">
         <div className="section-heading">
           <div>
-            <div className="eyebrow">Escola por escola</div>
+            <div className="eyebrow">Unidade por unidade</div>
             <h2 id="pdde-basic-table-title">{visibleRows.length} unidades no recorte</h2>
           </div>
           <p>
-            A coluna “onde está” só usa posição de saldo temporalmente comparável. A última posição oficial
-            continua visível para auditoria, mesmo quando é antiga demais para responder à pergunta corrente.
+            Para saldos, posição da conta e cobertura temporal das fontes, use{' '}
+            <Link to="/saldos">Contas e saldos</Link> ou <Link to="/cobertura">Cobertura das fontes</Link>.
           </p>
         </div>
 
         <div className="data-table-shell">
-          <table className="data-table data-table--pdde-basic">
+          <table className="data-table data-table--pdde-basic data-table--pdde-basic-clean">
             <thead>
               <tr>
                 <th>Escola</th>
-                <th>1º ciclo informado</th>
-                <th>Evidência de transferência</th>
+                <th>1º ciclo de repasses</th>
+                <th>2º ciclo de repasses</th>
+                <th>Total 2026</th>
                 <th>Conta destinatária</th>
-                <th>Onde está na posição comparável</th>
-                <th>Última posição oficial</th>
-                <th>2º ciclo informado</th>
-                <th>Confiança / próxima leitura</th>
+                <th>Evidência SIGEF</th>
               </tr>
             </thead>
             <tbody>
               {visibleRows.map((row) => {
                 const release = firstReleaseEvidenceByInep.get(row.inep);
                 const secondRelease = secondReleaseEvidenceByInep.get(row.inep);
-                const comparable = balanceIsComparable(row);
                 const account = release?.destinationAccount;
+                const total = rowAnnualTotal(row);
+                const evidenceLabel = release?.state === 'CREDIT_LOCATED'
+                  ? 'Crédito localizado'
+                  : release?.hasIndependentSigefEvidence
+                    ? 'Liberação / OB localizada'
+                    : 'Evidência complementar';
+
                 return (
-                  <tr
-                    key={row.inep}
-                    data-first-pending={row.first.state !== 'PAID_INFORMED' || undefined}
-                    data-coherence-alert={row.firstEvidence.isContradiction || undefined}
-                    data-stale-extract={
-                      release?.extractFreshness === 'STALE_BEFORE_RELEASE'
-                      || secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
-                      || undefined
-                    }
-                  >
+                  <tr key={row.inep}>
                     <td>
-                      <Link to={`/unidades/${row.inep}#contas-saldos`}><strong>{row.name}</strong></Link>
+                      <Link to={`/unidades/${row.inep}`}>
+                        <strong>{row.name}</strong>
+                      </Link>
                       <small>SME {row.sme} · INEP {row.inep}</small>
                     </td>
                     <td>
-                      <span className="pdde-basic-status" data-tone={installmentTone(row.first)}>
-                        {pddeBasicInstallmentStateLabel(row.first.state)}
-                      </span>
                       <strong>{formatMoney(row.first.paymentInformedCents)}</strong>
-                      <small>{row.first.track} · {row.first.paymentInformedDate ? formatDate(row.first.paymentInformedDate) : 'sem data válida'}</small>
+                      <small>{row.first.track} · {row.first.paymentInformedDate ? formatDate(row.first.paymentInformedDate) : '—'}</small>
                     </td>
                     <td>
-                      <span className="pdde-basic-evidence" data-state={(release?.state ?? 'NO_RELEASE_EVIDENCE').toLowerCase()}>
-                        {pddeBasicReleaseEvidenceLabel(release ?? 'NO_RELEASE_EVIDENCE')}
-                      </span>
-                      {release?.orderBank ? <small>OB {release.orderBank} · liberação {formatDate(release.releaseDate)}</small> : null}
-                    </td>
-                    <td>
-                      <strong>{account ? `${account.bank} · ag. ${account.agency} · cc ${account.number}` : 'Não identificada'}</strong>
-                      <small>{release?.state === 'RELEASE_ACCOUNT_RECOVERED' ? 'Conta recuperada na consulta de Liberações.' : 'Conta exibida/preservada pelas fontes quando disponível.'}</small>
-                    </td>
-                    <td data-current-location={comparable ? 'known' : 'unknown'}>
-                      <strong>{comparable ? comparableLocationLabel(row) : 'Localização atual não comprovada'}</strong>
-                      <small>{locationDetail(row)}</small>
-                    </td>
-                    <td>
-                      <strong>{formatDate(row.balance.referenceDate)}</strong>
-                      <small>
-                        {row.balance.referenceDate
-                          ? `${pddeBasicBalanceLocationLabel(row.balance.location)} · total ${formatMoney(row.balance.totalCents)}${!comparable && row.first.state === 'PAID_INFORMED' ? ' · posição histórica para este repasse' : ''}`
-                          : 'Sem posição pública.'}
-                      </small>
-                    </td>
-                    <td>
-                      <span className="pdde-basic-status" data-tone={installmentTone(row.second)}>
-                        {pddeBasicInstallmentStateLabel(row.second.state)}
-                      </span>
                       <strong>{formatMoney(row.second.paymentInformedCents)}</strong>
-                      <small>
-                        {row.second.track} · {row.second.paymentInformedDate
-                          ? formatDate(row.second.paymentInformedDate)
-                          : 'sem data válida'} · programado {formatMoney(row.second.programmedCents)}
-                      </small>
-                      {row.second.state === 'PAID_INFORMED' ? (
-                        <small>
-                          {pddeBasicReleaseEvidenceLabel(secondRelease ?? 'NO_RELEASE_EVIDENCE')}
-                          {secondRelease?.orderBank ? ' · OB ' + secondRelease.orderBank : ''}
-                        </small>
-                      ) : null}
+                      <small>{row.second.track} · {row.second.paymentInformedDate ? formatDate(row.second.paymentInformedDate) : '—'}</small>
                     </td>
                     <td>
-                      <span className="pdde-basic-evidence" data-state={row.firstEvidence.state.toLowerCase()}>
-                        {pddeBasicEvidenceStateLabel(row.firstEvidence.state)}
+                      <strong className="pdde-basic-total">{formatMoney(total)}</strong>
+                      <small>1º + 2º ciclos de repasses</small>
+                    </td>
+                    <td>
+                      <strong>{account ? `${account.bank} · ag. ${account.agency} · cc ${account.number}` : '—'}</strong>
+                      <small>{account ? 'Conta de destino recuperada nas fontes oficiais.' : 'Consultar ficha da unidade.'}</small>
+                    </td>
+                    <td>
+                      <span
+                        className="pdde-basic-evidence"
+                        data-state={(release?.state ?? 'NO_RELEASE_EVIDENCE').toLowerCase()}
+                      >
+                        {evidenceLabel}
                       </span>
-                      {secondRelease?.extractFreshness === 'STALE_BEFORE_RELEASE'
-                        ? <small>2º ciclo: liberação localizada, mas o extrato público ainda não alcança essa data.</small>
-                        : release?.extractFreshness === 'STALE_BEFORE_RELEASE'
-                          ? <small>1º ciclo: extrato individual defasado; procurar extrato público mais novo ou posição de saldo posterior.</small>
-                          : !release?.hasIndependentSigefEvidence && row.first.state === 'PAID_INFORMED'
-                            ? <small>Continuar escalonamento para fonte complementar permitida.</small>
-                            : null}
+                      {release?.orderBank ? (
+                        <small>OB {release.orderBank} · {formatDate(release.releaseDate)}</small>
+                      ) : null}
+                      {secondRelease?.orderBank ? (
+                        <small>2º ciclo · OB {secondRelease.orderBank} · {formatDate(secondRelease.releaseDate)}</small>
+                      ) : null}
                     </td>
                   </tr>
                 );
