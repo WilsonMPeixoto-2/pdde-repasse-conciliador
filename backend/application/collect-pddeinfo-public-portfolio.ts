@@ -29,12 +29,14 @@ const schoolSchema = z.object({
   inep: z.string().regex(/^\d{8}$/),
   sme: z.string().regex(/^\d{7}$/),
   nome: z.string().min(1),
+  cnpj: z.string().min(1).optional(),
 }).strict();
 
 export interface PublicPortfolioSchool {
   inep: string;
   sme: string;
   nome: string;
+  cnpj?: string;
 }
 
 export type PublicPortfolioFetchReport = (
@@ -49,7 +51,7 @@ export type DiscoverBalanceMonths = (signal?: AbortSignal) => Promise<string[]>;
 export type BalanceCollectionMode = 'LATEST' | 'ALL_AVAILABLE_2026';
 
 export interface PublicPortfolioFailure {
-  kind: 'ATTENDANCE_BULK' | 'ATTENDANCE' | 'ACCOUNTING' | 'REGISTRATION' | 'ACCOUNT_OPENING' | 'SUSPENSION' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY';
+  kind: 'ATTENDANCE_BULK' | 'ATTENDANCE' | 'ACCOUNTING' | 'REGISTRATION' | 'ACCOUNT_OPENING' | 'SUSPENSION' | 'BALANCE' | 'BALANCE_MONTH_DISCOVERY' | 'BALANCE_IDENTITY';
   schoolInep?: string;
   cnpj?: string;
   month?: string;
@@ -99,6 +101,16 @@ export interface CollectPddeInfoPublicPortfolioOptions {
 
 function errorText(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+function digits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function normalizedCnpj(value: string | undefined): string | null {
+  if (!value) return null;
+  const result = digits(value);
+  return /^\d{14}$/.test(result) ? result : null;
 }
 
 function monthRank(value: string): number {
@@ -273,10 +285,32 @@ export async function collectPddeInfoPublicPortfolio(
     : balanceReferenceMonth ? [balanceReferenceMonth] : [];
 
   const cnpjSchools = new Map<string, Set<string>>();
+
+  // A identidade financeira da carteira não pode depender do parser de Atendimento.
+  // Quando o CNPJ já foi obtido pela consulta por escola, ele é suficiente para
+  // consultar o relatório de saldo. Atendimento apenas complementa a identidade.
+  for (const school of schools) {
+    const cnpj = normalizedCnpj(school.cnpj);
+    if (!cnpj) continue;
+    const bucket = cnpjSchools.get(cnpj) ?? new Set<string>();
+    bucket.add(school.inep);
+    cnpjSchools.set(cnpj, bucket);
+  }
+
   for (const observation of attendance) {
-    const bucket = cnpjSchools.get(observation.uexCnpj) ?? new Set<string>();
+    const cnpj = normalizedCnpj(observation.uexCnpj);
+    if (!cnpj) continue;
+    const bucket = cnpjSchools.get(cnpj) ?? new Set<string>();
     bucket.add(observation.schoolInep);
-    cnpjSchools.set(observation.uexCnpj, bucket);
+    cnpjSchools.set(cnpj, bucket);
+  }
+
+  if (monthsToCollect.length > 0 && cnpjSchools.size === 0) {
+    failures.push({
+      kind: 'BALANCE_IDENTITY',
+      month: balanceReferenceMonth ?? undefined,
+      error: 'PDDEInfo anunciou competência de saldo, mas nenhuma identidade CNPJ válida estava disponível para consultar a carteira.',
+    });
   }
 
   let coverageThrough: string | null = null;
